@@ -24,7 +24,7 @@ Windows Isaac Sim 5.1.0 / RTX 4070 Ti와 WSL2 Ubuntu 22.04에서 실제 실행�
 | L 착륙 | `Landing detected`, `Disarmed by landing` 확인 |
 | 센서·FAST-LIVO·EV | 전체 수신 검사 통과, IMU/EV publisher 각각 1개 |
 | RViz | RGB 영상 및 FAST-LIVO 궤적 표시 확인 |
-| ROS CLI | 데몬 재시작 후 일반 `ros2 topic list`에서 38개 토픽 조회 |
+| ROS CLI | 데몬 재시작 후 38개 조회했으나, 반복 진단 후 재조회 시 2개만 표시되는 현상 재발. 지속 해결은 미완료 |
 
 터미널 방향키 시험은 flight_manager 프로세스에만 `ZAV_SIM_PLATFORM=native`를
 임시 지정해 Windows 전역 키 읽기를 비활성화했습니다. Isaac/PX4/센서/DDS는
@@ -35,6 +35,8 @@ RViz를 켠 상태에서 12초간 측정한 wall-clock 수신률은 IMU 132.5Hz,
 RGB 14.2Hz, 점군 14.3Hz, Livox 7.1Hz, LIO 83.1Hz, EV 34Hz였습니다.
 설정 주기는 physics/IMU 200Hz, render/RGB 20Hz, Livox 10Hz이며,
 실시간 렌더링 20Hz 확보까지 완료한 상태는 아닙니다.
+
+기존 relay/mapper/EV의 처리가 계속되는 상태에서도 새 진단 참가자가 토픽을 발견하지 못하는 현상이 마지막 반복 검사에서 재현됐습니다. 저장된 `runtime-final.json`은 이 현상 발생 전 완료한 15초 수신 검사입니다. 새 DDS 참가자의 장기 재연결 안정성을 보장하는 기록은 아닙니다.
 
 원시 검사 결과와 이동 위치는 [runtime-wsl-20261023](validation/runtime-wsl-20261023/)에 보관합니다.
 이동 기록의 `manual-landed`는 수정 전 정지 시 수신이 없었던 실패 기록입니다.
