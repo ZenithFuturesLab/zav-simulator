@@ -77,7 +77,7 @@ Livox·PX4 메시지 직렬화 및 SciPy·cv_bridge 로딩을 확인했습니다
 | 항목 | 결과 |
 | --- | --- |
 | source syntax / 필수 7개 package XML / 개인 홈 경로 검사 / 설치 dry-run | 통과 |
-| GitHub의 새 Ubuntu 22.04: 설치·고정 소스·rosdep·ROS 전체 빌드 (기반 코드 767d07a) | [전체 통과](https://github.com/ZenithFuturesLab/zav-simulator/actions/runs/39936403670) |
+| GitHub의 새 Ubuntu 22.04: 설치·고정 소스·rosdep·ROS 전체 빌드 (WSL 추가 수정 포함) | [전체 통과](https://github.com/ZenithFuturesLab/zav-simulator/actions/runs/39938818415) |
 | 새 Pegasus 대상 배포, 재배포, 파일 변경 감지 | 통과 |
 | 캘리브레이션·장착 IMU 회전·중력·lever arm 수학 검사 | 통과 |
 | native/WSL DDS 선택, 공백 포함 Isaac 경로, Python ABI 분리, 종료 코드 전달 | 통과 |
