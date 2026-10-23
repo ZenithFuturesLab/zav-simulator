@@ -10,6 +10,11 @@ jobs:
         run: |
           sudo python3 - <<'PYTHON'
           from pathlib import Path
+          # Hosted runners may use mirror+file: rather than literal URLs.
+          for mirror in Path('/etc/apt').glob('apt-mirrors*.txt'):
+              base = 'https://security.ubuntu.com/ubuntu' if 'security' in mirror.name else 'https://archive.ubuntu.com/ubuntu'
+              mirror.write_text(base + '\n')
+              print(str(mirror) + ': ' + base)
           paths = [Path('/etc/apt/sources.list'), *Path('/etc/apt/sources.list.d').glob('*.list'), *Path('/etc/apt/sources.list.d').glob('*.sources')]
           for path in paths:
               if path.is_file():
