@@ -52,10 +52,10 @@ cd ~/zenith_ws
 | TCP 4560 | Windows Pegasus ↔ WSL PX4 MAVLink |
 | UDP 8888, WSL 내부 | PX4 ↔ Micro XRCE-DDS Agent |
 | TCP 17441, 17443, 17444, 17445 | Windows 센서 → WSL relay: pointcloud, camera, IMU, Livox |
-| TCP 17442, 17446, 17449, 17450, WSL loopback | Cyclone DDS 센서·mapper·PX4 gateway·flight manager |
+| TCP 17442, 17446, 17449, 17450, 17451, WSL loopback | Cyclone DDS 센서·mapper·PX4 gateway·flight manager·LIO bridge |
 
 WSL ROS 그래프는 Cyclone TCP를 사용하고 PX4 Agent 쪽 Fast DDS와 별도 프로세스 gateway로 연결합니다. gateway는 상태·명령뿐 아니라 `SensorCombined`, `TimesyncStatus`, `vehicle_visual_odometry`도 전달합니다. ROS domain ID는 양쪽 실행기에 동일하게 전달됩니다.
 
 방화벽을 끄지 마세요. 연결이 차단되면 Windows Defender/Hyper-V 방화벽에서 위 프로젝트 포트와 해당 프로그램의 로컬 통신만 허용합니다. 조직 정책이나 VPN에 따라 추가 설정이 필요할 수 있습니다. 네트워크 격리 진단은 Microsoft 문서의 mirrored mode 및 Hyper-V firewall 절을 따르세요.
 
-이 배포본의 실제 Windows GPU 종단 실행은 아직 검증하지 못했습니다. Ubuntu에서 수행한 DDS·센서·경로 테스트는 Windows GUI 검증을 대신하지 않습니다. 설치 후 반드시 [실행 검증](verification.md)을 완료하세요.
+2026-10-23 Windows Isaac Sim 5.1.0 + WSL2에서 실제 센서·FAST-LIVO·EV 수신과 이륙·이동·착륙을 확인했습니다. Windows 전역 다중 키 입력은 이번 자동 시험 범위에 포함하지 않았습니다. 설치 후 해당 장비에서도 [실행 검증](verification.md)을 완료하세요.

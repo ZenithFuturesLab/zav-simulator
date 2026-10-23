@@ -31,7 +31,7 @@ case "$_platform" in
         fi
         # [ZAV 변경] 사용자 이름/Windows 프로젝트 경로 대신 설치된 작업 사본을 실행합니다.
         # WSLENV /p가 YAML 디렉토리를 Windows에서 읽을 수 있는 경로로 변환합니다.
-        export WSLENV="${WSLENV:+$WSLENV:}PEGASUS_FASTLIVO_CONFIG_DIR/p:PEGASUS_SLAM_SCENE:PEGASUS_BIND_HOST:ROS_DOMAIN_ID"
+        export WSLENV="${WSLENV:+$WSLENV:}PEGASUS_FASTLIVO_CONFIG_DIR/p:PEGASUS_SLAM_SCENE:PEGASUS_BIND_HOST:ROS_DOMAIN_ID:ZAV_DIAGNOSTIC_STATE"
         (cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c call "$(wslpath -m "$_bat")" "$(wslpath -m "$SIM_SCRIPT")") 2>&1 | tee "$ISAAC_LOG"
         EXIT_CODE=${PIPESTATUS[0]}
         ;;

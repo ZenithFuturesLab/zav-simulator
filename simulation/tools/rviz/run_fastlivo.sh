@@ -11,7 +11,11 @@ if ! flock -n 9; then
     exit 1
 fi
 # The CustomMsg relay is required even when RViz is not running.
-python3 "$rviz_dir/../runtime/sensor_relay.py" client \
+relay_uri="${CYCLONEDDS_URI:-}"
+if [ "$ZAV_ROS_TRANSPORT" = cyclone_tcp ]; then
+    relay_uri="file://$rviz_dir/cyclonedds_publisher.xml"
+fi
+CYCLONEDDS_URI="$relay_uri" python3 "$rviz_dir/../runtime/sensor_relay.py" client \
     --host "${ZAV_SENSOR_HOST:-127.0.0.1}" --camera-port 17443 --imu-port 17444 --livox-port 17445 \
     > /tmp/zav-fastlivo-relay.log 2>&1 9>&- &
 relay_pid=$!
@@ -20,13 +24,23 @@ cleanup() {
     if [ -n "$mapper_pid" ]; then
         # Launch and its ROS nodes share a dedicated process group.
         kill -TERM -- "-$mapper_pid" 2>/dev/null || true
+        for _wait in {1..30}; do
+            kill -0 -- "-$mapper_pid" 2>/dev/null || break
+            sleep 0.1
+        done
+        kill -KILL -- "-$mapper_pid" 2>/dev/null || true
         wait "$mapper_pid" 2>/dev/null || true
     fi
     kill -TERM "$relay_pid" 2>/dev/null || true
+    for _wait in {1..30}; do
+        kill -0 "$relay_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    kill -KILL "$relay_pid" 2>/dev/null || true
     wait "$relay_pid" 2>/dev/null || true
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
-setsid ros2 launch "$rviz_dir/fastlivo_sim.launch.py" "$@" &
+setsid ros2 launch "$rviz_dir/fastlivo_sim.launch.py" "$@" 9>&- &
 mapper_pid=$!
 wait "$mapper_pid"

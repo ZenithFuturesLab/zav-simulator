@@ -1,5 +1,73 @@
 # 검증과 문제 해결
 
+## Windows + WSL 실제 실행 검증 (2026-10-23)
+
+Windows Isaac Sim 5.1.0 / RTX 4070 Ti와 WSL2 Ubuntu 22.04에서 실제 실행했습니다.
+이번 기록은 아래의 이전 "Windows GPU 미검증" 상태를 갱신합니다.
+
+실행을 막던 문제와 수정:
+
+- FAST-LIVO가 먼저 센서 relay를 시작하면 임의 DDS 포트를 사용해 mapper가 센서를 발견하지 못했습니다. FAST-LIVO 실행기도 센서 publisher 고정 포트 17442를 사용합니다.
+- Windows MAVLink 리스너가 열리기 전에 PX4가 접속하면 WSL의 TCP 연결이 SYN-SENT에 머물렀습니다. Windows `netstat`로 리스너를 확인한 뒤 PX4를 시작합니다. 시험 연결로 MAVLink 소켓을 소비하지 않습니다.
+- LIO bridge는 진단 노드에서 발견할 수 있도록 TCP 17451을 사용합니다.
+- FAST-LIVO 종료 대기에 상한을 두고 자식 프로세스에 실행기 잠금 fd를 넘기지 않습니다.
+- 반복 시험 중 착륙 후 Isaac/PX4가 함께 멈추는 현상이 발생했습니다. Pegasus의 actuator 무기한 수신을 최대 0.2초로 제한했습니다. 정상 actuator가 도착하면 즉시 처리하므로 정상 lockstep 흐름은 유지합니다. 적용 후 연속 두 차례 이륙·착륙 및 착륙 후 전체 스트림 검사를 다시 통과했습니다. `check_px4_lockstep.py`는 실제 메서드를 추출해 메시지 중단·비 actuator 트래픽·정상 수신을 검사합니다.
+
+검증 결과:
+
+| 항목 | 실제 결과 |
+| --- | --- |
+| T 이륙 | 고도 1.95m에서 이륙 완료, 약 2m 호버 |
+| 북쪽 1m·동쪽 1m 목표 | PX4 NED 위치 약 `(1.013, 1.031, -1.948)m` |
+| 원점 복귀 | 약 `(0.014, -0.005, -1.980)m` |
+| 터미널 ↑ 및 Space | 실제 전진 후 브레이크·호버, 시작 대비 약 4.23m 동쪽 이동 |
+| L 착륙 | `Landing detected`, `Disarmed by landing` 확인 |
+| 센서·FAST-LIVO·EV | 전체 수신 검사 통과, IMU/EV publisher 각각 1개 |
+| RViz | RGB 영상 및 FAST-LIVO 궤적 표시 확인 |
+| ROS CLI | 데몬 재시작 후 일반 `ros2 topic list`에서 38개 토픽 조회 |
+
+터미널 방향키 시험은 flight_manager 프로세스에만 `ZAV_SIM_PLATFORM=native`를
+임시 지정해 Windows 전역 키 읽기를 비활성화했습니다. Isaac/PX4/센서/DDS는
+계속 Windows+WSL 구성이었습니다. Windows 전역 다중 키 입력과 Ubuntu 단독
+GPU 실행을 이 시험으로 검증한 것은 아닙니다.
+
+RViz를 켠 상태에서 12초간 측정한 wall-clock 수신률은 IMU 132.5Hz,
+RGB 14.2Hz, 점군 14.3Hz, Livox 7.1Hz, LIO 83.1Hz, EV 34Hz였습니다.
+설정 주기는 physics/IMU 200Hz, render/RGB 20Hz, Livox 10Hz이며,
+실시간 렌더링 20Hz 확보까지 완료한 상태는 아닙니다.
+
+원시 검사 결과와 이동 위치는 [runtime-wsl-20261023](validation/runtime-wsl-20261023/)에 보관합니다.
+이동 기록의 `manual-landed`는 수정 전 정지 시 수신이 없었던 실패 기록입니다.
+`lockstep-*` 단계와 `runtime-final.json`은 대기 제한 수정 후의 재검증 결과입니다.
+
+## Bootstrap 수정 검증 (2026-10-23)
+
+Windows Isaac Sim + WSL2 환경에서 다음 명령을 직접 실행해 종료 코드 0과
+`Summary: 7 packages finished`, `Install complete`를 확인했습니다.
+
+```bash
+./scripts/bootstrap.sh --platform wsl --isaac-windows-python /mnt/c/isaac-sim/python.bat
+```
+
+발생한 오류는 WSL 자체의 제한이 아니라 신규 설치 준비 및 의존성 선택 문제였습니다.
+Ubuntu 단독 설치에서도 같은 패키지 구성이면 발생할 수 있습니다.
+
+| 증상 | 원인 및 수정 |
+| --- | --- |
+| Livox `package.xml` 누락, 뒤따르는 `rosidl_interface_packages` 오류 | `scripts/prepare_ros.sh`에서 ROS 2 manifest를 준비합니다. CI의 새 clone에는 ROS 2 manifest 자체도 포함되어 있습니다. |
+| Fast CDR `serializeArray`, `getState` 등의 컴파일 오류 | Agent의 private Fast CDR 2.x가 Humble 메시지 빌드에 섞였습니다. ROS 빌드는 Humble Fast CDR 경로를 명시합니다. |
+| Sophus·Vikit `Eigen/Core`, `Eigen/Eigen` 누락 | Eigen3 CMake 타깃과 의존성 export를 명시했습니다. |
+| 삭제된 DDS overlay 경로 경고 | ROS 빌드 전에 이전 prefix 환경변수를 초기화합니다. |
+| SciPy `numpy.dtype size changed` | 사용자 NumPy 2.x와 apt SciPy의 ABI 충돌입니다. 프로젝트 환경은 `PYTHONNOUSERSITE=1`로 사용자 site-packages를 제외합니다. |
+
+시스템 패키지와 rosdep 초기화·캐시가 이미 준비된 재실행은 apt 작업을 생략합니다.
+빠진 패키지가 있거나 최초 설치이면 기존 sudo 설치 단계를 수행합니다.
+개인 Python 패키지를 삭제하거나 전역 NumPy 버전을 변경하지 않습니다.
+
+수정 후 `scripts/verify.sh`, 설치 점검, FAST-LIVO 실행 파일 조회,
+Livox·PX4 메시지 직렬화 및 SciPy·cv_bridge 로딩을 확인했습니다.
+이 설치 검증은 실제 Windows GPU 렌더링·비행 검증을 포함하지 않습니다.
+
 ## 배포 검증 기록 (2026-10-23)
 
 배포 사본에서 원본 작업 디렉토리의 build/install을 사용하지 않고 확인했습니다. 외부 소스는 잠긴 커밋의 별도 checkout이며 Isaac Sim 5.1.0 설치만 기존 머신의 것을 사용했습니다.

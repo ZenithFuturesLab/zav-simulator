@@ -17,6 +17,7 @@ def generate_launch_description():
     tcp = os.environ.get("ZAV_ROS_TRANSPORT") == "cyclone_tcp"
     mapper_env = {"CYCLONEDDS_URI": (directory / "cyclonedds_fastlivo.xml").as_uri()} if tcp else {}
     viewer_env = {"CYCLONEDDS_URI": (directory / "cyclonedds_local.xml").as_uri()} if tcp else {}
+    bridge_env = {"CYCLONEDDS_URI": (directory / "cyclonedds_bridge.xml").as_uri()} if tcp else {}
     camera = LaunchConfiguration("camera")
     image_enabled = ParameterValue(PythonExpression([
         '1 if "', camera, '" in ["True", "true", "1"] else 0'
@@ -39,7 +40,7 @@ def generate_launch_description():
              name="zav_lio_px4_odom_bridge",
              condition=IfCondition(LaunchConfiguration("px4_bridge")),
              arguments=["--publish", "--assume-enu-flu"],
-             additional_env=viewer_env, output="screen"),
+             additional_env=bridge_env, output="screen"),
         Node(package="rviz2", executable="rviz2", name="fastlivo_rviz",
              prefix=["bash " + str(directory / "gui_exec.sh")],
              condition=IfCondition(LaunchConfiguration("rviz")),

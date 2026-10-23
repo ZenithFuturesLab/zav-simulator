@@ -9,7 +9,7 @@ Isaac Sim **5.1.0** + Pegasus + PX4 **v1.14.3** 기반 GPS 없는 드론 시뮬�
 | 환경 | 실행 구성 | 확인 범위 |
 | --- | --- | --- |
 | Ubuntu 22.04 x86_64 + NVIDIA GPU | Linux Isaac Sim + ROS 2 Humble | 배포본에서 GUI·센서·LIO→EKF 위치 확인. 상세 검증은 [검증 기록](docs/verification.md) 참조 |
-| Windows 11 22H2 이상 + WSL2 Ubuntu 22.04 | Windows Isaac Sim + WSL ROS 2/PX4, mirrored networking | 설치 분기·DDS 경로 검사. 실제 Windows GPU 실행은 미검증 |
+| Windows 11 22H2 이상 + WSL2 Ubuntu 22.04 | Windows Isaac Sim + WSL ROS 2/PX4, mirrored networking | Windows GPU 실행, 센서·FAST-LIVO·EV, 이륙·위치 이동·터미널 조종·착륙 확인. [검증 기록](docs/verification.md) 참조 |
 
 Isaac Sim의 [GPU·드라이버 요구사항](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html)을 충족해야 합니다. 설치 스크립트가 ROS 2와 컴파일 의존성을 설치하므로 인터넷·sudo 권한·충분한 여유 디스크가 필요합니다. 다른 Ubuntu 버전, ARM, Windows 10, WSL 기본 NAT를 동일 지원 환경으로 가정하지 않습니다.
 

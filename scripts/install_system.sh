@@ -11,6 +11,26 @@ apt_run() {
 }
 source /etc/os-release
 [[ "$ID" == ubuntu && "$VERSION_ID" == 22.04 ]] || { echo 'Supported: Ubuntu 22.04 (native or WSL2)' >&2; exit 1; }
+SYSTEM_PACKAGES=(
+    curl ca-certificates gnupg locales software-properties-common ros-humble-desktop
+    ros-humble-rmw-cyclonedds-cpp ros-humble-rmw-fastrtps-cpp ros-humble-ament-cmake-auto ros-humble-pcl-conversions ros-humble-rosbag2 ros-humble-cv-bridge
+    python3-colcon-common-extensions python3-rosdep python3-pip python3-venv python3-numpy python3-scipy
+    python3-yaml python3-opencv python3-jinja2 python3-empy python3-toml python3-packaging
+    python3-jsonschema python3-kconfiglib python3-future python3-serial python3-setuptools git
+    build-essential cmake ninja-build pkg-config ccache tmux
+    libeigen3-dev libopencv-dev libpcl-dev libboost-all-dev libapr1-dev libaprutil1-dev
+    libasio-dev libtinyxml2-dev libssl-dev libxml2-utils libncurses-dev xsltproc
+    zip unzip rsync
+)
+# Re-running bootstrap needs no administrator access when all prerequisites exist.
+missing=()
+for package in "${SYSTEM_PACKAGES[@]}"; do
+    [[ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" == 'install ok installed' ]] || missing+=("$package")
+done
+if [[ ${#missing[@]} == 0 && -f /opt/ros/humble/setup.bash && -f /etc/ros/rosdep/sources.list.d/20-default.list && -f "$HOME/.ros/rosdep/sources.cache/index" ]]; then
+    echo 'System prerequisites already installed; using existing rosdep cache.'
+    exit 0
+fi
 apt_run update
 apt_run install -y curl ca-certificates gnupg locales software-properties-common
 sudo locale-gen en_US.UTF-8
@@ -22,14 +42,6 @@ if [[ ! -f /opt/ros/humble/setup.bash ]]; then
     sudo dpkg -i "$repo_deb"
 fi
 apt_run update
-apt_run install -y ros-humble-desktop ros-humble-rmw-cyclonedds-cpp \
-    ros-humble-rmw-fastrtps-cpp ros-humble-ament-cmake-auto ros-humble-pcl-conversions \
-    ros-humble-rosbag2 ros-humble-cv-bridge python3-colcon-common-extensions python3-rosdep \
-    python3-pip python3-venv python3-numpy python3-scipy python3-yaml python3-opencv \
-    python3-jinja2 python3-empy python3-toml python3-packaging python3-jsonschema \
-    python3-kconfiglib python3-future python3-serial python3-setuptools \
-    git build-essential cmake ninja-build pkg-config ccache tmux libeigen3-dev \
-    libopencv-dev libpcl-dev libboost-all-dev libapr1-dev libaprutil1-dev libasio-dev libtinyxml2-dev \
-    libssl-dev libxml2-utils libncurses-dev xsltproc zip unzip rsync
+apt_run install -y "${SYSTEM_PACKAGES[@]}"
 if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then sudo rosdep init; fi
 rosdep update --rosdistro humble

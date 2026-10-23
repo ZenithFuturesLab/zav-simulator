@@ -30,6 +30,7 @@ ament_auto_find_build_dependencies()
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 # Include dirs
 include_directories(
@@ -57,7 +58,9 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
 
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
+  Eigen3::Eigen
 )
+ament_export_dependencies(Eigen3)
 
 
 if(BUILD_TESTING)

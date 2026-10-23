@@ -8,5 +8,7 @@ unset _zav_requested_domain
 export PEGASUS_DIR="$ZAV_WS_DIR/src/PegasusSimulator"
 export PX4_DIR="$ZAV_WS_DIR/src/PX4-Autopilot"
 export ZAV_SIM_PLATFORM="${ZAV_SIM_PLATFORM:-auto}"
+# Humble's apt SciPy/cv_bridge must use apt NumPy, not a user-site NumPy 2.x.
+export PYTHONNOUSERSITE=1
 export PATH="$ZAV_WS_DIR/.local/bin:$PATH"
 export LD_LIBRARY_PATH="$ZAV_WS_DIR/.local/lib:$ZAV_WS_DIR/.local/lib64:${LD_LIBRARY_PATH:-}"
