@@ -1,0 +1,100 @@
+#!/bin/sh
+#
+# @name ZAV Quadrotor Isaac Sim SITL
+#
+# @type Quadrotor Wide
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default CA_AIRFRAME 0
+
+# ZAV Quad X Actuator Geometry (Arm: 140mm, dx=0.150m, dy=0.150m from NxtPX4v2_Copter_PX4v1.14.3.param)
+param set-default CA_ROTOR_COUNT 4
+param set-default CA_ROTOR0_PX 0.150
+param set-default CA_ROTOR0_PY 0.150
+param set-default CA_ROTOR0_KM 0.05
+param set-default CA_ROTOR1_PX -0.150
+param set-default CA_ROTOR1_PY -0.150
+param set-default CA_ROTOR1_KM 0.05
+param set-default CA_ROTOR2_PX 0.150
+param set-default CA_ROTOR2_PY -0.150
+param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR3_PX -0.150
+param set-default CA_ROTOR3_PY 0.150
+param set-default CA_ROTOR3_KM -0.05
+
+# Flight Control & Attitude PID Gains (from real flight parameters)
+param set-default MC_ROLL_P 6.5
+param set-default MC_PITCH_P 6.5
+param set-default MC_YAW_P 2.8
+param set-default MC_ROLLRATE_P 0.15
+param set-default MC_ROLLRATE_I 0.20
+param set-default MC_ROLLRATE_D 0.003
+param set-default MC_PITCHRATE_P 0.15
+param set-default MC_PITCHRATE_I 0.20
+param set-default MC_PITCHRATE_D 0.003
+param set-default MC_YAWRATE_P 0.20
+param set-default MC_YAWRATE_I 0.10
+param set-default MC_YAWRATE_D 0.0
+
+# Maximum Velocity & Tilt Specs (ZAV Real Hardware Specs)
+param set-default MPC_XY_VEL_MAX 12.0
+param set-default MPC_XY_CRUISE 1.5
+param set-default MPC_VEL_MANUAL 12.0
+param set-default MPC_Z_VEL_MAX_UP 3.0
+param set-default MPC_Z_VEL_MAX_DN 1.5
+param set-default MPC_TILTMAX_AIR 45.0
+
+# Hover Throttle Estimate (F90 + HQ70403 at 1.99kg hover ~ 33%)
+param set-default MPC_THR_HOVER 0.33
+
+# Motor PWM outputs mapping
+param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 103
+param set-default PWM_MAIN_FUNC4 104
+
+# Simulation specific overrides:
+# 1. 배터리 방전 시뮬레이션: DRAIN을 10일(864,000초)로 설정하여 100% 무한 지속 및 배터리 경고 원천 차단
+param set SIM_BAT_DRAIN 864000
+param set SIM_BAT_MIN_PCT 100.0
+param set COM_LOW_BAT_ACT 0
+param set CBRK_SUPPLY_CHK 894281
+
+# 2. 페일세이프 오버라이드: 시뮬레이션 환경에서 RC 조종기 부재 및 프레임 드랍으로 인한 강제 착륙 원천 차단
+#    - NAV_RCL_ACT 0: RC Loss 페일세이프 비활성화
+#    - NAV_DLL_ACT 0: Data Link Loss 페일세이프 비활성화
+#    - COM_RCL_EXCEPT 7: Mission/Auto/Offboard 모드에서 RC 미연결 예외 허용
+#    - COM_OF_LOSS_T 5.0: Offboard 신호 타임아웃 여유 시간 5초로 확대
+#    - COM_OBL_RC_ACT 4: Offboard 신호 종료 시 수동 PosCtrl(Nav state 2 에러) 대신 제자리 호버링(Hold=4) 유지
+param set NAV_RCL_ACT 0
+param set NAV_DLL_ACT 0
+param set COM_RCL_EXCEPT 7
+param set COM_OF_LOSS_T 5.0
+param set COM_OBL_RC_ACT 4
+
+# [ZAV 변경] PX4 v1.14.3 rcS가 기본 UDP 8888 client를 시작하므로 여기서 중복 시작하지 않습니다.
+
+# FAST-LIVO2 GPS-free SITL profile, validated with mounted-IMU propagation.
+# EV sample timestamps already describe acquisition time: no extra EV delay.
+param set-default EKF2_GPS_CTRL 0
+param set-default EKF2_EV_CTRL 15
+param set-default EKF2_EV_DELAY 0
+param set-default EKF2_EV_NOISE_MD 1
+param set-default EKF2_EVP_NOISE 0.08
+param set-default EKF2_EVV_NOISE 0.10
+param set-default EKF2_EVA_NOISE 0.10
+param set-default EKF2_HGT_REF 3
+param set-default EKF2_BARO_CTRL 0
+param set-default MPC_XY_P 0.65
+param set-default MPC_XY_VEL_P_ACC 4.0
+param set-default MPC_XY_VEL_I_ACC 0.15
+param set-default MPC_XY_VEL_D_ACC 0.30
+param set-default EKF2_TAU_POS 0.10
+param set-default EKF2_TAU_VEL 0.10
+
+# Reproduce the saved effective SITL settings without machine-specific BSON.
+param set-default MPC_MAN_Y_MAX 30.0
+param set-default EKF2_MAG_TYPE 5
+param set-default EKF2_MAG_DECL -1.462524

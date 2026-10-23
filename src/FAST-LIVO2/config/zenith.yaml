@@ -1,0 +1,101 @@
+/laserMapping:
+  ros__parameters:
+    common:
+      img_en: 1
+      img_topic: /camera/image_raw
+      imu_topic: /livox/imu
+      lid_topic: /livox/lidar
+      lidar_en: 1
+      ros_driver_bug_fix: false
+    evo:
+      pose_output_en: false
+      seq_name: Zenith_Flight
+    extrin_calib:
+      Pcl:
+      - 0.0
+      - -0.08
+      - -0.02
+      Rcl:
+      - 0.0
+      - -1.0
+      - 0.0
+      - 0.374607
+      - 0.0
+      - -0.927184
+      - 0.927184
+      - 0.0
+      - 0.374607
+      extrinsic_R:
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+      extrinsic_T:
+      - -0.011
+      - -0.02329
+      - -0.04412
+    imu:
+      acc_cov: 0.2
+      b_acc_cov: 0.0001
+      b_gyr_cov: 0.0001
+      gyr_cov: 0.1
+      imu_en: true
+      imu_int_frame: 100
+    lio:
+      beam_err: 0.05
+      dept_err: 0.02
+      layer_init_num:
+      - 5
+      - 5
+      - 5
+      - 5
+      - 5
+      max_iterations: 5
+      max_layer: 2
+      max_points_num: 50
+      min_eigen_value: 0.0025
+      voxel_size: 0.5
+    local_map:
+      half_map_size: 300
+      map_sliding_en: false
+      sliding_thresh: 15.0
+    pcd_save:
+      colmap_output_en: false
+      filter_size_pcd: 0.05
+      interval: -1
+      pcd_save_en: true
+    preprocess:
+      blind: 0.5
+      filter_size_surf: 0.1
+      lidar_type: 1
+      point_filter_num: 3
+      scan_line: 4
+    publish:
+      blind_rgb_points: 0.0
+      dense_map_en: false
+      pub_effect_point_en: false
+      pub_plane_en: false
+      pub_scan_num: 1
+    time_offset:
+      exposure_time_init: 0.0
+      img_time_offset: 0.0
+      imu_time_offset: 0.0
+    uav:
+      gravity_align_en: true
+      imu_rate_odom: false
+    vio:
+      exposure_estimate_en: true
+      img_point_cov: 1000.0
+      inv_expo_cov: 0.1
+      inverse_composition_en: false
+      max_iterations: 5
+      normal_en: true
+      outlier_threshold: 1000.0
+      patch_pyrimid_level: 2
+      patch_size: 8
+      raycast_en: false

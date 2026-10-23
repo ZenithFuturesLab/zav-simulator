@@ -1,0 +1,46 @@
+{
+  "duration_s": 20.0,
+  "counts": {
+    "local": 1816,
+    "imu": 3309,
+    "lio": 1849,
+    "livox": 182,
+    "camera": 344,
+    "cloud": 363,
+    "ev": 811
+  },
+  "latest": {
+    "local": {
+      "xy_valid": true,
+      "z_valid": true,
+      "position": [
+        -0.024463780224323273,
+        -0.04420451447367668,
+        0.15228654444217682
+      ]
+    },
+    "ev": {
+      "position": [
+        -0.023702431470155716,
+        -0.04476166144013405,
+        0.1518777459859848
+      ],
+      "velocity": [
+        -0.014382835477590561,
+        0.010475967079401016,
+        0.0022196006029844284
+      ]
+    }
+  },
+  "nodes": [
+    "mid360_tcp_receiver",
+    "laserMapping",
+    "zav_lio_px4_odom_bridge",
+    "zav_runtime_observer",
+    "simulator_vehicle_0"
+  ],
+  "ev_publishers": 1,
+  "imu_publishers": 1,
+  "date": "2026-10-23",
+  "platform": "Ubuntu 22.04 / unified tmux launcher / all DDS dependencies local"
+}

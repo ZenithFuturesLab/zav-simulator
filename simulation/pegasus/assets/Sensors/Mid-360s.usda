@@ -1,0 +1,59 @@
+#usda 1.0
+# [ZAV 변경] 저장된 World 전체가 아니라 Example_Rotary 센서 subtree만 참조합니다.
+(
+    defaultPrim = "World"
+    doc = "40-channel rotary approximation. Not a Livox non-repetitive scan model. Self-contained Isaac Sim 5.1 OmniLidar configuration."
+)
+
+over "World"
+{
+    def OmniLidar "Example_Rotary" (
+        prepend apiSchemas = ["OmniSensorGenericLidarCoreAPI"]
+    )
+    {
+        float omni:sensor:Core:avgPowerW = 0.002
+        token omni:sensor:Core:auxOutputType = "FULL"
+        float omni:sensor:Core:azimuthErrorMean = 0
+        float omni:sensor:Core:azimuthErrorStd = 0.15
+        float omni:sensor:Core:elevationErrorMean = 0
+        float omni:sensor:Core:elevationErrorStd = 0.15
+        float[] omni:sensor:Core:emitterState:s001:azimuthDeg = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        uint[] omni:sensor:Core:emitterState:s001:channelId = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+        float[] omni:sensor:Core:emitterState:s001:distanceCorrectionM = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        float[] omni:sensor:Core:emitterState:s001:elevationDeg = [-7, -5.4871793, -3.974359, -2.4615386, -0.94871795, 0.5641026, 2.0769231, 3.5897436, 5.1025643, 6.6153846, 8.128205, 9.641026, 11.153846, 12.666667, 14.179487, 15.692307, 17.205128, 18.717949, 20.23077, 21.74359, 23.25641, 24.76923, 26.282051, 27.794872, 29.307692, 30.820513, 32.333332, 33.846153, 35.358974, 36.871796, 38.384617, 39.897434, 41.410255, 42.923077, 44.435898, 45.94872, 47.46154, 48.974358, 50.48718, 52]
+        uint[] omni:sensor:Core:emitterState:s001:fireTimeNs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        float[] omni:sensor:Core:emitterState:s001:focalDistM = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        float[] omni:sensor:Core:emitterState:s001:focalSlope = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        float[] omni:sensor:Core:emitterState:s001:horOffsetM = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        float[] omni:sensor:Core:emitterState:s001:reportRateDiv = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        float[] omni:sensor:Core:emitterState:s001:vertOffsetM = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        float omni:sensor:Core:farRangeM = 100
+        token omni:sensor:Core:intensityMappingType = "LINEAR"
+        token omni:sensor:Core:intensityProcessing = "NORMALIZATION"
+        uint omni:sensor:Core:maxReturns = 1
+        float omni:sensor:Core:minReflectance = 0.1
+        float omni:sensor:Core:minReflectionRangeM = 40
+        float omni:sensor:Core:nearRangeM = 0.1
+        uint omni:sensor:Core:numberOfChannels = 40
+        uint omni:sensor:Core:numberOfEmitters = 40
+        uint omni:sensor:Core:pulseTimeNs = 6
+        float omni:sensor:Core:rangeAccuracyM = 0.02
+        float omni:sensor:Core:rangeResolutionM = 0.004
+        token omni:sensor:Core:rayType = "IDEALIZED"
+        uint omni:sensor:Core:reportRateBaseHz = 5000
+        token omni:sensor:Core:rotationDirection = "CW"
+        uint omni:sensor:Core:scanRateBaseHz = 10
+        token omni:sensor:Core:scanType = "ROTARY"
+        bool omni:sensor:Core:skipDroppingInvalidPoints = 1
+        float omni:sensor:Core:startAzimuthOffsetDeg = 0
+        float omni:sensor:Core:validEndAzimuthDeg = 360
+        float omni:sensor:Core:validStartAzimuthDeg = 0
+        float omni:sensor:Core:waveLengthNm = 905
+        string omni:sensor:modelName = "Example_Rotary"
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+}
+

@@ -1,0 +1,25 @@
+name: Verify source and ROS build
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  ubuntu:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ubuntu and ROS dependencies
+        run: ./scripts/install_system.sh
+      - name: Fetch fixed upstream sources
+        run: python3 scripts/fetch_dependencies.py
+      - name: Source and deployment checks
+        run: ./scripts/verify.sh
+      - name: Resolve ROS dependencies
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          rosdep install --from-paths src/FAST-LIVO2 src/rpg_vikit src/sophus src/livox_ros_driver2 src/px4_msgs src/zav_control --ignore-src -y --rosdistro humble
+      - name: Build ROS packages
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          export MAKEFLAGS=-j1 CMAKE_BUILD_PARALLEL_LEVEL=1
+          colcon build --symlink-install --executor sequential --packages-up-to fast_livo px4_msgs zav_control --cmake-args -DROS_EDITION=ROS2 -DLIVOX_BUILD_DRIVER=OFF -DCMAKE_BUILD_TYPE=Release

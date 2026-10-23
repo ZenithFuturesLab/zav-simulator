@@ -1,0 +1,14 @@
+empy==3.3.4
+pyros-genmsg==0.5.8
+kconfiglib==14.1.0
+cerberus==1.3.8
+pymavlink==2.4.50
+nunavut==2.3.1
+packaging
+jinja2
+jsonschema
+pyserial
+pyyaml
+toml
+future
+lxml

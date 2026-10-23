@@ -1,0 +1,105 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Image
+      Name: Front RGB Camera
+      Enabled: true
+      Topic:
+        Value: /drone0/front_camera/color/image_raw
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 2
+      Transport Hint: raw
+      Normalize Range: true
+      Value: true
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 20
+      Color: 100; 100; 100
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/PointCloud2
+      Name: FAST-LIVO Registered Cloud
+      Enabled: true
+      Topic:
+        Value: /cloud_registered
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 5
+      Position Transformer: XYZ
+      Color Transformer: AxisColor
+      Axis: Z
+      Autocompute Value Bounds:
+        Value: true
+      Size (Pixels): 4
+      Size (m): 0.04
+      Style: Points
+      Alpha: 1
+      Decay Time: 0.3
+      Use Fixed Frame: true
+      Value: true
+    - Class: rviz_default_plugins/Odometry
+      Name: FAST-LIVO Odometry
+      Enabled: true
+      Topic:
+        Value: /aft_mapped_to_init
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 10
+      Keep: 1
+      Position Tolerance: 0.01
+      Angle Tolerance: 0.01
+      Shape:
+        Value: Axes
+        Axes Length: 0.5
+        Axes Radius: 0.025
+        Alpha: 1
+      Covariance:
+        Value: false
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: FAST-LIVO Trajectory
+      Enabled: true
+      Topic:
+        Value: /path
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 5
+      Buffer Length: 1
+      Line Style: Lines
+      Line Width: 0.03
+      Color: 50; 220; 100
+      Alpha: 1
+      Value: true
+  Enabled: true
+  Global Options:
+    Fixed Frame: camera_init
+    Background Color: 25; 25; 30
+    Frame Rate: 30
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 8
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: -0.2
+      Pitch: 0.65
+      Yaw: 0.8
+      Target Frame: <Fixed Frame>
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+Window Geometry:
+  Width: 1200
+  Height: 800

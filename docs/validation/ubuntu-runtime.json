@@ -1,0 +1,49 @@
+{
+  "duration_s": 20.0,
+  "counts": {
+    "ev": 765,
+    "local": 1643,
+    "imu": 2882,
+    "livox": 164,
+    "lio": 1806,
+    "cloud": 328,
+    "camera": 320
+  },
+  "latest": {
+    "ev": {
+      "position": [
+        -0.02613639272749424,
+        -0.04535413160920143,
+        0.15217149257659912
+      ],
+      "velocity": [
+        -0.0002455659268889576,
+        -0.0017224206821992993,
+        -0.000541334564331919
+      ]
+    },
+    "local": {
+      "xy_valid": true,
+      "z_valid": true,
+      "position": [
+        -0.024981718510389328,
+        -0.043424949049949646,
+        0.15282155573368073
+      ]
+    }
+  },
+  "nodes": [
+    "mid360_tcp_receiver",
+    "simulator_vehicle_0",
+    "laserMapping",
+    "zav_lio_px4_odom_bridge",
+    "zav_runtime_observer",
+    "zav_flight_manager",
+    "rviz",
+    "transform_listener_impl_574919540f10"
+  ],
+  "ev_publishers": 1,
+  "imu_publishers": 1,
+  "date": "2026-10-23",
+  "platform": "Ubuntu 22.04 / Isaac Sim 5.1.0 / RTX 3080"
+}
