@@ -72,3 +72,5 @@ PX4 상단 콘솔에서는 `param show MPC_XY_VEL_MAX`가 새 설치에서 12이
 PX4 상단 pane에서 Ctrl+C를 입력했을 때 대시보드·Isaac·PX4·Agent가 함께 종료되는 것도 확인했습니다. PX4 pane 전용 실행기에 종료 trap을 추가해 기존에 PX4만 종료되던 동작을 수정했습니다.
 
 GitHub 최초 CI에서는 Azure Ubuntu mirror의 다운로드가 약 50 KB/s로 지연되어 진단 후 중단했습니다. CI runner에 한해 공식 Ubuntu archive를 사용하도록 변경했습니다. 사용자 컴퓨터의 apt mirror 설정은 변경하지 않습니다. 설치기는 패키지 설정 대화상자를 기다리지 않도록 비대화식 설치와 네트워크 timeout/retry를 지정합니다.
+
+새 CI의 rosdep 단계에서 Livox upstream `.gitignore`가 생성형 `package.xml`을 제외하는 누락을 발견했습니다. ROS 2 manifest를 명시적으로 버전 관리하고 필수 7개 패키지 manifest 존재 검사를 추가했습니다.

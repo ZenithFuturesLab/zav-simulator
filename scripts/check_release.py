@@ -15,6 +15,19 @@ for directory in paths:
         if p.name=='package.xml': ET.parse(p)
         if p.suffix in ('.py','.sh','.yaml','.xml','.md','.params','.rviz'):
             assert ('/home/'+'mscl') not in p.read_text(),f'Private host path: {p}'
+required_packages={
+    'FAST-LIVO2':'fast_livo',
+    'livox_ros_driver2':'livox_ros_driver2',
+    'px4_msgs':'px4_msgs',
+    'sophus':'sophus',
+    'rpg_vikit/vikit_common':'vikit_common',
+    'rpg_vikit/vikit_ros':'vikit_ros',
+    'zav_control':'zav_control',
+}
+for directory, name in required_packages.items():
+    manifest=ROOT/'src'/directory/'package.xml'
+    assert manifest.is_file(),f'Missing required ROS manifest: {manifest}'
+    assert ET.parse(manifest).getroot().findtext('name')==name,manifest
 airframe=(ROOT/'simulation/px4/10020_isaac_zav').read_text()
 values={}
 for line in airframe.splitlines():
