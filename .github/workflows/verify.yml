@@ -34,4 +34,7 @@ jobs:
         run: |
           source /opt/ros/humble/setup.bash
           export MAKEFLAGS=-j1 CMAKE_BUILD_PARALLEL_LEVEL=1
+          # Validate standalone math/header dependencies before the large message build.
+          colcon build --symlink-install --executor sequential --packages-up-to vikit_ros --cmake-args -DCMAKE_BUILD_TYPE=Release
+          source install/local_setup.bash
           colcon build --symlink-install --executor sequential --packages-up-to fast_livo px4_msgs zav_control --cmake-args -DROS_EDITION=ROS2 -DLIVOX_BUILD_DRIVER=OFF -DCMAKE_BUILD_TYPE=Release
