@@ -28,11 +28,18 @@ dnsTunneling=true
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git
+sudo apt-get install -y git software-properties-common
+sudo add-apt-repository -y universe
+sudo apt-get update
+sudo apt-get install -y gh
+gh auth login --hostname github.com --git-protocol https --web
+gh auth setup-git
 git clone https://github.com/ZenithFuturesLab/zav-simulator.git ~/zenith_ws
 cd ~/zenith_ws
 ./scripts/bootstrap.sh --platform wsl --isaac-windows-python /mnt/c/isaac-sim/python.bat
 ```
+
+`gh auth login`에 표시된 주소와 일회용 코드를 Windows 브라우저에서 열어 GitHub 인증을 완료하세요.
 
 `python.bat` 경로는 실제 Windows 설치 위치를 `/mnt/c/...` 형식으로 지정합니다. 공백이 있으면 따옴표로 감싸세요. Windows에서 WSL의 파일을 읽을 수 있어야 합니다. 실행기는 `wslpath`와 `WSLENV`로 시뮬레이터·캘리브레이션 경로를 변환합니다.
 

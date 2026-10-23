@@ -19,10 +19,17 @@ GitHub 조직의 비공개 저장소 접근 권한이 있는 계정으로 Git �
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git
+sudo apt-get install -y git software-properties-common
+sudo add-apt-repository -y universe
+sudo apt-get update
+sudo apt-get install -y gh
+gh auth login --hostname github.com --git-protocol https --web
+gh auth setup-git
 git clone https://github.com/ZenithFuturesLab/zav-simulator.git ~/zenith_ws
 cd ~/zenith_ws
 ```
+
+`gh auth login`이 표시하는 일회용 코드와 주소를 사용해 브라우저에서 GitHub 로그인을 완료합니다. `ZenithFuturesLab` 접근 권한이 있는 계정이어야 합니다.
 
 이미 `~/zenith_ws`가 있으면 다른 빈 경로로 clone하세요. 기존 폴더에 덮어쓰거나 기존 작업을 삭제하지 마세요.
 
