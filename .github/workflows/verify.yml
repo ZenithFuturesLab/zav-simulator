@@ -6,6 +6,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Use the official Ubuntu archive on hosted runners
+        run: |
+          sudo python3 - <<'PYTHON'
+          from pathlib import Path
+          paths = [Path('/etc/apt/sources.list'), *Path('/etc/apt/sources.list.d').glob('*.list'), *Path('/etc/apt/sources.list.d').glob('*.sources')]
+          for path in paths:
+              if path.is_file():
+                  text = path.read_text()
+                  updated = text.replace('http://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu').replace('https://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu')
+                  if text != updated:
+                      path.write_text(updated)
+          PYTHON
       - name: Install Ubuntu and ROS dependencies
         run: ./scripts/install_system.sh
       - name: Fetch fixed upstream sources

@@ -70,3 +70,5 @@ PX4 상단 콘솔에서는 `param show MPC_XY_VEL_MAX`가 새 설치에서 12이
 통합 `run_zav_sim.sh`의 tmux 대시보드에서도 같은 경로를 재확인했습니다. Agent·Fast DDS·Fast CDR·Micro XRCE client·Micro CDR를 모두 저장소의 `.local/lib`에서 로딩했고, 20초간 EV 811개와 유효한 EKF 위치를 수신했습니다. [통합 실행 관찰 결과](validation/ubuntu-dashboard-runtime.json).
 
 PX4 상단 pane에서 Ctrl+C를 입력했을 때 대시보드·Isaac·PX4·Agent가 함께 종료되는 것도 확인했습니다. PX4 pane 전용 실행기에 종료 trap을 추가해 기존에 PX4만 종료되던 동작을 수정했습니다.
+
+GitHub 최초 CI에서는 Azure Ubuntu mirror의 다운로드가 약 50 KB/s로 지연되어 진단 후 중단했습니다. CI runner에 한해 공식 Ubuntu archive를 사용하도록 변경했습니다. 사용자 컴퓨터의 apt mirror 설정은 변경하지 않습니다. 설치기는 패키지 설정 대화상자를 기다리지 않도록 비대화식 설치와 네트워크 timeout/retry를 지정합니다.
