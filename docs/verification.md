@@ -3,7 +3,7 @@
 ## Windows + WSL 실제 실행 검증 (2026-10-23)
 
 Windows Isaac Sim 5.1.0 / RTX 4070 Ti와 WSL2 Ubuntu 22.04에서 실제 실행했습니다.
-이번 기록은 아래의 이전 "Windows GPU 미검증" 상태를 갱신합니다.
+이 절은 Windows/WSL에서 수행한 별도 실행 검증 기록입니다.
 
 실행을 막던 문제와 수정:
 
@@ -76,12 +76,13 @@ Livox·PX4 메시지 직렬화 및 SciPy·cv_bridge 로딩을 확인했습니다
 
 | 항목 | 결과 |
 | --- | --- |
-| source syntax / package XML / 개인 홈 경로 검사 / 설치 dry-run | 통과 |
+| source syntax / 필수 7개 package XML / 개인 홈 경로 검사 / 설치 dry-run | 통과 |
+| GitHub의 새 Ubuntu 22.04: 설치·고정 소스·rosdep·ROS 전체 빌드 (기반 코드 767d07a) | [전체 통과](https://github.com/ZenithFuturesLab/zav-simulator/actions/runs/39936403670) |
 | 새 Pegasus 대상 배포, 재배포, 파일 변경 감지 | 통과 |
 | 캘리브레이션·장착 IMU 회전·중력·lever arm 수학 검사 | 통과 |
 | native/WSL DDS 선택, 공백 포함 Isaac 경로, Python ABI 분리, 종료 코드 전달 | 통과 |
 | ROS 7개 패키지 새 빌드 (Livox SDK 없이 메시지 빌드) | 통과, upstream 컴파일 경고 있음 |
-| PX4 v1.14.3 새 SITL 빌드 | 통과 |
+| PX4 v1.14.3 새 SITL 빌드 | 통과, 최소 Python 환경에서도 900개 단계 완료 |
 | Agent·Fast DDS·Fast CDR·Micro XRCE client·Micro CDR 로컬 빌드/설치 | 통과, 의존 소스 SHA 검사 및 로컬 라이브러리 로딩 확인 |
 | 실제 ROS 타입으로 IMU·RGB·pointcloud·Livox TCP 수신 | Fast DDS / Cyclone TCP 모두 통과 |
 | flight_manager의 PX4 위치 피드백 QoS | 두 DDS 구현 모두 통과 |
@@ -89,7 +90,7 @@ Livox·PX4 메시지 직렬화 및 SciPy·cv_bridge 로딩을 확인했습니다
 | 브리지 중복 실행 차단 및 부모 실행기 종료 시 동반 종료 | 통과 |
 | Fast DDS ↔ Cyclone TCP 게이트웨이의 SensorCombined·TimesyncStatus·EV 경로 | 실제 프로세스 간 전달 통과 |
 
-Agent 새 빌드 및 실제 GPU 실행의 최종 확인 결과는 아래 실행 기록을 참고하세요. Windows 장비에서의 GUI·GPU 종단 실행은 아직 수행하지 못했습니다. CI도 GPU·Windows 비행을 실행하지 않습니다.
+Ubuntu 실제 GPU 실행 기록은 아래에, Windows/WSL 실행 기록은 문서 상단에 정리했습니다. GitHub CI 자체는 GPU·비행을 실행하지 않습니다.
 
 ## 검사 재실행
 
@@ -135,12 +136,18 @@ PX4 상단 콘솔에서는 `param show MPC_XY_VEL_MAX`가 새 설치에서 12이
 
 20초 관찰 결과: IMU 2,882개, Livox 164개, pointcloud 328개, RGB 320개, LIO odometry 1,806개, PX4 EV 765개, PX4 local position 1,643개를 수신했습니다. EKF의 `xy_valid`와 `z_valid`가 모두 true이고 EV·IMU publisher는 각각 1개였습니다. Flight Manager에서도 위치 수신이 확인됐으며 PX4가 `Ready for takeoff!`를 출력했습니다. [관찰 결과](validation/ubuntu-runtime.json).
 
-이 기록은 disarmed 상태에서 센서부터 EKF까지의 연결을 확인한 것입니다. 이번 배포 검증에서 이륙·이동·정지 성능을 다시 측정하지는 않았습니다. 기존 비행 제어 소스와 설정을 유지했으며 Windows GPU 실행도 별도 검증이 필요합니다.
+이 기록은 disarmed 상태에서 센서부터 EKF까지의 연결을 확인한 것입니다. 이번 배포 검증에서 이륙·이동·정지 성능을 다시 측정하지는 않았습니다. 기존 비행 제어 소스와 설정을 유지했습니다. Windows/WSL의 별도 비행 검증은 문서 상단을 참고하세요.
 
 통합 `run_zav_sim.sh`의 tmux 대시보드에서도 같은 경로를 재확인했습니다. Agent·Fast DDS·Fast CDR·Micro XRCE client·Micro CDR를 모두 저장소의 `.local/lib`에서 로딩했고, 20초간 EV 811개와 유효한 EKF 위치를 수신했습니다. [통합 실행 관찰 결과](validation/ubuntu-dashboard-runtime.json).
 
 PX4 상단 pane에서 Ctrl+C를 입력했을 때 대시보드·Isaac·PX4·Agent가 함께 종료되는 것도 확인했습니다. PX4 pane 전용 실행기에 종료 trap을 추가해 기존에 PX4만 종료되던 동작을 수정했습니다.
 
-GitHub 최초 CI에서는 Azure Ubuntu mirror의 다운로드가 약 50 KB/s로 지연되어 진단 후 중단했습니다. CI runner에 한해 공식 Ubuntu archive를 사용하도록 변경했습니다. 사용자 컴퓨터의 apt mirror 설정은 변경하지 않습니다. 설치기는 패키지 설정 대화상자를 기다리지 않도록 비대화식 설치와 네트워크 timeout/retry를 지정합니다.
 
-새 CI의 rosdep 단계에서 Livox upstream `.gitignore`가 생성형 `package.xml`을 제외하는 누락을 발견했습니다. ROS 2 manifest를 명시적으로 버전 관리하고 필수 7개 패키지 manifest 존재 검사를 추가했습니다.
+
+## 설치 재현성 추가 확인
+
+시스템 Python 패키지를 사용하지 않는 별도 가상환경에 `scripts/requirements-px4.txt`와 NumPy를 설치하고, 기존 `PYTHONPATH`를 제거한 상태에서 PX4를 별도 빌드 디렉토리에 다시 구성·컴파일했습니다. 900개 빌드 단계가 모두 통과했으며 Empy·Jinja2·Kconfiglib·genmsg·PyYAML·NumPy가 해당 가상환경에서 로드됨을 확인했습니다. 실제 설치 스크립트는 NumPy를 Ubuntu 패키지로 설치하고 PX4 전용 venv에서 시스템 패키지를 참조합니다.
+
+공백을 포함한 임시 사용자 홈과 Windows Isaac 경로에서 WSL 설정 생성·재설치·셸 등록·Cyclone/domain 선택을 확인했습니다. USD 두 파일의 외부 asset 및 layer 참조가 없음을 확인했습니다. 이 검사는 실제 Windows GPU 실행을 대신하지 않습니다.
+
+GitHub CI는 독립적인 Ubuntu 실행기에서 시스템 설치, 고정 소스 다운로드, 배포·경로 검사, rosdep 의존성 해결, 7개 ROS 패키지 빌드를 모두 통과했습니다. CI의 Ubuntu mirror 설정은 GitHub 실행기에만 적용하며 사용자 컴퓨터의 mirror는 바꾸지 않습니다.
