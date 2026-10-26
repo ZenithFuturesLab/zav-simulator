@@ -94,7 +94,7 @@ from pegasus.simulator.logic.vehicles.multirotors import ZAV_v1
 # 장착 위치는 body 기준 미터, 방향은 Z/Y/X 순서 degree.
 # 측정 거리·채널·스캔 속도는 USD의 OmniLidar 속성을 사용합니다.
 # [ZAV 변경] 기본 기체/추력은 유지하고 센서 획득 주기만 정수 물리 스텝에 맞춥니다.
-PHYSICS_HZ = 200.0  # Mid360 IMU rate; exactly 10 physics ticks per render frame.
+PHYSICS_HZ = 160.0  # Mid360 IMU rate; exactly 10 physics ticks per render frame.
 RENDER_HZ = 20.0
 SLAM_TEST_SCENE = os.environ.get("PEGASUS_SLAM_SCENE", "1") != "0"  # 선택적 SLAM 검증 장면.
 
