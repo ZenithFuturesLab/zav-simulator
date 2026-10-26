@@ -8,6 +8,7 @@ python3 simulation/tests/check_deployment.py
 python3 simulation/tests/check_fastlivo_calibration_math.py
 python3 simulation/tests/check_mounted_imu_math.py
 python3 simulation/tests/check_px4_lockstep.py
+python3 simulation/tests/check_fastlivo_shutdown.py
 python3 simulation/tests/check_platforms.py
 if [[ "${1:-}" == --ros ]]; then
     export ZAV_ENV_FILE="$ROOT/simulation/environment.sh"

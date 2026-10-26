@@ -72,6 +72,8 @@ ros2 run zav_control flight_manager
 
 첫 실행은 Isaac shader 캐시와 확장 로딩 때문에 오래 걸릴 수 있습니다. 비행 명령 전에 LiDAR·IMU·카메라와 EV odometry 수신을 [검증 절차](docs/verification.md)로 확인하세요. 시뮬레이터 대시보드에서 Ctrl+C로 종료합니다. 종료기는 동일 사용자 PX4·DDS Agent 및 Windows `kit.exe`도 정리하므로 다른 시뮬레이터와 동시에 실행하지 마세요.
 
+FAST-LIVO는 실행한 터미널에서 Ctrl+C로 종료합니다. `[FAST-LIVO] All owned processes stopped`가 출력된 뒤 재실행하세요. 실행기가 만든 mapper·LIO bridge·relay를 정리한 후 재실행 잠금을 해제합니다. RViz가 먼저 실행해 소유한 공유 relay는 유지합니다. 잠금 파일을 직접 삭제하지 마세요. 이전 mapper가 남아 있으면 새 실행을 거부하고 PID를 표시합니다.
+
 ## 설정과 구조
 
 - [Ubuntu 설치 상세](docs/ubuntu22.04.md), [Windows/WSL2](docs/windows-wsl2.md)
@@ -87,3 +89,4 @@ ros2 run zav_control flight_manager
 각 외부 코드의 라이선스는 해당 파일과 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 따릅니다.
 
 test
+test2

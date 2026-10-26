@@ -1,5 +1,23 @@
 # 검증과 문제 해결
 
+## FAST-LIVO 종료·재실행 검사 (2026-10-26)
+
+`run_fastlivo.sh`는 foreground Python 관리 프로세스를 사용합니다. 이 프로세스는
+Ctrl+C/SIGTERM/SIGHUP을 처리하고, Linux subreaper로 ROS launch의 고아 자식까지
+회수합니다. 정상 SIGINT 종료를 먼저 요청하고 남은 프로세스에는 SIGTERM/SIGKILL을
+단계적으로 적용합니다. 정리하는 동안 실행 잠금을 유지하며, 잠금 inode는 삭제하지 않습니다.
+실행기 잠금이 없어도 이 작업 공간의 mapper/bridge가 남아 있으면 중복 실행을 거부합니다.
+
+실제 ROS 실행기에서 시작→Ctrl+C→재시작→Ctrl+C를 검사하여 TCP 17442/17446/17451
+리스너와 자식 프로세스가 남지 않는 것을 확인했습니다. `check_fastlivo_shutdown.py`는
+실제 PTY의 Ctrl+C, HUP/TERM, launch 조기 종료, 신호를 무시하는 별도 세션의 손자,
+중복 실행 거부 및 동일한 세 TCP 포트의 반복 재사용을 검사합니다.
+이 검사는 센서 수신·비행 성능의 재검증을 의미하지 않습니다.
+
+RViz가 먼저 소유한 relay는 FAST-LIVO 종료 시 제거하지 않습니다. 이 경우 17442가
+계속 열려 있는 것은 정상이며, FAST-LIVO가 소유한 17446/17451은 해제됩니다.
+Windows Isaac 센서 서버 17441/17443/17444/17445도 계속 실행됩니다.
+
 ## Windows + WSL 실제 실행 검증 (2026-10-23)
 
 Windows Isaac Sim 5.1.0 / RTX 4070 Ti와 WSL2 Ubuntu 22.04에서 실제 실행했습니다.
