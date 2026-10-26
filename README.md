@@ -85,3 +85,5 @@ ros2 run zav_control flight_manager
 `simulation/current_ekf_mpc.params`는 현재 재현 프로파일을 사람이 읽기 쉽게 정리한 파일입니다. 실제 기본값은 `simulation/px4/10020_isaac_zav`에서 설정합니다. 이 프로파일은 SITL 전용입니다.
 
 각 외부 코드의 라이선스는 해당 파일과 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 따릅니다.
+
+test
