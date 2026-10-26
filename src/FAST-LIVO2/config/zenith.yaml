@@ -1,7 +1,7 @@
 /laserMapping:
   ros__parameters:
     common:
-      img_en: 1
+      img_en: 0
       img_topic: /camera/image_raw
       imu_topic: /livox/imu
       lid_topic: /livox/lidar
