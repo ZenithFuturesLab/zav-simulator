@@ -7,7 +7,7 @@ ZAV Drone Simulation on Lightweight Ground Plane with PX4 SITL & Pegasus
 설명:
   대용량 야외 맵(지형/텍스처) 로딩으로 인한 디스크 I/O 및 GPU/CPU 병목을 제거하고,
   Isaac Sim 내장 기본 평면(Default Ground Plane) 환경에서 커스텀 드론 ZAV (1.99 kg)를
-  물리 160 Hz·렌더링 20 Hz로 시뮬레이션 및 비행 제어하는 런처 스크립트입니다.
+  물리 200 Hz·렌더링 20 Hz로 시뮬레이션 및 비행 제어하는 런처 스크립트입니다.
 
 물리 제원:
   - 기체: Fusion 360 기반 커스텀 ZAV 쿼드콥터 (프레임, 가드, 카메라, 배터리 포함)
@@ -21,10 +21,10 @@ ZAV Drone Simulation on Lightweight Ground Plane with PX4 SITL & Pegasus
 import os
 import sys
 from pathlib import Path
-# Import the Pegasus source shipped in this repository, on Linux and Windows.
-SIMULATOR_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(SIMULATOR_DIR))
-print(f"[Source] {Path(__file__).resolve()}", flush=True)
+# Resolve project paths from this script, independent of the launch directory.
+_SIMULATOR_DIR = Path(__file__).resolve().parent
+_WORKSPACE_DIR = _SIMULATOR_DIR.parent
+sys.path.insert(0, str(_SIMULATOR_DIR))
 
 # [ZAV 변경] Windows에만 필요한 내부 ROS DLL 경로입니다. Linux 라이브러리는 실행기가 설정합니다.
 # Windows python.bat sets ISAAC_PATH but does not add the ROS 2 runtime DLLs.
@@ -48,7 +48,7 @@ if sys.platform == "win32":
 from isaacsim import SimulationApp
 
 # 정상 작동하던 기존 설정으로 복원
-simulation_app = SimulationApp({"headless": False})
+simulation_app = SimulationApp({"headless": False, "sync_loads": False})
 
 # 초기화 중 확장 모듈 로딩 충돌 여부 확인
 for _ in range(5):
@@ -76,6 +76,7 @@ import carb.input
 import carb.settings
 import omni.appwindow
 import omni.timeline
+import omni.usd
 from omni.isaac.core.world import World
 import omni.isaac.core.utils.prims as prim_utils
 
@@ -85,22 +86,19 @@ from scipy.spatial.transform import Rotation
 # Pegasus Simulator 핵심 API
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.logic.vehicles.multirotors import ZAV_v1
-print(f"[Source] Pegasus: {sys.modules['pegasus.simulator'].__file__}", flush=True)
-print(f"[Source] PX4 backend: {sys.modules['pegasus.simulator.logic.backends.px4_mavlink_backend'].__file__}", flush=True)
+from pegasus.simulator.params import ASSET_PATH, SIMULATION_ENVIRONMENTS
 
 # 장착 위치는 body 기준 미터, 방향은 Z/Y/X 순서 degree.
 # 측정 거리·채널·스캔 속도는 USD의 OmniLidar 속성을 사용합니다.
 # [ZAV 변경] 기본 기체/추력은 유지하고 센서 획득 주기만 정수 물리 스텝에 맞춥니다.
-PHYSICS_HZ = 160.0  # Mid360 IMU rate; exactly 8 physics ticks per render frame.
+PHYSICS_HZ = 160.0  # Mid360 IMU rate; exactly 10 physics ticks per render frame.
 RENDER_HZ = 20.0
-SLAM_TEST_SCENE = os.environ.get("PEGASUS_SLAM_SCENE", "1") != "0"  # 선택적 SLAM 검증 장면.
+# SLAM_TEST_SCENE = os.environ.get("PEGASUS_SLAM_SCENE", "1") != "0"  # 선택적 SLAM 검증 장면.
+SLAM_TEST_SCENE = False
 
 # [ZAV 변경] 새 센서는 이 설정을 ZAV_v1에 주입합니다. 기존 PX4 센서 목록은 교체하지 않습니다.
 MID360_CONFIG = {
-    "usd_path": os.path.abspath(os.path.join(
-        str(SIMULATOR_DIR),
-        "pegasus", "simulator", "assets", "Sensors", "Mid-360s.usda",
-    )),
+    "usd_path": str(Path(ASSET_PATH) / "Sensors" / "Mid-360s.usda"),
     "sensor_prim_path": "/World/Example_Rotary",
     # ZAV USD MeshInstance_151: visual center, tilted 22 degrees toward body +X.
     "position": [0.01215, 0.0, 0.11503],
@@ -117,9 +115,9 @@ MID360_CONFIG = {
 # FAST-LIVO's real-sensor calibration is the source of truth. Only the LiDAR's
 # absolute body mount is anchored to the visual model; other mounts are derived.
 from pegasus.simulator.logic.sensors.fastlivo_calibration import load_calibration
-FASTLIVO_CONFIG_DIR = os.environ.get("PEGASUS_FASTLIVO_CONFIG_DIR", os.path.join(
-    str(SIMULATOR_DIR.parent), "src", "FAST-LIVO2", "config"
-))
+FASTLIVO_CONFIG_DIR = os.environ.get(
+    "PEGASUS_FASTLIVO_CONFIG_DIR", str(_WORKSPACE_DIR / "src" / "FAST-LIVO2" / "config")
+)
 _sensor_calibration = load_calibration(
     FASTLIVO_CONFIG_DIR, MID360_CONFIG["position"], MID360_CONFIG["orientation"]
 )
@@ -154,7 +152,7 @@ class ZAVPlaneApp:
         # 1. 시뮬레이션 타임라인 인터페이스 획득
         self.timeline = omni.timeline.get_timeline_interface()
         
-        # 2. 물리/IMU 160 Hz, 센서 렌더링 20 Hz로 설정합니다.
+        # 2. 물리/IMU 200 Hz, 센서 렌더링 20 Hz로 설정합니다.
         self.pg = PegasusInterface()
         self.pg._world_settings = {
             **self.pg._world_settings,
@@ -174,12 +172,42 @@ class ZAVPlaneApp:
         #    - 원리 (충돌 역학 / Rule 2 상세 주석):
         #      restitution=0.0 (완전 비탄성 충돌): 바닥 충돌 에너지를 흡수하여 착륙 시 기체가 위로 튀는 현상(Bouncing) 원천 방지
         #      static_friction=0.8, dynamic_friction=0.6: 접지 시 미끄러짐 방지 및 안정적인 그립 확보
-        print("[Terrain] 충격 흡수 완충 평면(Damped Ground Plane) 생성 중...")
-        self.world.scene.add_default_ground_plane(
-            static_friction=0.8,
-            dynamic_friction=0.6,
-            restitution=0.0
+        # print("[Terrain] 충격 흡수 완충 평면(Damped Ground Plane) 생성 중...")
+        # self.world.scene.add_default_ground_plane(
+        #     static_friction=0.8,
+        #     dynamic_friction=0.6,
+        #     restitution=0.0
+        # )
+
+        # Full Warehouse 환경 로드
+        warehouse_path = SIMULATION_ENVIRONMENTS["Full Warehouse"]
+        print(f"[Terrain] Loading Full Warehouse: {warehouse_path}", flush=True)
+        self.pg.load_asset(warehouse_path, "/World/layout")
+
+        # Pump Kit before creating sensors/resetting physics so referenced assets
+        # and textures can finish loading while the window remains responsive.
+        import time
+        loading_started = time.monotonic()
+        next_report = loading_started
+        for _ in range(10):
+            simulation_app.update()
+        while omni.usd.get_context().get_stage_loading_status()[2] > 0:
+            simulation_app.update()
+            now = time.monotonic()
+            if now >= next_report:
+                print(f"[Terrain] Loading assets: {omni.usd.get_context().get_stage_loading_status()}", flush=True)
+                next_report = now + 5.0
+            if now - loading_started > 300:
+                raise RuntimeError(f"Full Warehouse asset loading timed out: {warehouse_path}")
+        from pxr import Usd, UsdGeom
+        layout = self.world.stage.GetPrimAtPath("/World/layout")
+        mesh_count = sum(
+            1 for prim in Usd.PrimRange(layout)
+            if prim.IsA(UsdGeom.Mesh)
         )
+        if mesh_count == 0:
+            raise RuntimeError(f"Full Warehouse contains no meshes: {warehouse_path}")
+        print(f"[Terrain] Full Warehouse loaded ({mesh_count} meshes)", flush=True)
 
         # 시각적 가시성을 위한 직사광(Distant Light) 생성
         stage = self.world.stage
@@ -234,9 +262,10 @@ class ZAVPlaneApp:
         self._mouse_sub = self._input.subscribe_to_mouse_events(self._mouse, self._on_mouse_event)
 
         # 6. 물리 시뮬레이션 환경 리셋 (Articulation 및 관절 초기화)
+        print("[INIT] Resetting world...", flush=True)
         self.world.reset()
         print("=" * 60)
-        print("[Ready] 초경량 완충 평면 시뮬레이션 및 3인칭 줌 추적 카메라 준비 완료!")
+        print("[Ready] Full Warehouse 시뮬레이션 및 3인칭 줌 추적 카메라 준비 완료!")
         print("=" * 60)
 
     def _on_mouse_event(self, event, *args, **kwargs):
