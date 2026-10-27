@@ -25,7 +25,7 @@ PX4 펌웨어 기본값 → SITL 시작 설정 → `10020_isaac_zav` airframe �
 | MPC_VEL_MANUAL | 12.0 |
 | MPC_MAN_Y_MAX | 30.0 |
 
-기타 MPC 설정과 기체 자세·각속도 제어, 모터 배치, hover thrust 등은 `simulation/px4/10020_isaac_zav`를 확인하세요. `simulation/current_ekf_mpc.params`는 그 파일의 EKF/MPC 기본값만 추출한 참고용 파일이며 자동 import하는 별도 입력은 아닙니다.
+기타 MPC 설정과 기체 자세·각속도 제어, 모터 배치, hover thrust 등은 `simulator/px4/10020_isaac_zav`를 확인하세요. `simulator/current_ekf_mpc.params`는 그 파일의 EKF/MPC 기본값만 추출한 참고용 파일이며 자동 import하는 별도 입력은 아닙니다.
 
 기존 설치에 저장된 값이 있으면 최종값이 다를 수 있습니다. 실행 중 PX4 상단 콘솔에서 확인하고 전체 유효값을 내보냅니다.
 

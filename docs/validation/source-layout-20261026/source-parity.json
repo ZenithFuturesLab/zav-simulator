@@ -1,0 +1,24 @@
+{
+  "unchanged_runtime_components": [
+    "simulator/pegasus/simulator/logic/graphical_sensors/monocular_camera.py",
+    "simulator/pegasus/simulator/logic/graphical_sensors/lidar.py",
+    "simulator/pegasus/simulator/logic/backends/livox_packets.py",
+    "simulator/pegasus/simulator/logic/backends/ros2_backend.py",
+    "simulator/pegasus/simulator/logic/backends/pointcloud_stream.py",
+    "simulator/pegasus/simulator/logic/backends/px4_mavlink_backend.py",
+    "simulator/pegasus/simulator/logic/sensors/mounted_imu.py",
+    "simulator/pegasus/simulator/logic/sensors/fastlivo_calibration.py",
+    "simulator/pegasus/simulator/logic/vehicles/multirotors/zav_v1.py",
+    "simulator/slam_test_scene.py",
+    "simulator/tools/rviz/cyclonedds_fastlivo.xml",
+    "simulator/tools/rviz/cyclonedds_bridge.xml",
+    "simulator/tools/rviz/cyclonedds_px4.xml",
+    "simulator/tools/rviz/fastlivo_sim.launch.py",
+    "simulator/tools/rviz/cyclonedds_local.xml",
+    "simulator/tools/rviz/ensure_ros_daemon.py",
+    "simulator/tools/rviz/cyclonedds_publisher.xml",
+    "simulator/tools/runtime/fastlivo_session.py",
+    "simulator/tools/runtime/px4_dds_gateway.py",
+    "simulator/tools/runtime/sensor_relay.py"
+  ]
+}

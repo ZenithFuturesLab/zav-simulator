@@ -34,9 +34,9 @@ sudo apt-get update
 sudo apt-get install -y gh
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
-git clone https://github.com/ZenithFuturesLab/zav-simulator.git ~/zenith_ws
+git clone --branch ZAVSIM_Fix --single-branch https://github.com/ZenithFuturesLab/zav-simulator.git ~/zenith_ws
 cd ~/zenith_ws
-./scripts/bootstrap.sh --platform wsl --isaac-windows-python /mnt/c/isaac-sim/python.bat
+./setup.sh --platform wsl --isaac-windows-python /mnt/c/isaac-sim/python.bat
 ```
 
 `gh auth login`에 표시된 주소와 일회용 코드를 Windows 브라우저에서 열어 GitHub 인증을 완료하세요.

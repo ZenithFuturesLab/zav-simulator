@@ -11,10 +11,11 @@ gh auth login --hostname github.com --git-protocol https --web --scopes repo,rea
 
 브라우저에서 일회용 코드를 입력하고 GitHub CLI와 조직 접근을 승인합니다. 조직 SSO/앱 제한이 있으면 관리자의 승인이 추가로 필요할 수 있습니다.
 
-업로드 스크립트는 기본 소스 검사와 포함 파일 검사를 수행하고, Git 작성자 정보가 없으면 인증된 GitHub 계정의 noreply 주소를 사용합니다. 비공개 저장소를 생성하거나 동일한 비공개 저장소를 사용하고 `main`을 push합니다. 공개 저장소 또는 다른 origin이 있으면 자동 변경하지 않고 중단합니다. force push는 사용하지 않습니다.
+업로드 스크립트는 기본 소스 검사와 포함 파일 검사를 수행하고, Git 작성자 정보가 없으면 인증된 GitHub 계정의 noreply 주소를 사용합니다. 비공개 저장소를 생성하거나 동일한 비공개 저장소를 사용하고 현재 checkout한 브랜치를 push합니다. 공개 저장소 또는 다른 origin이 있으면 자동 변경하지 않고 중단합니다. force push는 사용하지 않습니다.
 
 포함: 소스·USD·캘리브레이션 YAML·실행기·고정 커밋 목록·설치/검증 문서·CI.
 
 제외: Isaac 설치/venv, 외부 저장소 checkout 및 Git 이력, build/install/log, PX4 BSON·ULog, 개인 migration 자료·테스트 로그, 인증 정보.
 
-새 컴퓨터에서 README대로 clone·bootstrap한 뒤 실행 검증을 완료하세요. GitHub CI는 GPU를 실행하지 않으며 Windows GPU 종단 동작을 보증하지 않습니다.
+공동 개발 브랜치는 `ZAVSIM_Fix`입니다. 일상적인 공유에는 `git add`, `git commit`, `git push`를 사용합니다.
+새 컴퓨터에서는 [설치 안내](installation.md)대로 해당 브랜치를 clone·설치한 뒤 실행 검증을 완료하세요. GitHub CI는 GPU를 실행하지 않으며 Windows GPU 종단 동작을 보증하지 않습니다.

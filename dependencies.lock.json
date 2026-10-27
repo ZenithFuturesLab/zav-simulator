@@ -4,11 +4,6 @@
     "commit": "1dacb4cdef2d7145754fc788fa8dc482eed74b40",
     "recursive": true
   },
-  "PegasusSimulator": {
-    "url": "https://github.com/PegasusSimulator/PegasusSimulator.git",
-    "commit": "e13dc659686b09fffb05275988b70e5dc66983da",
-    "recursive": false
-  },
   "Micro-XRCE-DDS-Agent": {
     "url": "https://github.com/eProsima/Micro-XRCE-DDS-Agent.git",
     "commit": "a88c712b41a01e92583f4723f7f4f686863cf657",

@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/home/ljh/zenith_ws/simulator/tests/check_dds_gateway.py", line 60, in <module>
+    else:main()
+  File "/home/ljh/zenith_ws/simulator/tests/check_dds_gateway.py", line 46, in main
+    results=[p.wait(timeout=28) for p in processes[1:]]
+  File "/home/ljh/zenith_ws/simulator/tests/check_dds_gateway.py", line 46, in <listcomp>
+    results=[p.wait(timeout=28) for p in processes[1:]]
+  File "/usr/lib/python3.10/subprocess.py", line 1209, in wait
+    return self._wait(timeout=timeout)
+  File "/usr/lib/python3.10/subprocess.py", line 1951, in _wait
+    raise TimeoutExpired(self.args, timeout)
+subprocess.TimeoutExpired: Command '['/usr/bin/python3', '/home/ljh/zenith_ws/simulator/tests/check_dds_gateway.py', 'cyclone']' timed out after 28 seconds

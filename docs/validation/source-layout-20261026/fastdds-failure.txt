@@ -1,0 +1,15 @@
+
+[PX4] 유효한 위치 데이터 수신 완료. T 키로 이륙할 수 있습니다.
+
+CLIENT_CONNECTED 127.0.0.1:46659
+LIVOX_SCANS=1 points=1 timebase=100000000 last_offset_ns=0
+CAMERA_FRAMES=1 size=2x2 encoding=rgb8
+RELAY_MESSAGES=1 points=1 bytes=12 frame=mid360
+IMU_SAMPLES=1 frame=mid360_imu
+LIVOX_SCANS=100 points=1 timebase=100000000 last_offset_ns=0
+LIVOX_SCANS=200 points=1 timebase=100000000 last_offset_ns=0
+
+Traceback (most recent call last):
+  File "/home/ljh/zenith_ws/simulator/tests/check_native_ros.py", line 102, in <module>
+    assert all(counts.get(k,0)>=5 for k in ('cloud','image','imu','livox')), counts
+AssertionError: {}

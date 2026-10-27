@@ -1,0 +1,45 @@
+{
+  "duration_s": 20.0,
+  "counts": {
+    "livox": 140,
+    "local": 1112,
+    "lio": 1238,
+    "imu": 2147,
+    "cloud": 278,
+    "camera": 277,
+    "ev": 569
+  },
+  "latest": {
+    "local": {
+      "xy_valid": true,
+      "z_valid": true,
+      "position": [
+        -0.02407027594745159,
+        -0.04013081267476082,
+        0.1512133628129959
+      ]
+    },
+    "ev": {
+      "position": [
+        -0.02412421815097332,
+        -0.03944575786590576,
+        0.15133196115493774
+      ],
+      "velocity": [
+        0.00046380626736208797,
+        0.003642808413133025,
+        0.0005511168856173754
+      ]
+    }
+  },
+  "nodes": [
+    "zav_runtime_observer",
+    "laserMapping",
+    "px4_gateway_cyclone",
+    "mid360_tcp_receiver",
+    "zav_flight_manager",
+    "zav_lio_px4_odom_bridge"
+  ],
+  "ev_publishers": 1,
+  "imu_publishers": 1
+}

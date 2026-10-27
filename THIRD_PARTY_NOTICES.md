@@ -10,7 +10,7 @@ This repository combines project-specific simulation changes with vendored sourc
 | Sophus | Hauke Strasdat and contributors; MIT notices are retained in the vendored headers. |
 | rpg_vikit | https://github.com/uzh-rpg/rpg_vikit and ROS 2 port contributors; existing attribution retained. The supplied ROS 2 port has incomplete package license metadata; verify upstream redistribution terms before wider distribution. |
 | PX4-Autopilot | https://github.com/PX4/PX4-Autopilot — BSD 3-Clause and component-specific terms; fetched at the locked commit. |
-| PegasusSimulator | https://github.com/PegasusSimulator/PegasusSimulator — BSD 3-Clause and asset-specific terms; fetched at the locked commit. Existing notices in overlays are retained. |
+| PegasusSimulator | https://github.com/PegasusSimulator/PegasusSimulator — BSD 3-Clause and asset-specific terms; source and assets vendored in simulator/pegasus, revision recorded in UPSTREAM.json. LICENSE and original copyright headers retained. |
 | Micro XRCE-DDS Agent | https://github.com/eProsima/Micro-XRCE-DDS-Agent — Apache 2.0 and dependency-specific terms; fetched at the locked commit. |
 | Isaac Sim | NVIDIA proprietary distribution; installed separately under NVIDIA terms. No Isaac binaries or installed environments are redistributed here. |
 

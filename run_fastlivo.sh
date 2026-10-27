@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-export ZAV_ENV_FILE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/simulation/environment.sh"
+export ZAV_ENV_FILE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/simulator/environment.sh"
 source "$ZAV_ENV_FILE"
-exec bash "$ZAV_WS_DIR/simulation/scripts/run_fastlivo.sh" "$@"
+exec bash "$ZAV_WS_DIR/simulator/tools/rviz/run_fastlivo.sh" rviz:=False camera:=False "$@"

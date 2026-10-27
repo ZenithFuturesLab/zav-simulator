@@ -29,5 +29,6 @@ if gh repo view "$REPO" --json isPrivate >/dev/null 2>&1; then
 else
     gh repo create "$REPO" --private --description 'ZAV GPS-free Isaac Sim 5.1.0 / PX4 / FAST-LIVO2 simulator' --source . --remote origin
 fi
-git push --set-upstream origin main
+branch=$(git symbolic-ref --quiet --short HEAD) || { echo 'Checkout a branch before publishing.' >&2; exit 1; }
+git push --set-upstream origin "$branch"
 gh repo view "$REPO" --json url,isPrivate,defaultBranchRef

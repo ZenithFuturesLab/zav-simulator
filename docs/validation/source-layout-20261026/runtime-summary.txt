@@ -1,0 +1,11 @@
+[Source] \\wsl.localhost\Ubuntu-22.04\home\ljh\zenith_ws\simulator\zav_sim.py
+[Source] Pegasus: \\wsl.localhost\Ubuntu-22.04\home\ljh\zenith_ws\simulator\pegasus\simulator\__init__.py
+[Source] PX4 backend: \\wsl.localhost\Ubuntu-22.04\home\ljh\zenith_ws\simulator\pegasus\simulator\logic\backends\px4_mavlink_backend.py
+[Rates] physics=160 Hz, render=20 Hz, RGB=20 Hz
+[SLAM scene] textured floor, four walls and four pillars; central area clear
+[Ready] �ʰ淮 ���� ��� �ùķ��̼� �� 3��Ī �� ���� ī�޶� �غ� �Ϸ�!
+INFO  [commander] Ready for takeoff!
+INFO  [commander] Armed by external command
+INFO  [commander] Takeoff detected
+INFO  [commander] Landing detected
+INFO  [commander] Disarmed by landing

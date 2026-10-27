@@ -1,0 +1,12 @@
+RELEASE_OK: source syntax, package XML, portable paths, effective profile, dry-run
+SOURCE_LAYOUT_OK: movable checkout, local Pegasus, assets, config, preserved rates; no deploy
+PASS: calibrated mount direction, IMU offset, camera size, packet timing, lines, duplicate rejection
+PASS: gravity, rotated mount/world, angular velocity, lever arm, scheduling, reset
+LOCKSTEP_OK: actuator delivery, bounded disarm/disconnect wait, non-actuator traffic, startup
+PASS ctrl-c: descendants reaped, all 3 TCP listeners released, lock reusable
+PASS ctrl-c: descendants reaped, all 3 TCP listeners released, lock reusable
+PASS hup: descendants reaped, all 3 TCP listeners released, lock reusable
+PASS term: descendants reaped, all 3 TCP listeners released, lock reusable
+PASS launch-exit: descendants reaped, all 3 TCP listeners released, lock reusable
+FASTLIVO_SHUTDOWN_OK: terminal Ctrl+C twice, HUP, TERM, launch failure/exit, duplicate rejection
+PLATFORMS_OK: native/WSL DDS, domain preservation, native interpreter, ABI isolation, exit propagation

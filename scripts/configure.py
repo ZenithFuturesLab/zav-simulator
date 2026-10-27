@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def arguments():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--platform', choices=['native', 'wsl'], required=True)
+    p.add_argument('--platform', choices=['native', 'wsl'], default='wsl' if 'microsoft' in Path('/proc/version').read_text().lower() else 'native')
     p.add_argument('--isaac-python', type=Path, help='Native Isaac python.sh or Isaac Python 3.11 venv executable')
     p.add_argument('--isaac-windows-python', type=Path, help='Windows python.bat path as /mnt/c/...')
     p.add_argument('--domain-id', type=int, default=0)
@@ -22,13 +22,19 @@ def arguments():
     a = p.parse_args()
     if not 0 <= a.domain_id <= 101: p.error('domain-id must be 0..101')
     exe = a.isaac_python if a.platform == 'native' else a.isaac_windows_python
+    if exe is None:
+        candidates = ([Path('/mnt/c/isaac-sim/python.bat'), Path('/mnt/c/issac-sim/python.bat')] if a.platform == 'wsl' else
+                      [Path.home()/x for x in ('isaacsim/python.sh', 'isaac-sim/python.sh', 'isaac_env/bin/python', 'isaacsim_env/bin/python')])
+        exe = next((x for x in candidates if x.is_file()), None)
+        if a.platform == 'wsl': a.isaac_windows_python = exe
+        else: a.isaac_python = exe
     if not exe or not exe.is_file(): p.error('Provide an existing Isaac Python executable for the selected platform')
     if a.platform == 'native' and not os.access(exe, os.X_OK): p.error('Isaac Python must be executable')
     return a
 
 def patch_px4(px4):
     airframes = px4 / 'ROMFS/px4fmu_common/init.d-posix/airframes'
-    shutil.copy2(ROOT/'simulation/px4/10020_isaac_zav', airframes/'10020_isaac_zav')
+    shutil.copy2(ROOT/'simulator/px4/10020_isaac_zav', airframes/'10020_isaac_zav')
     cmake = airframes/'CMakeLists.txt'
     text = cmake.read_text()
     if '10020_isaac_zav' not in text:
@@ -101,14 +107,13 @@ def main():
         source = source.replace('-DUCLIENT_ISOLATED_INSTALL:BOOL=ON', '-DUCLIENT_ISOLATED_INSTALL:BOOL=ON\n                -DUCLIENT_SUPERBUILD:BOOL=ON\n                -DUCLIENT_BUILD_MICROCDR:BOOL=ON')
     superbuild.write_text(source)
     patch_px4(ROOT/'src/PX4-Autopilot')
-    subprocess.run(['python3',str(ROOT/'simulation/deploy_sim.py'),'--home-dir',str(ROOT/'.cache/wrappers')],check=True)
     (ROOT/'.zav.env').write_text(''.join(f'export {k}={shlex.quote(v)}\n' for k,v in settings.items()))
     if not a.no_shell_integration:
         config = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home()/'.config')))/'zav/simulation.env'
         config.parent.mkdir(parents=True,exist_ok=True)
         if config.exists() and not config.with_suffix('.env.before-zav-simulator').exists():
             shutil.copy2(config, config.with_suffix('.env.before-zav-simulator'))
-        config.write_text('source '+shlex.quote(str(ROOT/'simulation/environment.sh'))+'\n')
+        config.write_text('source '+shlex.quote(str(ROOT/'simulator/environment.sh'))+'\n')
         for name in ('run_zav_sim.sh','run_fastlivo.sh','run_mid360_rviz.sh','run_isaac_sim.sh'):
             target=Path.home()/name
             if target.exists() and not target.with_suffix('.sh.before-zav-simulator').exists():
@@ -117,7 +122,7 @@ def main():
         bashrc = Path.home()/'.bashrc'
         text = bashrc.read_text() if bashrc.exists() else ''
         text = re.sub(r'\n# BEGIN ZAV SIMULATOR\n.*?# END ZAV SIMULATOR\n','\n',text,flags=re.S)
-        text += '\n# BEGIN ZAV SIMULATOR\nsource '+shlex.quote(str(ROOT/'simulation/ros_setup.sh'))+'\nalias zav_sim='+shlex.quote('bash '+shlex.quote(str(ROOT/'run_zav_sim.sh')))+'\n# END ZAV SIMULATOR\n'
+        text += '\n# BEGIN ZAV SIMULATOR\nsource '+shlex.quote(str(ROOT/'simulator/ros_setup.sh'))+'\nalias zav_sim='+shlex.quote('bash '+shlex.quote(str(ROOT/'run_zav_sim.sh')))+'\n# END ZAV SIMULATOR\n'
         bashrc.write_text(text)
     print('Configured:', json.dumps(settings,ensure_ascii=False))
 
