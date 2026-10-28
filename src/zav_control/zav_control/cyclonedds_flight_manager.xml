@@ -5,7 +5,7 @@
       <AllowMulticast>false</AllowMulticast>
       <Transport>tcp</Transport>
     </General>
-    <Discovery><Peers><Peer Address="127.0.0.1:17449" /></Peers></Discovery>
+    <Discovery><Peers><Peer Address="127.0.0.1:17449" /><Peer Address="127.0.0.1:17451" /></Peers></Discovery>
     <TCP><Port>17450</Port></TCP>
   </Domain>
 </CycloneDDS>

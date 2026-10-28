@@ -1,0 +1,73 @@
+{
+  "profile": {
+    "normal_EKF2_BARO_CTRL": 0,
+    "failsafe_EKF2_BARO_CTRL": 1,
+    "EKF2_GPS_CTRL": 0,
+    "EKF2_HGT_REF": 3,
+    "EKF2_EV_CTRL": 15
+  },
+  "environment": "Actual PX4 SITL + Isaac Full Warehouse + FAST-LIVO2; about 2 m hover",
+  "cases": [
+    {
+      "fault": "normal",
+      "result": "PASS",
+      "normal_baro_off_verified": true,
+      "baro_activation_seconds": null,
+      "final_baro_parameter_value": 0,
+      "final_baro_fusion_enabled": false,
+      "activation_timed_out": false,
+      "landing_seconds_approx": 7.078527031000704,
+      "landing_modes": [
+        "AUTO_LAND"
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "final_ground_height_error_m": -1.9897939379509566e-08,
+      "horizontal_displacement_during_landing_m": 0.003475849709404232,
+      "landing_complete": true,
+      "telemetry": "baro-switch-normal.jsonl"
+    },
+    {
+      "fault": "position-step",
+      "result": "PASS",
+      "normal_baro_off_verified": true,
+      "baro_activation_seconds": 0.6082716660021106,
+      "final_baro_parameter_value": 1,
+      "final_baro_fusion_enabled": true,
+      "activation_timed_out": false,
+      "landing_seconds_approx": 8.848833085008664,
+      "landing_modes": [
+        "OFFBOARD",
+        "AUTO_LAND",
+        "DESCEND"
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "final_ground_height_error_m": 0.0,
+      "horizontal_displacement_during_landing_m": 0.12417868817266939,
+      "landing_complete": true,
+      "telemetry": "baro-switch-position.jsonl"
+    },
+    {
+      "fault": "attitude-step",
+      "result": "PASS",
+      "normal_baro_off_verified": true,
+      "baro_activation_seconds": 0.7064106309990166,
+      "final_baro_parameter_value": 1,
+      "final_baro_fusion_enabled": true,
+      "activation_timed_out": false,
+      "landing_seconds_approx": 9.000419827003498,
+      "landing_modes": [
+        "OFFBOARD",
+        "AUTO_LAND",
+        "DESCEND"
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "final_ground_height_error_m": 1.0038475495299792e-08,
+      "horizontal_displacement_during_landing_m": 0.03283198001800471,
+      "landing_complete": true,
+      "telemetry": "baro-switch-attitude.jsonl"
+    }
+  ]
+}

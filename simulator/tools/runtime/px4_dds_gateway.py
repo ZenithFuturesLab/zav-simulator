@@ -19,6 +19,8 @@ ROUTES = [
     ("VehicleLocalPosition", "/fmu/out/vehicle_local_position", "fast"),
     ("VehicleOdometry", "/fmu/out/vehicle_odometry", "fast"),
     ("VehicleCommandAck", "/fmu/out/vehicle_command_ack", "fast"),
+    ("VehicleLandDetected", "/fmu/out/vehicle_land_detected", "fast"),
+    ("EstimatorAidSource1d", "/fmu/out/estimator_aid_src_baro_hgt", "fast"),
     ("OffboardControlMode", "/fmu/in/offboard_control_mode", "cyclone"),
     ("TrajectorySetpoint", "/fmu/in/trajectory_setpoint", "cyclone"),
     ("VehicleCommand", "/fmu/in/vehicle_command", "cyclone"),

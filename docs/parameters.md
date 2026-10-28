@@ -25,6 +25,13 @@ PX4 펌웨어 기본값 → SITL 시작 설정 → `10020_isaac_zav` airframe �
 | MPC_VEL_MANUAL | 12.0 |
 | MPC_MAN_Y_MAX | 30.0 |
 
+GPS는 계속 비활성화합니다. 정상 비행은 외부 odometry와 IMU로 높이를 추정하며,
+기압계 센서 측정은 유지하되 융합은 끕니다(`EKF2_BARO_CTRL=0`).
+점프 검출 시 MAVLink 파라미터 전환기가 값을 1로 바꾸고 실제 융합·수직 상태를 확인한 뒤 착륙을 요청합니다.
+`EKF2_HGT_REF=3`은 유지하고, EV 중단 후 PX4 내부 높이 기준 fallback을 사용합니다.
+새 SITL 부팅에서는 과거 failsafe가 저장한 1을 0으로 강제 초기화합니다.
+PX4 v1.14에서 `COM_OBL_RC_ACT=4`는 Land, 5는 Hold입니다.
+
 기타 MPC 설정과 기체 자세·각속도 제어, 모터 배치, hover thrust 등은 `simulator/px4/10020_isaac_zav`를 확인하세요. `simulator/current_ekf_mpc.params`는 그 파일의 EKF/MPC 기본값만 추출한 참고용 파일이며 자동 import하는 별도 입력은 아닙니다.
 
 기존 설치에 저장된 값이 있으면 최종값이 다를 수 있습니다. 실행 중 PX4 상단 콘솔에서 확인하고 전체 유효값을 내보냅니다.

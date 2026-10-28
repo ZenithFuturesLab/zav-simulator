@@ -77,6 +77,49 @@ ros2 run zav_control flight_manager
 
 FAST-LIVO는 실행한 터미널에서 Ctrl+C로 종료합니다. `[FAST-LIVO] All owned processes stopped`가 출력된 뒤 재실행하세요. 실행기가 만든 mapper·LIO bridge·relay를 정리한 후 재실행 잠금을 해제합니다. RViz가 먼저 실행해 소유한 공유 relay는 유지합니다. 잠금 파일을 직접 삭제하지 마세요. 이전 mapper가 남아 있으면 새 실행을 거부하고 PID를 표시합니다.
 
+## LIO 이상 감시와 착륙
+
+`./run_fastlivo.sh`는 짧은 측정 간격에서 위치·자세가 갑자기 튀는 운동 연속성만 감시합니다.
+정상 비행에서는 기압계 융합을 끄고, 점프 확정 시 odometry와 외부 setpoint를 차단한 뒤
+기압계 융합을 켜고 실제 융합·수직 상태를 확인해 PX4에 착륙을 요청합니다.
+수신 지연·긴 측정 간격·LiDAR 보정 신선도·EKF2 융합 상태는 착륙 발동 기준에서 제거했습니다.
+기본 임계값, 긴 간격의 비교 생략, 위치/자세 점프 실험 및 높이 추정 의존성은
+[LIO safety 실험 안내](docs/lio-safety.md)를 확인하세요.
+
+## FAST-LIVO odometry CSV 저장
+
+시뮬레이터와 `./run_fastlivo.sh`를 실행한 상태에서 별도 터미널로 실행합니다.
+
+```bash
+./record_odometry.sh
+# 저장 경로 지정
+./record_odometry.sh --output log/odometry/flight.csv
+# IMU 전파 odometry를 저장할 경우
+./record_odometry.sh --topic /LIVO2/imu_propagate
+```
+
+기본 토픽은 `/aft_mapped_to_init`, 기본 파일은 `log/odometry/fastlivo_날짜_시간.csv`입니다.
+Ctrl+C로 저장을 종료합니다. 기존 파일은 덮어쓰지 않으며 수신한 행마다 flush합니다.
+CSV에는 메시지의 측정 시각(`stamp_sec`, `stamp_nanosec`, `timestamp_s`), 프레임,
+위치(m), 자세 쿼터니언(x/y/z/w), 선속도(m/s), 각속도(rad/s)를 기록합니다.
+좌표 변환 없이 원본 값을 저장하므로 pose는 `frame_id`, twist는 `child_frame_id` 기준입니다.
+시뮬레이션의 측정 시각은 실제 날짜/시간과 다릅니다. 각속도는 발행된 값 그대로이며,
+FAST-LIVO에서 채우지 않은 필드는 0일 수 있습니다. 기록기를 실행한 뒤 수신한 메시지만 저장합니다.
+
+CSV를 저장하는 동안 별도 터미널에서 실시간 그래프를 실행할 수 있습니다. ROS 환경 설정은 필요 없습니다.
+
+```bash
+python3 simulator/tools/runtime/plot_odometry.py
+# 파일을 직접 지정하거나 갱신 간격(ms)과 표시할 최대 샘플 수 조정
+python3 simulator/tools/runtime/plot_odometry.py log/odometry/flight.csv --interval 200 --max-points 10000
+```
+
+파일을 생략하면 가장 최근 `fastlivo_*.csv`를 선택한 뒤 해당 파일을 계속 읽습니다.
+위치 XYZ, 자세 roll/pitch/yaw(도), 선속도 XYZ, XYZ 3차원 궤적을 표시합니다.
+3차원 궤적은 마우스로 드래그해 회전할 수 있으며 세 축의 거리 비율을 동일하게 유지합니다.
+시간축은 첫 메시지 기준 측정 경과 시간이며, 자세는 쿼터니언에서 ZYX Euler로 변환합니다.
+matplotlib이 없으면 `sudo apt install python3-matplotlib`로 설치합니다. 그래프 창을 닫으면 종료됩니다.
+
 ## 개발할 때
 
 ```text

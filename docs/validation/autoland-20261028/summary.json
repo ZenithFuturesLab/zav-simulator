@@ -1,0 +1,87 @@
+{
+  "environment": "Isaac Sim Full Warehouse + real PX4 SITL + FAST-LIVO2, approximately 2 m hover",
+  "parameters": {
+    "EKF2_GPS_CTRL": 0,
+    "EKF2_EV_CTRL": 15,
+    "EKF2_HGT_REF": 3,
+    "EKF2_BARO_CTRL": 1
+  },
+  "fix": "Keep barometric height aiding active when the safety gate stops external odometry.",
+  "cases": [
+    {
+      "case": "normal",
+      "result": "PASS",
+      "telemetry": "autoland-normal-default.jsonl",
+      "landing_to_completion_wall_seconds_approx": 7.1,
+      "landing_mode_sequence": [
+        "AUTO_LAND"
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "ground_truth_height_error_m": 3.1660576382819272e-09,
+      "horizontal_displacement_during_landing_m": 0.022421033415921325,
+      "safety_latched": false,
+      "safety_reasons": [],
+      "safety_landing_complete": "not required for manual Land command",
+      "local_altitude_invalid_seen": false,
+      "post_disarm_nav_state": "AUTO_LAND"
+    },
+    {
+      "case": "position-step",
+      "result": "PASS",
+      "telemetry": "autoland-position-repeat.jsonl",
+      "landing_to_completion_wall_seconds_approx": 6.78,
+      "landing_mode_sequence": [
+        "AUTO_LAND",
+        "DESCEND"
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "ground_truth_height_error_m": 2.119721836946198e-08,
+      "horizontal_displacement_during_landing_m": 0.040920091192788756,
+      "safety_latched": true,
+      "safety_reasons": [
+        "position_residual"
+      ],
+      "safety_landing_complete": true,
+      "local_altitude_invalid_seen": false,
+      "post_disarm_nav_state": "OFFBOARD"
+    },
+    {
+      "case": "attitude-step",
+      "result": "PASS",
+      "telemetry": "autoland-attitude-after.jsonl",
+      "landing_to_completion_wall_seconds_approx": 7.62,
+      "landing_mode_sequence": [
+        "AUTO_LAND",
+        "DESCEND"
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "ground_truth_height_error_m": 1.9956221480876835e-08,
+      "horizontal_displacement_during_landing_m": 0.039333893480008,
+      "safety_latched": true,
+      "safety_reasons": [
+        "attitude_residual"
+      ],
+      "safety_landing_complete": true,
+      "local_altitude_invalid_seen": false,
+      "post_disarm_nav_state": "OFFBOARD"
+    }
+  ],
+  "before_fix": {
+    "case": "position-step, baro disabled",
+    "observed_result": "TERMINATION, still armed, landing incomplete",
+    "flags": {
+      "local_position_invalid": true,
+      "local_altitude_invalid": true,
+      "attitude_invalid": false,
+      "offboard_control_signal_lost": true,
+      "battery_warning": 0
+    },
+    "safety_reasons": [
+      "position_residual"
+    ]
+  },
+  "additional_observation": "A separate warm-restart normal-Land run detected a spontaneous 0.65 m LIO position discontinuity. It landed/disarmed, but is not counted as a clean normal-flight pass. Fresh-start normal mode passed separately."
+}

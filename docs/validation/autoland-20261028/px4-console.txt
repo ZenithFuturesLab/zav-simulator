@@ -1,0 +1,102 @@
+px4 starting.
+
+INFO  [px4] startup script: /bin/sh etc/init.d-posix/rcS 0
+env SYS_AUTOSTART: 10020
+INFO  [param] selected parameter default file parameters.bson
+INFO  [param] importing from 'parameters.bson'
+INFO  [parameters] BSON document size 552 bytes, decoded 552 bytes (INT32:19, FL
+OAT:8)
+INFO  [param] selected parameter backup file parameters_backup.bson
+INFO  [dataman] data manager file './dataman' size is 7866640 bytes
+etc/init.d-posix/rcS: 39: [: Illegal number:
+INFO  [init] PX4_SIM_HOSTNAME: localhost
+INFO  [simulator_mavlink] using TCP on remote host localhost port 4560
+WARN  [simulator_mavlink] Please ensure port 4560 is not blocked by a firewall.
+INFO  [simulator_mavlink] Resolved host 'localhost' to address: 127.0.0.1
+INFO  [simulator_mavlink] Waiting for simulator to accept connection on TCP port
+ 4560
+INFO  [simulator_mavlink] Simulator connected on TCP port 4560.
+INFO  [lockstep_scheduler] setting initial absolute time to 6250 us
+INFO  [commander] LED: open /dev/led0 failed (22)
+INFO  [uxrce_dds_client] synchronized with time offset 1793161801890563us
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/failsafe_flags data wri
+ter, topic id: 80
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/position_setpoint_tripl
+et data writer, topic id: 149
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/sensor_combined data wr
+iter, topic id: 168
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/timesync_status data wr
+iter, topic id: 191
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_control_mode da
+ta writer, topic id: 212
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_gps_position da
+ta writer, topic id: 215
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_local_position
+data writer, topic id: 219
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_odometry data w
+riter, topic id: 224
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_status data wri
+ter, topic id: 229
+INFO  [mavlink] mode: Normal, data rate: 4000000 B/s on udp port 18570 remote po
+rt 14550
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_land_detected d
+ata writer, topic id: 218
+INFO  [mavlink] partner IP: 127.0.0.1
+INFO  [mavlink] mode: Onboard, data rate: 4000000 B/s on udp port 14580 remote p
+ort 14540
+INFO  [mavlink] mode: Onboard, data rate: 4000 B/s on udp port 14280 remote port
+ 14030
+INFO  [mavlink] mode: Gimbal, data rate: 400000 B/s on udp port 13030 remote por
+t 13280
+INFO  [logger] logger started (mode=all)
+INFO  [logger] Start file log (type: full)
+INFO  [logger] [logger] ./log/2026-10-28/04_30_02.ulg
+INFO  [logger] Opened full log file: ./log/2026-10-28/04_30_02.ulg
+INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to en
+able network)
+INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to en
+able network)
+INFO  [px4] Startup script returned successfully
+pxh> INFO  [tone_alarm] home set
+INFO  [tone_alarm] notify negative
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_command_ack dat
+a writer, topic id: 210
+INFO  [tone_alarm] notify negative
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_attitude data w
+riter, topic id: 206
+INFO  [uxrce_dds_client] successfully created rt/fmu/out/vehicle_global_position
+ data writer, topic id: 213
+INFO  [tone_alarm] notify negative
+INFO  [commander] Ready for takeoff!
+INFO  [commander] Armed by external command
+INFO  [tone_alarm] arming warning
+INFO  [commander] Takeoff detected
+INFO  [tone_alarm] notify negative
+INFO  [tone_alarm] notify negative
+INFO  [commander] Landing at current position
+INFO  [commander] Landing detected
+INFO  [commander] Disarmed by landing
+INFO  [tone_alarm] notify neutral
+INFO  [logger] closed logfile, bytes written: 3746438
+INFO  [tone_alarm] notify negative
+pxh> param show EKF2_BARO_CTRL
+Symbols: x = used, + = saved, * = unsaved
+x   EKF2_BARO_CTRL [318,520] : 1
+
+ 852/1632 parameters used.
+pxh> param show EKF2_HGT_REF
+Symbols: x = used, + = saved, * = unsaved
+x   EKF2_HGT_REF [363,565] : 3
+
+ 852/1632 parameters used.
+pxh> param show EKF2_GPS_CTRL
+Symbols: x = used, + = saved, * = unsaved
+x   EKF2_GPS_CTRL [347,549] : 0
+
+ 852/1632 parameters used.
+pxh> param show EKF2_EV_CTRL
+Symbols: x = used, + = saved, * = unsaved
+x   EKF2_EV_CTRL [335,537] : 15
+
+ 852/1632 parameters used.
+pxh>

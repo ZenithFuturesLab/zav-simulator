@@ -44,6 +44,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPo
 
 # ROS 2 표준 메시지
 from geometry_msgs.msg import Twist, PoseStamped
+from std_msgs.msg import Bool
 
 # PX4 uORB 메시지 인터페이스
 from px4_msgs.msg import (
@@ -214,6 +215,9 @@ class ZAVFlightManager(Node):
         self.manual_hold = None
         self.manual_z_hold = None
         self.setpoints_enabled = True
+        self.lio_safety_latched = False
+        self.lio_safety_ready = None
+        self.lio_safety_rx = None
 
         # 비행 모드 (1: MANUAL, 2: OFFBOARD_TRAJ)
         self.flight_mode = "MANUAL"
@@ -310,6 +314,12 @@ class ZAVFlightManager(Node):
         # [ZAV 변경] 고정된 PX4 v1.14.3/px4_msgs의 실제 토픽만 구독합니다. 이름만 _v1/_v4로 바꿔도 ABI는 호환되지 않습니다.
         self.status_sub = self.create_subscription(VehicleStatus, '/fmu/out/vehicle_status', self._status_cb, qos_feedback)
         self.local_pos_sub = self.create_subscription(VehicleLocalPosition, '/fmu/out/vehicle_local_position', self._pos_cb, qos_feedback)
+        safety_qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
+                                durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.create_subscription(Bool, '/zav/lio_safety/land_requested',
+                                 self._lio_safety_cb, safety_qos)
+        self.create_subscription(Bool, '/zav/lio_safety/ready',
+                                 self._lio_ready_cb, safety_qos)
 
         # 상위 플래너 외부 입력 인터페이스
         # 1. 위치 목표 (Position Command / Goal Pose)
@@ -327,6 +337,23 @@ class ZAVFlightManager(Node):
     # --------------------------------------------------------------------------
     # 센서 및 상태 피드백 콜백
     # --------------------------------------------------------------------------
+    def _lio_ready_cb(self, msg):
+        self.lio_safety_ready = bool(msg.data)
+        self.lio_safety_rx = time.monotonic()
+
+    def _lio_safety_cb(self, msg):
+        if not msg.data or self.lio_safety_latched:
+            return
+        self.lio_safety_latched = True
+        self.setpoints_enabled = False
+        self.is_flying = self.is_taking_off = False
+        self.ext_goal_pose = self.ext_cmd_vel = None
+        self.des_vx_body = self.cmd_vx_body = 0.0
+        self.des_vy_body = self.cmd_vy_body = 0.0
+        self.des_vz_ned = self.cmd_vz_ned = 0.0
+        self.des_yaw_rate = self.cmd_yaw_rate = 0.0
+        print('\r\n[LIO FAILSAFE] 착륙 요청: 외부 setpoint와 재이륙 차단. 지상에서 노드 재시작 필요.\r\n')
+
     def _status_cb(self, msg: VehicleStatus):
         self.is_armed = (msg.arming_state == VehicleStatus.ARMING_STATE_ARMED)
         self.nav_state = msg.nav_state
@@ -468,7 +495,8 @@ class ZAVFlightManager(Node):
         # NAV_LAND owns trajectory_setpoint during landing. External setpoints
         # otherwise overwrite PX4's descent command and prevent ground detection.
         if not self.setpoints_enabled:
-            self.publish_offboard_mode()
+            if not self.lio_safety_latched:
+                self.publish_offboard_mode()
             return
 
         # 최신 키보드 입력 폴링
@@ -695,8 +723,15 @@ class ZAVFlightManager(Node):
 
     def update_teleop(self, key: str) -> bool:
         now = time.time()
+        # Preserve explicit emergency stop/exit, but never resume offboard after a latch.
+        if self.lio_safety_latched and key not in ('e', 'E', 'q', 'Q', '\x03'):
+            return True
 
         if key in ('t', 'T'):
+            if (self.lio_safety_ready is False or
+                    (self.lio_safety_rx is not None and time.monotonic() - self.lio_safety_rx > 1.0)):
+                print('\r\n이륙 대기: LIO safety가 READY가 아닙니다. /zav/lio_safety/status 확인.\r\n')
+                return True
             if not self.position_ready or time.monotonic() - self.last_position_time > 1.0:
                 if self.last_position_time == 0.0:
                     reason = "PX4 위치 메시지 미수신 — 시뮬레이터의 DDS 게이트웨이를 확인하세요."

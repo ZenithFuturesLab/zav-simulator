@@ -14,6 +14,8 @@ cmake --build build/agent --parallel "$JOBS"
 python3 scripts/check_agent_dependencies.py
 cmake --install build/agent
 # Keep the initial PX4 build before any user-generated parameter/log data.
+python3 scripts/configure_lio_safety_dds.py
+cp simulator/px4/10020_isaac_zav src/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/airframes/10020_isaac_zav
 make -C src/PX4-Autopilot -j"$JOBS" px4_sitl_default
 # Agent's private Fast CDR 2.x must not replace Humble's Fast CDR 1.x.
 # CMake also searches prefixes derived from PATH (.local/bin), not only CMAKE_PREFIX_PATH.

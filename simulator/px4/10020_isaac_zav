@@ -67,7 +67,7 @@ param set CBRK_SUPPLY_CHK 894281
 #    - NAV_DLL_ACT 0: Data Link Loss 페일세이프 비활성화
 #    - COM_RCL_EXCEPT 7: Mission/Auto/Offboard 모드에서 RC 미연결 예외 허용
 #    - COM_OF_LOSS_T 5.0: Offboard 신호 타임아웃 여유 시간 5초로 확대
-#    - COM_OBL_RC_ACT 4: Offboard 신호 종료 시 수동 PosCtrl(Nav state 2 에러) 대신 제자리 호버링(Hold=4) 유지
+#    - COM_OBL_RC_ACT 4: Offboard 신호 종료 시 Land (PX4 v1.14: Hold는 5)
 param set NAV_RCL_ACT 0
 param set NAV_DLL_ACT 0
 param set COM_RCL_EXCEPT 7
@@ -86,7 +86,10 @@ param set-default EKF2_EVP_NOISE 0.08
 param set-default EKF2_EVV_NOISE 0.10
 param set-default EKF2_EVA_NOISE 0.10
 param set-default EKF2_HGT_REF 3
-param set-default EKF2_BARO_CTRL 0
+# Normal flight uses EV/IMU height only. The safety parameter bridge enables
+# baro on a latched odometry jump and confirms actual fusion before landing.
+# Override a saved 1 left by a previous failsafe when starting a new SITL run.
+param set EKF2_BARO_CTRL 0
 param set-default MPC_XY_P 0.65
 param set-default MPC_XY_VEL_P_ACC 4.0
 param set-default MPC_XY_VEL_I_ACC 0.15

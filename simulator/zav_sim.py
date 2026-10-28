@@ -243,6 +243,17 @@ class ZAVPlaneApp:
         )
         print("[LiDAR] PointCloud2: /drone0/mid360/pointcloud (frame: mid360)")
 
+        # True mounted-IMU pose, in the same simulation clock as FAST-LIVO input.
+        from nav_msgs.msg import Odometry
+        self._truth_type = Odometry
+        self._truth_node = rclpy.create_node("zav_ground_truth")
+        self._truth_pub = self._truth_node.create_publisher(
+            Odometry, "/drone0/ground_truth/odometry", 100)
+        self._imu_offset = np.asarray(MID360_IMU_CONFIG["position"])
+        self._imu_rotation = Rotation.from_euler(
+            "ZYX", MID360_IMU_CONFIG["orientation"], degrees=True)
+
+
         # 5. 3인칭 추적 카메라(Chase Camera) 및 마우스 스크롤 줌(Zoom) 설정
         #    - cam_dist_back: 기본 드론 후방 거리 (2.0 m)
         #    - cam_height_up: 기본 드론 상단 높이 오프셋 (0.65 m)
@@ -322,11 +333,36 @@ class ZAVPlaneApp:
 
         self.pg.set_viewport_camera(cam_eye.tolist(), cam_target.tolist())
 
+    def publish_ground_truth(self):
+        state = self.drone.state
+        rotation = Rotation.from_quat(state.attitude)
+        position = np.asarray(state.position) + rotation.apply(self._imu_offset)
+        attitude = (rotation * self._imu_rotation).as_quat()
+        msg = self._truth_type()
+        stamp_ns = round(float(self.world.current_time) * 1e9)
+        msg.header.stamp.sec, msg.header.stamp.nanosec = divmod(stamp_ns, 1_000_000_000)
+        msg.header.frame_id = "isaac_world"
+        msg.child_frame_id = "mid360_imu"
+        for axis, value in zip(("x", "y", "z"), position):
+            setattr(msg.pose.pose.position, axis, float(value))
+        for axis, value in zip(("x", "y", "z", "w"), attitude):
+            setattr(msg.pose.pose.orientation, axis, float(value))
+        # Twist is expressed in the mounted IMU frame (Odometry convention).
+        velocity = np.asarray(state.linear_velocity) + rotation.apply(
+            np.cross(state.angular_velocity, self._imu_offset))
+        imu_world = rotation * self._imu_rotation
+        for axis, value in zip(("x", "y", "z"), imu_world.inv().apply(velocity)):
+            setattr(msg.twist.twist.linear, axis, float(value))
+        for axis, value in zip(("x", "y", "z"), self._imu_rotation.inv().apply(state.angular_velocity)):
+            setattr(msg.twist.twist.angular, axis, float(value))
+        self._truth_pub.publish(msg)
+
     def run(self):
         """시뮬레이션 메인 루프 (물리 스텝 및 렌더링 갱신)"""
         self.timeline.play()
         while simulation_app.is_running():
             self.world.step(render=True)
+            self.publish_ground_truth()
             self.update_chase_camera()
         
         self.timeline.stop()

@@ -27,6 +27,8 @@ from rclpy.utilities import remove_ros_args
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from zav_control.lio_safety_ros import LioSafetyROS, add_safety_arguments
+from zav_control.lio_safety import SafetyConfig
 
 
 def stamp_us(stamp):
@@ -104,6 +106,7 @@ class LioPx4Bridge(Node):
                           nonmonotonic=0, jumps=0, bad_frame=0,
                           future=0, invalid=0)
         self.last_warning_mono = 0.0
+        self.safety = LioSafetyROS(self, args) if args.safety else None
 
         qos = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10,
                          reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -156,6 +159,9 @@ class LioPx4Bridge(Node):
 
     def on_odom(self, odom):
         self.stats["rx"] += 1
+        # Inspect every input before bridge rate limiting/coordinate conversion.
+        if self.safety is not None and not self.safety.allow_forward(odom):
+            return
         if odom.header.frame_id != "camera_init" or odom.child_frame_id != "aft_mapped":
             self.stats["bad_frame"] += 1
             self.warn("Unexpected frame_id / child_frame_id; blocking publication")
@@ -233,7 +239,9 @@ class LioPx4Bridge(Node):
             if not all(math.isfinite(v) for v in position + q):
                 raise ValueError("Non-finite LIO pose")
 
-            if self.last_input_pos is not None:
+            # Safety mode already applies a velocity/Δt-aware gate. The legacy
+            # per-message distance limit would reject valid motion across gaps.
+            if self.last_input_pos is not None and self.safety is None:
                 d = math.dist(position, self.last_input_pos)
                 if d > self.args.max_position_step_m:
                     self.stats["jumps"] += 1
@@ -332,8 +340,19 @@ def main(args=None):
     parser.add_argument("--max-lio-age-ms", type=float, default=250.0)
     parser.add_argument("--max-imu-age-ms", type=float, default=100.0)
     parser.add_argument("--max-position-step-m", type=float, default=1.0)
+    add_safety_arguments(parser)
     ros_args = args
     args = parser.parse_args(remove_ros_args(args=ros_args)[1:])
+    args.safety_odom_topic = args.safety_odom_topic or args.odom_topic
+    if args.safety:
+        try:
+            SafetyConfig(position_slack=args.safety_position_slack,
+                         angle_slack=math.radians(args.safety_angle_slack_deg),
+                         prediction_horizon=args.safety_prediction_horizon)
+        except ValueError as exc:
+            parser.error(str(exc))
+        if not (1 <= args.safety_source_system <= 255 and 1 <= args.safety_source_component <= 255):
+            parser.error('safety source system/component must be 1..255')
     if args.publish and not args.assume_enu_flu:
         parser.error("--publish requires --assume-enu-flu after frame/extrinsic verification")
     if not (5 <= args.hz <= 100):

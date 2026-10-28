@@ -8,6 +8,7 @@ import re
 import shlex
 import shutil
 import subprocess
+from configure_lio_safety_dds import configure as configure_lio_safety_dds
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,6 +34,7 @@ def arguments():
     return a
 
 def patch_px4(px4):
+    configure_lio_safety_dds(px4)
     airframes = px4 / 'ROMFS/px4fmu_common/init.d-posix/airframes'
     shutil.copy2(ROOT/'simulator/px4/10020_isaac_zav', airframes/'10020_isaac_zav')
     cmake = airframes/'CMakeLists.txt'
