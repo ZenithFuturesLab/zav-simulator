@@ -53,6 +53,7 @@ cd ~/zenith_ws
 | UDP 8888, WSL 내부 | PX4 ↔ Micro XRCE-DDS Agent |
 | TCP 17441, 17443, 17444, 17445 | Windows 센서 → WSL relay: pointcloud, camera, IMU, Livox |
 | TCP 17442, 17446, 17449, 17450, 17451, WSL loopback | Cyclone DDS 센서·mapper·PX4 gateway·flight manager·LIO bridge |
+| TCP 17452, WSL loopback | LIO safety 실험 relay: 별도 trigger가 직접 발견하는 고정 peer |
 
 WSL ROS 그래프는 Cyclone TCP를 사용하고 PX4 Agent 쪽 Fast DDS와 별도 프로세스 gateway로 연결합니다. gateway는 상태·명령뿐 아니라 `SensorCombined`, `TimesyncStatus`, `vehicle_visual_odometry`도 전달합니다. ROS domain ID는 양쪽 실행기에 동일하게 전달됩니다.
 

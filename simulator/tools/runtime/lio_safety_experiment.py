@@ -8,6 +8,7 @@ import argparse
 import copy
 import json
 import math
+import os
 from pathlib import Path
 import time
 
@@ -27,6 +28,8 @@ def main():
     trigger.add_argument('--duration', type=float, default=3.0)
     trigger.add_argument('--observe', type=float, default=30.0,
                          help='Maximum time to wait for landing completion')
+    trigger.add_argument('--discovery-timeout', type=float, default=10.0,
+                         help='Seconds to discover the experiment relay and safety status')
     trigger.add_argument('--log', type=Path, help='Optional new JSONL experiment log')
     trigger.add_argument('--expect', choices=('landing', 'no-failsafe'), default='landing',
                          help='Expected outcome; no-failsafe checks transient-fault recovery')
@@ -34,8 +37,19 @@ def main():
     if ros_args and ros_args[0] != '--ros-args':
         parser.error('Unknown arguments: ' + ' '.join(ros_args))
     if args.command == 'trigger' and (not math.isfinite(args.duration) or not 0 < args.duration <= 30
-                                      or not math.isfinite(args.observe) or args.observe <= 0):
-        parser.error('duration must be in (0, 30], observe must be positive')
+                                      or not math.isfinite(args.observe) or args.observe <= 0
+                                      or not math.isfinite(args.discovery_timeout)
+                                      or args.discovery_timeout <= 0):
+        parser.error('duration must be in (0, 30], observe and discovery-timeout must be positive')
+
+    # TCP without multicast needs a direct discovery peer for the relay itself.
+    # Its old ephemeral listener was invisible to a separate trigger process.
+    # Select before importing/initializing ROS; leave native Fast DDS unchanged.
+    if os.environ.get('ZAV_ROS_TRANSPORT') == 'cyclone_tcp':
+        profile = ('cyclonedds_experiment_relay.xml' if args.command == 'relay'
+                   else 'cyclonedds_experiment_trigger.xml')
+        os.environ['CYCLONEDDS_URI'] = (
+            Path(__file__).resolve().parents[1] / 'rviz' / profile).as_uri()
 
     import rclpy
     from nav_msgs.msg import Odometry
@@ -102,13 +116,18 @@ def main():
                                   durability=DurabilityPolicy.TRANSIENT_LOCAL)
             node.create_subscription(String, '/zav/lio_safety/status', status, retained)
             pub = node.create_publisher(String, PREFIX + 'command', 10)
-            deadline = time.monotonic() + 5
+            deadline = time.monotonic() + args.discovery_timeout
             while time.monotonic() < deadline and (
                     pub.get_subscription_count() == 0 or observed['status'] is None):
                 rclpy.spin_once(node, timeout_sec=0.05)
             health = observed['status']
-            if pub.get_subscription_count() == 0 or health is None:
-                parser.exit(1, 'No experiment relay/safety monitor. Launch safety_experiment:=True first.\n')
+            if pub.get_subscription_count() == 0:
+                parser.exit(1, 'Experiment relay not discovered on /zav/lio_safety/test/command. '
+                            'Start/restart FAST-LIVO with safety_experiment:=True. '
+                            'WSL Cyclone TCP relay must listen on port 17452.\n')
+            if health is None:
+                parser.exit(1, 'Safety status not received on /zav/lio_safety/status. '
+                            'Check the safety-enabled lio_px4_bridge (WSL TCP port 17451).\n')
             if not health['armed'] or not health['ready']:
                 parser.exit(1, 'Fault refused: simulator must be armed and safety READY. Hover first.\n')
             started = time.monotonic()

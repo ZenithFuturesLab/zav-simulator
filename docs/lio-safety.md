@@ -126,6 +126,14 @@ ros2 topic echo /zav/lio_safety/status
   --log log/lio_position_step.jsonl
 ```
 
+WSL2의 `cyclone_tcp` 전송에서는 relay가 고정 TCP **17452**를 사용합니다.
+trigger는 relay **17452**와 safety bridge **17451**에 직접 연결하며, 명령에 따라
+전용 DDS XML을 자동 선택합니다. 별도 `CYCLONEDDS_URI` 설정은 필요 없습니다.
+이 변경 전에 켜 둔 relay는 임의 포트를 사용하므로, 착륙 후 FAST-LIVO를 종료하고
+위 명령으로 다시 실행해야 합니다. Python/XML 변경이라 재빌드는 필요 없습니다.
+기본 발견 대기는 10초이며 `--discovery-timeout`으로 조정할 수 있습니다.
+relay 발견 실패와 safety 상태 미수신은 서로 다른 오류로 표시합니다.
+
 - `position-step`: X에 +3 m를 순간 추가합니다.
 - `attitude-step`: world yaw에 +90°를 순간 추가합니다.
 
