@@ -116,6 +116,8 @@ class Win32MultiKeyReader:
         self._proc = None
         self._pipe_fd = None
         self._recv_buf = b""
+        self._last_rx = 0.0
+        self._stale_after = 0.25
 
         ps_exe = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
         if os.environ.get("ZAV_SIM_PLATFORM") != "native" and os.path.exists(ps_exe):
@@ -157,17 +159,24 @@ class Win32MultiKeyReader:
     def poll_latest(self):
         """파이프에 쌓인 버퍼를 모두 비우고 최신 키 상태만 추출"""
         if self._pipe_fd is None:
+            self.key_mask = 0
+            self.active = False
             return 0
         try:
             while True:
                 data = os.read(self._pipe_fd, 4096)
                 if not data:
-                    break
+                    self.key_mask = 0
+                    self.active = False
+                    self._recv_buf = b""
+                    return 0
                 self._recv_buf += data
         except BlockingIOError:
             pass
         except Exception:
-            return self.key_mask
+            self.key_mask = 0
+            self.active = False
+            return 0
 
         if b"\n" in self._recv_buf:
             lines = self._recv_buf.split(b"\n")
@@ -177,7 +186,11 @@ class Win32MultiKeyReader:
                 if s.isdigit():
                     self.key_mask = int(s)
                     self.active = True
+                    self._last_rx = time.monotonic()
                     break
+        if self.active and time.monotonic() - self._last_rx > self._stale_after:
+            self.key_mask = 0
+            self.active = False
         return self.key_mask
 
     def stop(self):
@@ -732,11 +745,14 @@ class ZAVFlightManager(Node):
                     (self.lio_safety_rx is not None and time.monotonic() - self.lio_safety_rx > 1.0)):
                 print('\r\n이륙 대기: LIO safety가 READY가 아닙니다. /zav/lio_safety/status 확인.\r\n')
                 return True
-            if not self.position_ready or time.monotonic() - self.last_position_time > 1.0:
+            if (not self.position_ready or not math.isfinite(self.current_speed)
+                    or time.monotonic() - self.last_position_time > 1.0):
                 if self.last_position_time == 0.0:
                     reason = "PX4 위치 메시지 미수신 — 시뮬레이터의 DDS 게이트웨이를 확인하세요."
                 elif time.monotonic() - self.last_position_time > 1.0:
                     reason = "PX4 위치 수신 중단 — 시뮬레이터 실행/일시정지 상태를 확인하세요."
+                elif not math.isfinite(self.current_speed):
+                    reason = "PX4 속도 추정이 아직 유효하지 않습니다. 위치·속도 추정이 안정될 때까지 기다리세요."
                 else:
                     reason = "PX4 위치 추정이 아직 유효하지 않습니다. Ready for takeoff를 기다리세요."
                 print(f"\r\n이륙 대기: {reason}\r\n")

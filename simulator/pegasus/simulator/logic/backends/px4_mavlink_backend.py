@@ -607,7 +607,9 @@ class PX4MavlinkBackend(Backend):
             self._last_heartbeat_sent_time = time.time()
 
         # Update the current u_time for px4
-        self._current_utime += int(dt * 1000000)
+        # PhysX passes float32 dt: 0.01 can arrive as 0.009999999776.
+        # Truncation turns a 100 Hz tick into 9999 us instead of 10000 us.
+        self._current_utime += int(round(dt * 1000000))
 
         # Send sensor messages
         self.send_sensor_msgs(self._current_utime)

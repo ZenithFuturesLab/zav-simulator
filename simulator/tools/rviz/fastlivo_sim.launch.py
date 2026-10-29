@@ -1,5 +1,6 @@
-"""Launch FAST-LIVO2 and its mounted-IMU PX4 external odometry bridge."""
+"""Launch FAST-LIVO2 or Super-LIO with the common mounted-IMU PX4 bridge."""
 import os
+import yaml
 from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -23,6 +24,31 @@ def generate_launch_description():
         '1 if "', camera, '" in ["True", "true", "1"] else 0'
     ]), value_type=int)
 
+    def mapper(context):
+        if LaunchConfiguration('backend').perform(context) == 'super_lio':
+            super_share = Path(get_package_share_directory('super_lio'))
+            # Use the same calibration that determines the simulator's mounts.
+            config_dir = Path(os.environ.get('PEGASUS_FASTLIVO_CONFIG_DIR', str(
+                directory.parents[2] / 'src/FAST-LIVO2/config')))
+            calibration = yaml.safe_load((config_dir / 'zenith.yaml').read_text())
+            extrinsic = calibration['/laserMapping']['ros__parameters']['extrin_calib']
+            return [Node(package='super_lio', executable='super_lio_node', name='super_lio',
+                         parameters=[str(super_share / 'config/zenith_sim.yaml'), {
+                             'lio.extrinsic.lidar_imu': [float(v) for v in
+                                 extrinsic['extrinsic_T'] + extrinsic['extrinsic_R']]}],
+                         remappings=[('/lio/odom', '/aft_mapped_to_init'),
+                                     ('/lio/imu/odom', '/LIVO2/imu_propagate'),
+                                     ('/lio/cloud_world', '/cloud_registered'),
+                                     ('/lio/path', '/path')],
+                         additional_env=mapper_env, output='screen')]
+        return [Node(package="fast_livo", executable="fastlivo_mapping", name="laserMapping",
+                     parameters=[str(share / "config/zenith.yaml"), str(share / "config/zenith_camera_pinhole.yaml"),
+                                 {"uav.imu_rate_odom": True, "common.img_en": image_enabled,
+                                  "common.img_topic": "/drone0/front_camera/color/image_raw",
+                                  "common.imu_topic": "/drone0/mid360/imu",
+                                  "common.lid_topic": "/drone0/mid360/lidar"}],
+                     additional_env=mapper_env, output="screen")]
+
     def bridge(context):
         arguments = ['--publish', '--assume-enu-flu']
         if IfCondition(LaunchConfiguration('safety')).evaluate(context):
@@ -38,10 +64,12 @@ def generate_launch_description():
                      arguments=arguments, additional_env=bridge_env, output='screen')]
 
     return LaunchDescription([
+        DeclareLaunchArgument('backend', default_value='fastlivo',
+                              choices=['fastlivo', 'super_lio']),
         DeclareLaunchArgument("rviz", default_value="True"),
         DeclareLaunchArgument("camera", default_value="True"),
         DeclareLaunchArgument("px4_bridge", default_value="True",
-                              description="Publish FAST-LIVO2 odometry to PX4"),
+                              description="Publish selected LIO odometry to PX4"),
         DeclareLaunchArgument('safety', default_value='True',
                               description='Detect only position/attitude jumps and request latched NAV_LAND'),
         DeclareLaunchArgument('safety_experiment', default_value='False',
@@ -51,15 +79,7 @@ def generate_launch_description():
         DeclareLaunchArgument('safety_prediction_horizon', default_value='0.25'),
         DeclareLaunchArgument('baro_param_connection', default_value='udpin:127.0.0.1:14030',
                               description='Reserved PX4 onboard-payload MAVLink parameter link'),
-        Node(package="fast_livo", executable="fastlivo_mapping", name="laserMapping",
-             parameters=[str(share / "config/zenith.yaml"), str(share / "config/zenith_camera_pinhole.yaml"),
-                         # [ZAV 변경] 실센서 YAML을 수정하지 않고 시뮬레이터 입력 토픽만 덮어씁니다.
-                         {"uav.imu_rate_odom": True, "common.img_en": image_enabled,
-                          "common.img_topic": "/drone0/front_camera/color/image_raw",
-                          "common.imu_topic": "/drone0/mid360/imu",
-                          "common.lid_topic": "/drone0/mid360/lidar"}],
-             additional_env=mapper_env,
-             output="screen"),
+        OpaqueFunction(function=mapper),
         OpaqueFunction(function=bridge),
         ExecuteProcess(cmd=[str(directory.parents[2] / '.cache/px4-python/bin/python'),
                             str(directory.parent / 'runtime/baro_parameter_bridge.py'),

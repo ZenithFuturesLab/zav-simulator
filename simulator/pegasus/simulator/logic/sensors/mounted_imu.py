@@ -46,12 +46,14 @@ class MountedIMU(Sensor):
         alpha = np.zeros(3) if self._previous_omega is None else (omega - self._previous_omega) / dt
         self._previous_omega = omega.copy()
         self._elapsed += dt
-        if self._elapsed + 1e-10 < self._update_period:
+        # PhysX dt is float32; a 10 ms tick may be a fraction below 0.01.
+        tolerance = max(1e-10, self._update_period * 1e-6)
+        if self._elapsed + tolerance < self._update_period:
             return None
         sample_dt = self._elapsed
         self._elapsed %= self._update_period
         # Suppress floating-point residues close to a complete sample period.
-        if self._update_period - self._elapsed < 1e-10:
+        if self._update_period - self._elapsed < tolerance:
             self._elapsed = 0.0
         world_to_body = Rotation.from_quat(state.attitude).inv()
         specific_force = world_to_body.apply(

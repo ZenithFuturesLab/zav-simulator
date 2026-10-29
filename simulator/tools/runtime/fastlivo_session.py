@@ -1,4 +1,4 @@
-"""Own FAST-LIVO's process tree and reap it before releasing its launch lock.
+"""Own a LIO mapper session's process tree and reap it before releasing its launch lock.
 
 Linux/WSL only, like the ROS side of the simulator. Isaac itself is not stopped.
 """
@@ -62,7 +62,7 @@ def signal_children(signum, sent):
 
 
 def shutdown():
-    print('[FAST-LIVO] Stopping mapper, bridge and owned relay...', flush=True)
+    print('[LIO] Stopping mapper, bridge and owned relay...', flush=True)
     for signum, grace in ((signal.SIGINT, 2.0), (signal.SIGTERM, 1.0),
                           (signal.SIGKILL, 2.0)):
         deadline = time.monotonic() + grace
@@ -71,12 +71,12 @@ def shutdown():
             signal_children(signum, sent)
             reap()
             if not children_of(os.getpid()):
-                print('[FAST-LIVO] All owned processes stopped; TCP listeners released.', flush=True)
+                print('[LIO] All owned processes stopped; TCP listeners released.', flush=True)
                 return True
             if time.monotonic() >= deadline:
                 break
             time.sleep(.05)
-    print('[FAST-LIVO] ERROR: processes remain: ' + str(sorted(children_of(os.getpid()))),
+    print('[LIO] ERROR: processes remain: ' + str(sorted(children_of(os.getpid()))),
           file=sys.stderr, flush=True)
     return False
 
@@ -122,7 +122,7 @@ def run_session(relay_command, launch_command, lock_path, relay_env=None, log_pa
                     break
                 # Exit 0 means the RViz-owned singleton relay was already present.
                 if relay.poll() not in (None, 0):
-                    print('[FAST-LIVO] Sensor relay failed; stopping this session.',
+                    print('[LIO] Sensor relay failed; stopping this session.',
                           file=sys.stderr, flush=True)
                     exit_code[0] = 1
                     break
@@ -139,7 +139,8 @@ def run_session(relay_command, launch_command, lock_path, relay_env=None, log_pa
 def check_existing_nodes(workspace):
     """The old shell's lock may be gone even though its ROS nodes survived."""
     executables = {str(workspace / 'install/fast_livo/lib/fast_livo/fastlivo_mapping'),
-                   str(workspace / 'install/zav_control/lib/zav_control/lio_px4_bridge')}
+                   str(workspace / 'install/zav_control/lib/zav_control/lio_px4_bridge'),
+                   str(workspace / 'install/super_lio/lib/super_lio/super_lio_node')}
     stale = []
     for proc in Path('/proc').iterdir():
         if not proc.name.isdigit():
@@ -153,13 +154,14 @@ def check_existing_nodes(workspace):
         except (OSError, UnicodeError):
             continue
     if stale:
-        raise RuntimeError(f'Existing FAST-LIVO/bridge processes: {sorted(stale)}. '
+        raise RuntimeError(f'Existing LIO mapper/bridge processes: {sorted(stale)}. '
                            'Stop them before restarting; refusing duplicate publishers.')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rviz-dir', required=True, type=Path)
+    parser.add_argument('--backend', choices=('fastlivo', 'super_lio'), default='fastlivo')
     args, launch_args = parser.parse_known_args()
     directory = args.rviz_dir.resolve()
     relay_env = dict(os.environ)
@@ -167,7 +169,10 @@ def main():
         relay_env['CYCLONEDDS_URI'] = (directory / 'cyclonedds_publisher.xml').as_uri()
     command = [sys.executable, str(directory.parent / 'runtime/sensor_relay.py'), 'client',
                '--host', os.environ.get('ZAV_SENSOR_HOST', '127.0.0.1'),
-               '--camera-port', '17443', '--imu-port', '17444', '--livox-port', '17445']
+               '--camera-port', '17443' if args.backend == 'fastlivo' else '0',
+               '--imu-port', '17444', '--livox-port', '17445']
+    if args.backend != 'fastlivo':
+        launch_args.append('backend:=' + args.backend)
     try:
         return run_session(command, ['ros2', 'launch', str(directory / 'fastlivo_sim.launch.py'),
                                      *launch_args],
@@ -175,7 +180,7 @@ def main():
                            '/tmp/zav-fastlivo-relay.log',
                            lambda: check_existing_nodes(Path(os.environ['ZAV_WS_DIR'])))
     except (OSError, RuntimeError) as exc:
-        print(f'[FAST-LIVO] {exc}', file=sys.stderr, flush=True)
+        print(f'[LIO] {exc}', file=sys.stderr, flush=True)
         return 1
 
 

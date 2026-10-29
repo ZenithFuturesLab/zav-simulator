@@ -120,6 +120,8 @@ class LioSafetyROS:
 
     def inspect(self, msg):
         p, q, v = msg.pose.pose.position, msg.pose.pose.orientation, msg.twist.twist.linear
+        was_latched = self.policy.latched
+        previous = self.policy.last_odom
         if msg.header.frame_id != 'camera_init' or msg.child_frame_id != 'aft_mapped':
             accepted = self.policy.odometry(self.stamp(msg), (math.nan, 0, 0),
                                              (1, 0, 0, 0), (0, 0, 0), time.monotonic())
@@ -127,6 +129,16 @@ class LioSafetyROS:
             accepted = self.policy.odometry(self.stamp(msg), (p.x, p.y, p.z),
                                              (q.w, q.x, q.y, q.z), (v.x, v.y, v.z),
                                              time.monotonic())
+        if not was_latched and self.policy.latched:
+            self.node.get_logger().error('LIO jump evidence: ' + json.dumps({
+                'reasons': self.policy.latch_reasons,
+                'metrics': self.policy.metrics,
+                'previous_stamp': previous[0] if previous else None,
+                'stamp': self.stamp(msg),
+                'previous_quaternion_wxyz': previous[2] if previous else None,
+                'quaternion_wxyz': [q.w, q.x, q.y, q.z],
+                'position': [p.x, p.y, p.z],
+            }))
         self.tick()
         return accepted and not self.policy.latched
 

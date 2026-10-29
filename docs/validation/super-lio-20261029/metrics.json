@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "failure": null,
+  "ground": [
+    8.955635344420898e-09,
+    -3.570579210077085e-08,
+    0.0950000211596489
+  ],
+  "armed_at_end": false,
+  "landed": true,
+  "physics_hz": 200,
+  "render_setting_hz": 20,
+  "safety_latched_during_flight": false,
+  "hover": {
+    "xyz_peak_to_peak_m": [
+      0.008666299399919808,
+      0.008307233918458223,
+      0.005032539367675781
+    ],
+    "median_frame_ms": 72.1503000240773
+  },
+  "hover_final": {
+    "xyz_peak_to_peak_m": [
+      0.011074887588620186,
+      0.012943456880748272,
+      0.014260530471801758
+    ],
+    "median_frame_ms": 72.16185005381703
+  },
+  "imu_sim_hz": 200.00000447010504,
+  "imu_wall_hz": 140.48214329702614
+}

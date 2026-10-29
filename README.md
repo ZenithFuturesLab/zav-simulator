@@ -73,9 +73,11 @@ ros2 run zav_control flight_manager
 
 새 터미널 환경 등록 없이 실행하려면 각 터미널에서 `source /path/to/zenith_ws/simulator/ros_setup.sh`를 먼저 실행하고, 시뮬레이터는 저장소 루트의 `./run_zav_sim.sh`로 실행합니다. 브리지 Python을 따로 실행할 필요가 없습니다.
 
+LiDAR·IMU만 사용하는 Super-LIO로 교체하려면 FAST-LIVO를 종료하고 `./run_superlio.sh`를 실행합니다. 설치·빌드·입출력 호환 계약은 [Super-LIO 안내](docs/super-lio.md)를 참고하세요.
+
 첫 실행은 Isaac shader 캐시와 확장 로딩 때문에 오래 걸릴 수 있습니다. 비행 명령 전에 LiDAR·IMU·카메라와 EV odometry 수신을 [검증 절차](docs/verification.md)로 확인하세요. 시뮬레이터 대시보드에서 Ctrl+C로 종료합니다. 종료기는 동일 사용자 PX4·DDS Agent 및 Windows `kit.exe`도 정리하므로 다른 시뮬레이터와 동시에 실행하지 마세요.
 
-FAST-LIVO는 실행한 터미널에서 Ctrl+C로 종료합니다. `[FAST-LIVO] All owned processes stopped`가 출력된 뒤 재실행하세요. 실행기가 만든 mapper·LIO bridge·relay를 정리한 후 재실행 잠금을 해제합니다. RViz가 먼저 실행해 소유한 공유 relay는 유지합니다. 잠금 파일을 직접 삭제하지 마세요. 이전 mapper가 남아 있으면 새 실행을 거부하고 PID를 표시합니다.
+FAST-LIVO는 실행한 터미널에서 Ctrl+C로 종료합니다. `[LIO] All owned processes stopped`가 출력된 뒤 재실행하세요. 실행기가 만든 mapper·LIO bridge·relay를 정리한 후 재실행 잠금을 해제합니다. RViz가 먼저 실행해 소유한 공유 relay는 유지합니다. 잠금 파일을 직접 삭제하지 마세요. 이전 mapper가 남아 있으면 새 실행을 거부하고 PID를 표시합니다.
 
 ## LIO 이상 감시와 착륙
 

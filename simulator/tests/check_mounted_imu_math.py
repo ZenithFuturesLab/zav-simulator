@@ -54,3 +54,19 @@ assert sum(sensor.update(state, .004) is not None for _ in range(250)) == 200
 sensor.reset()
 assert sensor.state is None
 print("PASS: gravity, rotated mount/world, angular velocity, lever arm, scheduling, reset")
+
+# The 100 Hz simulator profile must produce one mounted IMU sample per tick.
+sensor = MountedIMU({**config, "update_rate": 100})
+samples = [sensor.update(state, .01) for _ in range(100)]
+assert all(sample is not None for sample in samples)
+assert len(samples) == 100
+print("PASS: 100 Hz physics produces 100 Hz mounted IMU without render dependence")
+
+# Real PhysX float32 dt must not skip the first 100 Hz sample or leave a
+# nearly-full-period residual that doubles the covariance integration time.
+dt = float(np.float32(.01))
+sensor = MountedIMU({**config, "update_rate": 100, "gyro_noise_density": .01})
+samples = [sensor.update(state, dt) for _ in range(100)]
+assert all(sample is not None for sample in samples)
+np.testing.assert_allclose([sample["gyro_variance"] for sample in samples], .01**2/dt)
+print("PASS: float32 10 ms sampling and per-sample covariance")

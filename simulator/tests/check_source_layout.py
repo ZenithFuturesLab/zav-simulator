@@ -31,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix="ZAV checkout with spaces ") as director
     values = {n.targets[0].id: n.value.value for n in app.body
               if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)
               and isinstance(n.value, ast.Constant)}
-    assert values["PHYSICS_HZ"] == 160 and values["RENDER_HZ"] == 20
+    assert values["PHYSICS_HZ"] == 200 and values["RENDER_HZ"] == 20
     # Resolve upstream and customized Python modules using only the new source path.
     code = """
 import importlib.machinery as m, pathlib, sys

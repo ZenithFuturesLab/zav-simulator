@@ -1,105 +1,201 @@
 Panels:
   - Class: rviz_common/Displays
+    Help Height: 70
     Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /FAST-LIVO Registered Cloud1
+      Splitter Ratio: 0.5
+    Tree Height: 157
   - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
     Name: Views
+    Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
   Displays:
     - Class: rviz_default_plugins/Image
+      Enabled: false
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
       Name: Front RGB Camera
-      Enabled: true
-      Topic:
-        Value: /drone0/front_camera/color/image_raw
-        Reliability Policy: Best Effort
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Depth: 2
-      Transport Hint: raw
       Normalize Range: true
-      Value: true
-    - Class: rviz_default_plugins/Grid
-      Name: Grid
-      Enabled: true
+      Topic:
+        Depth: 2
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /drone0/front_camera/color/image_raw
+      Value: false
+    - Alpha: 0.5
       Cell Size: 1
-      Plane Cell Count: 20
+      Class: rviz_default_plugins/Grid
       Color: 100; 100; 100
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 20
       Reference Frame: <Fixed Frame>
-    - Class: rviz_default_plugins/PointCloud2
-      Name: FAST-LIVO Registered Cloud
-      Enabled: true
-      Topic:
-        Value: /cloud_registered
-        Reliability Policy: Best Effort
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Depth: 5
-      Position Transformer: XYZ
-      Color Transformer: AxisColor
-      Axis: Z
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
+        Max Value: 8.775016784667969
+        Min Value: -0.24912989139556885
         Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: AxisColor
+      Decay Time: 200
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 4096
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: FAST-LIVO Registered Cloud
+      Position Transformer: XYZ
+      Selectable: true
       Size (Pixels): 4
-      Size (m): 0.04
-      Style: Points
-      Alpha: 1
-      Decay Time: 0.3
-      Use Fixed Frame: true
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Name: FAST-LIVO Odometry
-      Enabled: true
+      Size (m): 0.029999999329447746
+      Style: Spheres
       Topic:
-        Value: /aft_mapped_to_init
-        Reliability Policy: Best Effort
-        Durability Policy: Volatile
-        History Policy: Keep Last
-        Depth: 10
-      Keep: 1
-      Position Tolerance: 0.01
-      Angle Tolerance: 0.01
-      Shape:
-        Value: Axes
-        Axes Length: 0.5
-        Axes Radius: 0.025
-        Alpha: 1
-      Covariance:
-        Value: false
-      Value: true
-    - Class: rviz_default_plugins/Path
-      Name: FAST-LIVO Trajectory
-      Enabled: true
-      Topic:
-        Value: /path
-        Reliability Policy: Best Effort
-        Durability Policy: Volatile
-        History Policy: Keep Last
         Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /cloud_registered
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Angle Tolerance: 0.009999999776482582
+      Class: rviz_default_plugins/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 1
+      Name: FAST-LIVO Odometry
+      Position Tolerance: 0.009999999776482582
+      Shape:
+        Alpha: 1
+        Axes Length: 0.5
+        Axes Radius: 0.02500000037252903
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Axes
+      Topic:
+        Depth: 10
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /aft_mapped_to_init
+      Value: true
+    - Alpha: 1
       Buffer Length: 1
-      Line Style: Lines
-      Line Width: 0.03
+      Class: rviz_default_plugins/Path
       Color: 50; 220; 100
-      Alpha: 1
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: FAST-LIVO Trajectory
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /path
       Value: true
   Enabled: true
   Global Options:
-    Fixed Frame: camera_init
     Background Color: 25; 25; 30
+    Fixed Frame: camera_init
     Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+      Hide Inactive Objects: true
+    - Class: rviz_default_plugins/MoveCamera
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8
+      Distance: 51.23712921142578
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: -0.2
-      Pitch: 0.65
-      Yaw: 0.8
+        X: 14.496319770812988
+        Y: 10.221169471740723
+        Z: -0.18551993370056152
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-  Tools:
-    - Class: rviz_default_plugins/Interact
-    - Class: rviz_default_plugins/MoveCamera
+      Value: Orbit (rviz_default_plugins)
+      Yaw: 3.140001058578491
+    Saved: ~
 Window Geometry:
-  Width: 1200
-  Height: 800
+  Displays:
+    collapsed: true
+  Front RGB Camera:
+    collapsed: true
+  Height: 999
+  Hide Left Dock: true
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd00000001000000000000019b00000391fc0200000003fb0000002000460072006f006e00740020005200470042002000430061006d006500720061000000003b000001650000002800fffffffb000000100044006900730070006c00610079007300000001a60000011e000000c700fffffffb0000000a0056006900650077007300000002ca00000102000000a000ffffff000003b40000039100000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Views:
+    collapsed: true
+  Width: 948
+  X: 928
+  Y: -32
