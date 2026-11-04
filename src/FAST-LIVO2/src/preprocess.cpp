@@ -170,15 +170,9 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::ConstPtr 
         pl_full[i].intensity = msg->points[i].reflectivity;
         pl_full[i].curvature = msg->points[i].offset_time / float(1000000); // use curvature as time of each laser points
 
-        if (i == 0)
-          pl_full[i].curvature = fabs(pl_full[i].curvature) < 1.0 ? pl_full[i].curvature : 0.0;
-        else
-        {
-          // if(fabs(pl_full[i].curvature - pl_full[i - 1].curvature) > 1.0) ROS_ERROR("time jump: %f", fabs(pl_full[i].curvature - pl_full[i - 1].curvature));
-          pl_full[i].curvature = fabs(pl_full[i].curvature - pl_full[i - 1].curvature) < 1.0
-                                     ? pl_full[i].curvature
-                                     : pl_full[i - 1].curvature + 0.004166667f; // float(100/24000)
-        }
+        // Preserve the supplied acquisition time. Sparse/decimated clouds and
+        // frame-coherent simulator snapshots can have valid gaps above 1 ms;
+        // replacing them with an assumed firing interval corrupts IMU deskew.
 
         if (valid_num % point_filter_num == 0)
         {

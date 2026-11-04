@@ -1,0 +1,8 @@
+{
+  "start_sim_s": 25.009999440982938,
+  "end_sim_s": 120.75999730080366,
+  "path_length_m": 27.52175233175261,
+  "ground_truth_samples": 31000,
+  "alignment": "initial stationary interval 5-15s, rigid transform from pose; no whole-path fit or scale",
+  "grid_hz": 10
+}

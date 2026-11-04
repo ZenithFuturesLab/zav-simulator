@@ -1,0 +1,23 @@
+{
+  "repository_commit": "facc1488346214dc4d0f67c6697635692b02ef7b",
+  "algorithms": [
+    "Super-LIO (ZAV IMU-repropagation patch)",
+    "FAST-LIVO2 (camera OFF; LIO only)"
+  ],
+  "physics_hz": 200,
+  "render_hz": 20,
+  "lidar_hz": 10,
+  "optimization": "-O3 -DNDEBUG; no LTO or fast-math",
+  "mapper_logical_cpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "threads": 4,
+  "profiles": {
+    "deployed": "existing configs, camera OFF and PCD save OFF",
+    "matched": "also voxel downsample=0.5m, max_iterations=4, accel noise=0.1"
+  },
+  "truth": "PhysX rigid-body pose -> mounted IMU pose, per physics tick; no estimator feedback"
+}

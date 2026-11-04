@@ -1,0 +1,32 @@
+[
+  {
+    "group": "raw",
+    "max_forward_rebase_cm": 18.505979563140894,
+    "max_lidar_correction_cm": 18.04299810284709
+  },
+  {
+    "group": "frame-intervention",
+    "max_forward_rebase_cm": 17.634012368896165,
+    "max_lidar_correction_cm": 17.233029536985313
+  },
+  {
+    "group": "no-deskew",
+    "max_forward_rebase_cm": 15.020494178899648,
+    "max_lidar_correction_cm": 14.693832463438158
+  },
+  {
+    "group": "oracle-deskew",
+    "max_forward_rebase_cm": 17.804075403883612,
+    "max_lidar_correction_cm": 17.315819407149416
+  },
+  {
+    "group": "boundary-fix",
+    "max_forward_rebase_cm": 11.898596832131547,
+    "max_lidar_correction_cm": 11.8857568727485
+  },
+  {
+    "group": "snapshot-time",
+    "max_forward_rebase_cm": 3.640521244985501,
+    "max_lidar_correction_cm": 2.837618422461781
+  }
+]

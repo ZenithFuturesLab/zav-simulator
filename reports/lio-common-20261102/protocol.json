@@ -1,0 +1,31 @@
+{
+  "repository_commit": "facc1488346214dc4d0f67c6697635692b02ef7b",
+  "algorithms": [
+    "Super-LIO (ZAV IMU-repropagation patch)",
+    "FAST-LIVO2 (camera OFF; LIO only)"
+  ],
+  "physics_hz": 200,
+  "render_hz": 20,
+  "lidar_hz": 10,
+  "optimization": "-O3 -DNDEBUG; no LTO or fast-math",
+  "mapper_logical_cpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "threads": 4,
+  "profiles": {
+    "common": "Shared 0.5m raw-LiDAR-frame voxel representative selection; native additional downsampling bypassed; max_iterations=4, accel_noise=0.1"
+  },
+  "truth": "PhysX rigid-body pose -> mounted IMU pose, per physics tick; no estimator feedback",
+  "evaluation_start": 51.00999885983765,
+  "evaluation_end": 80.75,
+  "initial_alignment": [
+    5,
+    15
+  ],
+  "common_preprocessing_timed": false,
+  "point_identity": "Identical raw returns, intensity, and per-point timestamps before each native deskewer; corrected XYZ may differ with estimator state.",
+  "ground_truth_used_by_estimator": false
+}

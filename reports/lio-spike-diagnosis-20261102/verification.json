@@ -1,0 +1,98 @@
+{
+  "passed": true,
+  "identical_imu_records": 25497,
+  "identical_lidar_xyz_intensity_tag_line_records": 1268,
+  "original_lidar_availability_preserved": true,
+  "runs": [
+    {
+      "group": "raw",
+      "algorithm": "fast_livo",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "raw",
+      "algorithm": "super_lio",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "frame-intervention",
+      "algorithm": "fast_livo",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "frame-intervention",
+      "algorithm": "super_lio",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "no-deskew",
+      "algorithm": "super_lio",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "oracle-deskew",
+      "algorithm": "super_lio",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "boundary-fix",
+      "algorithm": "super_lio",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "snapshot-time",
+      "algorithm": "fast_livo",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    },
+    {
+      "group": "snapshot-time",
+      "algorithm": "super_lio",
+      "input_counts": {
+        "imu": 16146,
+        "lidar": 801
+      },
+      "first_stamp": 0.01,
+      "last_stamp": 80.749998195
+    }
+  ]
+}

@@ -47,8 +47,11 @@ if sys.platform == "win32":
 
 from isaacsim import SimulationApp
 
-# 정상 작동하던 기존 설정으로 복원
-simulation_app = SimulationApp({"headless": False, "sync_loads": False})
+# Enable motion-aware RTX geometry. The Livox adapter separately labels each
+# XYZ snapshot with its common GMO frameStart pose time.
+simulation_app = SimulationApp({
+    "headless": False, "sync_loads": False, "enable_motion_bvh": True,
+})
 
 # 초기화 중 확장 모듈 로딩 충돌 여부 확인
 for _ in range(5):
@@ -77,6 +80,9 @@ import carb.settings
 import omni.appwindow
 import omni.timeline
 import omni.usd
+
+if not carb.settings.get_settings().get("/renderer/raytracingMotion/enabled"):
+    raise RuntimeError("RTX Motion BVH must be enabled for timestamped Mid360 scans")
 from omni.isaac.core.world import World
 import omni.isaac.core.utils.prims as prim_utils
 
@@ -275,6 +281,7 @@ class ZAVPlaneApp:
         # 6. 물리 시뮬레이션 환경 리셋 (Articulation 및 관절 초기화)
         print("[INIT] Resetting world...", flush=True)
         self.world.reset()
+        self.world.add_physics_callback("zav_ground_truth", lambda dt: self.publish_ground_truth())
         print("=" * 60)
         print("[Ready] Full Warehouse 시뮬레이션 및 3인칭 줌 추적 카메라 준비 완료!")
         print("=" * 60)
@@ -334,9 +341,13 @@ class ZAVPlaneApp:
         self.pg.set_viewport_camera(cam_eye.tolist(), cam_target.tolist())
 
     def publish_ground_truth(self):
-        state = self.drone.state
-        rotation = Rotation.from_quat(state.attitude)
-        position = np.asarray(state.position) + rotation.apply(self._imu_offset)
+        # Read the physical rigid body directly: never copy EKF/LIO odometry or
+        # a render-rate USD transform into ground truth.
+        dc = self.drone.get_dc_interface()
+        body = dc.get_rigid_body(self.drone._stage_prefix + "/body")
+        pose = dc.get_rigid_body_pose(body)
+        rotation = Rotation.from_quat([pose.r.x, pose.r.y, pose.r.z, pose.r.w])
+        position = np.asarray(pose.p) + rotation.apply(self._imu_offset)
         attitude = (rotation * self._imu_rotation).as_quat()
         msg = self._truth_type()
         stamp_ns = round(float(self.world.current_time) * 1e9)
@@ -348,12 +359,13 @@ class ZAVPlaneApp:
         for axis, value in zip(("x", "y", "z", "w"), attitude):
             setattr(msg.pose.pose.orientation, axis, float(value))
         # Twist is expressed in the mounted IMU frame (Odometry convention).
-        velocity = np.asarray(state.linear_velocity) + rotation.apply(
-            np.cross(state.angular_velocity, self._imu_offset))
+        angular_world = np.asarray(dc.get_rigid_body_angular_velocity(body))
+        velocity = np.asarray(dc.get_rigid_body_linear_velocity(body)) + np.cross(
+            angular_world, rotation.apply(self._imu_offset))
         imu_world = rotation * self._imu_rotation
         for axis, value in zip(("x", "y", "z"), imu_world.inv().apply(velocity)):
             setattr(msg.twist.twist.linear, axis, float(value))
-        for axis, value in zip(("x", "y", "z"), self._imu_rotation.inv().apply(state.angular_velocity)):
+        for axis, value in zip(("x", "y", "z"), imu_world.inv().apply(angular_world)):
             setattr(msg.twist.twist.angular, axis, float(value))
         self._truth_pub.publish(msg)
 
@@ -362,7 +374,6 @@ class ZAVPlaneApp:
         self.timeline.play()
         while simulation_app.is_running():
             self.world.step(render=True)
-            self.publish_ground_truth()
             self.update_chase_camera()
         
         self.timeline.stop()

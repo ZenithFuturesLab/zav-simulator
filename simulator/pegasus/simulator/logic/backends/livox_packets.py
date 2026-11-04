@@ -1,5 +1,5 @@
-# [ZAV 변경] RTX 점별 실제 시각을 보존해 FAST-LIVO CustomMsg용 100 ms 패킷을 만듭니다.
-"""Group real RTX acquisition timestamps into 100 ms Livox-compatible packets.
+# [ZAV 변경] RTX XYZ의 프레임 기준 시각을 보존해 Livox 호환 100 ms 패킷을 만듭니다.
+"""Group time-consistent RTX snapshots into 100 ms Livox-compatible packets.
 
 Wire format: little-endian uint64 start_ns, uint32 count, then 20-byte records:
 float32 x/y/z, uint32 offset_ns, uint8 reflectivity/line/tag/reserved.
@@ -8,6 +8,22 @@ this does not reproduce the proprietary Mid360 non-repetitive firing pattern.
 """
 import struct
 import numpy as np
+
+
+def snapshot_timestamps(count, frame_start_ns, frame_end_ns, clock_offset_ns, sim_time_ns):
+    """Label XYZ by its common GMO sensor-frame pose, not per-ray firing time.
+
+    Isaac 5.1's scan-buffer XYZ is referenced to frameStart. Combining those
+    coordinates with firing timestamps makes downstream LIO apply the wrong motion.
+    This is a render-rate snapshot model, not a rolling Mid360 timing model.
+    """
+    start = int(frame_start_ns) + int(clock_offset_ns)
+    end = int(frame_end_ns) + int(clock_offset_ns)
+    if not 0 <= start <= end or end - start > 500_000_000:
+        raise ValueError(f"Invalid RTX snapshot interval: {start}..{end}")
+    if abs(end - int(sim_time_ns)) > 100_000_000:
+        raise ValueError("RTX snapshot and simulation clocks are not synchronized")
+    return np.full(int(count), start, dtype=np.int64)
 
 POINT_DTYPE = np.dtype([
     ("x", "<f4"), ("y", "<f4"), ("z", "<f4"), ("offset", "<u4"),

@@ -1,0 +1,27 @@
+{
+  "algorithm": "fast_livo",
+  "profile": "common",
+  "trial": 1,
+  "input_counts": {
+    "imu": 15761,
+    "lidar": 784
+  },
+  "input_points_mean": 6090.822704081633,
+  "first_stamp": 0.01,
+  "last_stamp": 78.809998238,
+  "sim_duration": 78.799998238,
+  "replay_rate": 1.0,
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3",
+    "/home/ljh/zenith_ws/.cache/lio-fixed-20261102/install/fast_livo/lib/fast_livo/fastlivo_mapping",
+    "--ros-args",
+    "-r",
+    "__node:=laserMapping",
+    "--params-file",
+    "/home/ljh/zenith_ws/.cache/lio-fixed-20261102/fast_livo-common.yaml",
+    "--params-file",
+    "/home/ljh/zenith_ws/src/FAST-LIVO2/config/zenith_camera_pinhole.yaml"
+  ]
+}

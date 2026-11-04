@@ -1,0 +1,50 @@
+{
+  "repository_commit": "facc1488346214dc4d0f67c6697635692b02ef7b",
+  "algorithms": [
+    "Super-LIO (ZAV IMU-repropagation patch)",
+    "FAST-LIVO2 (camera OFF; LIO only)"
+  ],
+  "physics_hz": 200,
+  "render_hz": 20,
+  "lidar_hz": 10,
+  "optimization": "-O3 -DNDEBUG; no LTO or fast-math",
+  "mapper_logical_cpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "threads": 4,
+  "profiles": {
+    "common": "identical selected point returns; native deskew retained; native extra downsampling disabled"
+  },
+  "truth": "PhysX rigid-body pose -> mounted IMU pose, per physics tick; no estimator feedback",
+  "evaluation_start": 51.00999885983765,
+  "evaluation_end": 80.75,
+  "initial_alignment": [
+    5,
+    15
+  ],
+  "common_preprocessing_timed": false,
+  "point_identity": "Identical raw returns, intensity, and per-point timestamps before each native deskewer; corrected XYZ may differ with estimator state.",
+  "ground_truth_used_by_estimator": false,
+  "ground_truth": "Direct PhysX rigid-body pose at 200 simulated Hz, converted to mounted IMU; never an EKF output",
+  "controller": "Independent PhysX GT input to PX4, neither measured LIO feeds flight",
+  "lidar_model": "RTX frame-coherent snapshots at render rate, 100 ms Livox-compatible packets; not continuous rolling Mid360",
+  "camera": false,
+  "common_preprocessing": "One real return per 0.5 m raw-frame voxel; preserve endpoints; same XYZ and per-point times for both",
+  "iterations": 4,
+  "evaluation": {
+    "imu": "common 200 Hz grid",
+    "lidar": "actual common scan-end timestamps"
+  },
+  "patches": [
+    "PhysX attitude for IMU",
+    "GMO frameStart-coherent XYZ/time",
+    "FAST sparse timestamps preserved",
+    "FAST deskew time origin and first-point handling",
+    "Super scan-end IMU interpolation"
+  ],
+  "replay_availability": "Preserve observed scan delay: max(scan-end timestamp, most recent IMU timestamp at bag receipt); IMU scheduled at acquisition time; 1x",
+  "render_wall_hz_measured": 13.543118202053028
+}

@@ -1,0 +1,140 @@
+[
+  {
+    "lag": -0.1001,
+    "orientation_rmse": 2.332667640920975,
+    "orientation_max": 10.107619094624802,
+    "position_rmse": 0.06675674980231588
+  },
+  {
+    "lag": -0.0951,
+    "orientation_rmse": 2.1056483385068656,
+    "orientation_max": 9.266276253078296,
+    "position_rmse": 0.06343476312297447
+  },
+  {
+    "lag": -0.0901,
+    "orientation_rmse": 1.8613036225654547,
+    "orientation_max": 8.271532159785329,
+    "position_rmse": 0.06011198425933786
+  },
+  {
+    "lag": -0.0851,
+    "orientation_rmse": 1.603194583007947,
+    "orientation_max": 7.134014014459149,
+    "position_rmse": 0.05678733979324456
+  },
+  {
+    "lag": -0.0801,
+    "orientation_rmse": 1.3402689545605972,
+    "orientation_max": 6.126508637697137,
+    "position_rmse": 0.05345815309468342
+  },
+  {
+    "lag": -0.0751,
+    "orientation_rmse": 1.0824116123272238,
+    "orientation_max": 5.004604554367113,
+    "position_rmse": 0.050125697051852
+  },
+  {
+    "lag": -0.0701,
+    "orientation_rmse": 0.8383527274086988,
+    "orientation_max": 3.834114536318219,
+    "position_rmse": 0.04679154813540534
+  },
+  {
+    "lag": -0.0651,
+    "orientation_rmse": 0.6102300417178492,
+    "orientation_max": 2.7970096885371465,
+    "position_rmse": 0.04345690751835139
+  },
+  {
+    "lag": -0.0601,
+    "orientation_rmse": 0.3966503304963353,
+    "orientation_max": 1.8717986860194873,
+    "position_rmse": 0.040121809169819896
+  },
+  {
+    "lag": -0.0551,
+    "orientation_rmse": 0.19558718650375123,
+    "orientation_max": 0.9481380419355144,
+    "position_rmse": 0.03678647380839559
+  },
+  {
+    "lag": -0.0501,
+    "orientation_rmse": 0.0038542842013551313,
+    "orientation_max": 0.018594790107450906,
+    "position_rmse": 0.033451598957543585
+  },
+  {
+    "lag": -0.0451,
+    "orientation_rmse": 0.18238494886395004,
+    "orientation_max": 0.9203622594247782,
+    "position_rmse": 0.030115442271537077
+  },
+  {
+    "lag": -0.0401,
+    "orientation_rmse": 0.36693722654007577,
+    "orientation_max": 1.868462926801097,
+    "position_rmse": 0.02677730708003541
+  },
+  {
+    "lag": -0.0351,
+    "orientation_rmse": 0.5526482673942833,
+    "orientation_max": 2.821619370934748,
+    "position_rmse": 0.023438702278529594
+  },
+  {
+    "lag": -0.0301,
+    "orientation_rmse": 0.7407936585311331,
+    "orientation_max": 3.7736141890151007,
+    "position_rmse": 0.02010065971458498
+  },
+  {
+    "lag": -0.0251,
+    "orientation_rmse": 0.932162886643904,
+    "orientation_max": 4.716668349474002,
+    "position_rmse": 0.01676300475180201
+  },
+  {
+    "lag": -0.0201,
+    "orientation_rmse": 1.1262891006294522,
+    "orientation_max": 5.6431060265691455,
+    "position_rmse": 0.013425001641973834
+  },
+  {
+    "lag": -0.0151,
+    "orientation_rmse": 1.321619668201683,
+    "orientation_max": 6.548217794915514,
+    "position_rmse": 0.010085600898581088
+  },
+  {
+    "lag": -0.0101,
+    "orientation_rmse": 1.514180791353496,
+    "orientation_max": 7.431061794787732,
+    "position_rmse": 0.006745475474703433
+  },
+  {
+    "lag": -0.0051,
+    "orientation_rmse": 1.7005011195627153,
+    "orientation_max": 8.292734613804406,
+    "position_rmse": 0.003405652359668775
+  },
+  {
+    "lag": -0.0001,
+    "orientation_rmse": 1.8783406131700962,
+    "orientation_max": 9.136697476788134,
+    "position_rmse": 6.677713905817283e-05
+  },
+  {
+    "lag": 0.0049,
+    "orientation_rmse": 2.048170426064698,
+    "orientation_max": 9.966034727050962,
+    "position_rmse": 0.003271017971971792
+  },
+  {
+    "lag": 0.0099,
+    "orientation_rmse": 2.211668799924497,
+    "orientation_max": 10.785828212843587,
+    "position_rmse": 0.006607267023020882
+  }
+]

@@ -542,7 +542,7 @@ class ROS2Backend(Backend):
         if data["lidar_name"] not in self.graphical_sensors_writers:
             self.add_lidar_writter(data)
 
-    # [ZAV 변경] XYZ 미리보기와 점별 시각을 가진 Livox 호환 패킷을 같은 RTX 측정에서 만듭니다.
+    # [ZAV 변경] 같은 RTX 측정으로 XYZ 미리보기와 프레임 시각이 일관된 Livox 패킷을 만듭니다.
     def _publish_python_lidar(self, data):
         """Read the RTX annotator on the render callback and publish XYZ on ROS 2."""
         name = data["lidar_name"]
@@ -595,18 +595,9 @@ class ROS2Backend(Backend):
                 self._lidar_streams[name] = PointCloudStream(int(data["tcp_port"]))
             self._lidar_streams[name].submit(serialize_message(msg))
         if data.get("livox_tcp_port"):
-            # Isaac 5.1 reports a truncated timestamp array length through
-            # Replicator, while the native GPU buffer contains one uint64 per
-            # XYZ point. Copy the native buffer using the verified XYZ count.
-            import warp as wp
+            # Snapshot timing needs only the GMO pose interval. Do not copy
+            # the unused per-ray timestamp buffer from GPU to CPU.
             from isaacsim.sensors.rtx import get_gmo_data
-            node = annotator.get_node()
-            ptr = node.get_attribute("outputs:timestampPtr").get()
-            device_index = node.get_attribute("outputs:cudaDeviceIndex").get()
-            native_timestamps = wp.array(
-                ptr=ptr, dtype=wp.uint64, shape=(len(xyz),),
-                device=f"cuda:{device_index}" if device_index >= 0 else "cpu", copy=False,
-            ).numpy().copy()
             # Only read scalar GMO header fields; array fields can be GPU
             # pointers and must not be dereferenced as host numpy arrays.
             gmo = get_gmo_data(self._lidar_gmo[name].get_data())
@@ -617,11 +608,18 @@ class ROS2Backend(Backend):
                 self._lidar_clock_offsets[name] = offset
                 self._livox_packetizers.pop(name, None)
             result = dict(result)
-            result["timestamp"] = native_timestamps.astype(np.int64) + self._lidar_clock_offsets[name]
+            from .livox_packets import snapshot_timestamps
+            result["timestamp"] = snapshot_timestamps(
+                len(xyz), gmo.frameStart.timestampNs, gmo.frameEnd.timestampNs,
+                self._lidar_clock_offsets[name], stamp_ns,
+            )
             if name not in self._livox_packetizers:
                 from .livox_packets import LivoxPackets
                 self._livox_packetizers[name] = LivoxPackets(int(data.get("livox_scan_lines", 4)))
-                print(f"[Livox] Native per-point timestamps: {len(native_timestamps)}; RTX-to-sim offset_ns={self._lidar_clock_offsets[name]}", flush=True)
+                print(f"[Livox] Frame-coherent snapshot: {len(xyz)} points; "
+                      f"frame_start_ns={int(result['timestamp'][0])}; "
+                      f"frame_end_ns={int(gmo.frameEnd.timestampNs) + self._lidar_clock_offsets[name]}; "
+                      f"motion_state={gmo.motionCompensationState}", flush=True)
             packets = self._livox_packetizers[name].push(result, stamp_ns)
             key = "livox:" + name
             if key not in self._lidar_streams:

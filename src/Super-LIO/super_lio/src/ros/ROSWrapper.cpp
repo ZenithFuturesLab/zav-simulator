@@ -1,5 +1,6 @@
 
 #include "ros/ROSWrapper.h"
+#include "lio/imu_boundary.h"
 #include "ros/odometry_compat.h"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 
@@ -564,6 +565,9 @@ bool ROSWrapper::sync_measure(MeasureGroup& meas){
     imu_buffer_.pop_front();
   }
 
+  if (!imu_buffer_.empty()) {
+    appendImuBoundary(meas.imu, imu_buffer_.front(), meas.lidar.end_time);
+  }
   last_timestamp_lidar_ = meas.lidar.end_time;
   lidar_buffer_.pop_front();
   lidar_pushed_ = false;

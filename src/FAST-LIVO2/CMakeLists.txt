@@ -100,6 +100,11 @@ ament_auto_add_executable(fastlivo_mapping src/main.cpp)
 target_link_libraries(fastlivo_mapping vio lio pre imu_proc laser_mapping)
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_livox_timing test/test_livox_timing.cpp)
+  target_link_libraries(test_livox_timing pre)
+  ament_add_gtest(test_sparse_deskew test/test_sparse_deskew.cpp)
+  target_link_libraries(test_sparse_deskew imu_proc)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files

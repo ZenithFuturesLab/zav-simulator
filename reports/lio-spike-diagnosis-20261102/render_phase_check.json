@@ -1,0 +1,42 @@
+[
+  {
+    "phase": 0.0,
+    "gyro_world_rmse_deg_s": 0.5608962586079976
+  },
+  {
+    "phase": 0.005,
+    "gyro_world_rmse_deg_s": 0.405265647070173
+  },
+  {
+    "phase": 0.01,
+    "gyro_world_rmse_deg_s": 0.016324530012201088
+  },
+  {
+    "phase": 0.015,
+    "gyro_world_rmse_deg_s": 0.41817805351423293
+  },
+  {
+    "phase": 0.02,
+    "gyro_world_rmse_deg_s": 0.5880282617100545
+  },
+  {
+    "phase": 0.025,
+    "gyro_world_rmse_deg_s": 0.695728959782443
+  },
+  {
+    "phase": 0.03,
+    "gyro_world_rmse_deg_s": 0.7562448317647503
+  },
+  {
+    "phase": 0.035,
+    "gyro_world_rmse_deg_s": 0.7697967351327163
+  },
+  {
+    "phase": 0.04,
+    "gyro_world_rmse_deg_s": 0.7396546487372562
+  },
+  {
+    "phase": 0.045,
+    "gyro_world_rmse_deg_s": 0.6680139544392453
+  }
+]

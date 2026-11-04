@@ -148,6 +148,7 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, StatesGroup &state_inout, in
   state_inout.bias_g = Zero3d; // mean_gyr;
 
   last_imu = meas.imu.back();
+  last_prop_end_time = rclcpp::Time(last_imu->header.stamp).seconds();
 }
 
 void ImuProcess::Forward_without_imu(LidarMeasureGroup &meas, StatesGroup &state_inout, PointCloudXYZI &pcl_out)
@@ -496,9 +497,13 @@ void ImuProcess::UndistortPcl(LidarMeasureGroup &lidar_meas, StatesGroup &state_
   if (lidar_meas.lio_vio_flg == LIO)
   {
     auto it_pcl = pcl_wait_proc.points.end() - 1;
+    // Point offsets use scan start; IMUpose offsets use the previous update.
+    // These origins differ for sparse scans and frame-coherent snapshots.
+    const double scan_start_offset = lidar_meas.lidar_frame_beg_time - prop_beg_time;
+    bool all_points_processed = false;
     M3D extR_Ri(Lid_rot_to_IMU.transpose() * state_inout.rot_end.transpose());
     V3D exrR_extT(Lid_rot_to_IMU.transpose() * Lid_offset_to_IMU);
-    for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); it_kp--)
+    for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin() && !all_points_processed; it_kp--)
     {
       auto head = it_kp - 1;
       auto tail = it_kp;
@@ -513,9 +518,9 @@ void ImuProcess::UndistortPcl(LidarMeasureGroup &lidar_meas, StatesGroup &state_
       // printf("it_pcl->curvature: %lf pt dt: %lf \n", it_pcl->curvature,
       // it_pcl->curvature / double(1000) - head->offset_time);
 
-      for (; it_pcl->curvature / double(1000) > head->offset_time; it_pcl--)
+      for (; it_pcl->curvature / double(1000) + scan_start_offset >= head->offset_time; it_pcl--)
       {
-        dt = it_pcl->curvature / double(1000) - head->offset_time;
+        dt = it_pcl->curvature / double(1000) + scan_start_offset - head->offset_time;
 
         /* Transform to the 'end' frame */
         M3D R_i(R_imu * Exp(angvel_avr, dt));
@@ -532,7 +537,11 @@ void ImuProcess::UndistortPcl(LidarMeasureGroup &lidar_meas, StatesGroup &state_
         it_pcl->y = P_compensate(1);
         it_pcl->z = P_compensate(2);
 
-        if (it_pcl == pcl_wait_proc.points.begin()) break;
+        if (it_pcl == pcl_wait_proc.points.begin())
+        {
+          all_points_processed = true;
+          break;
+        }
       }
     }
     pcl_out = pcl_wait_proc;

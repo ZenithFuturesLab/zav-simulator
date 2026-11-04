@@ -90,6 +90,9 @@ class Lidar(GraphicalSensor):
                     f"Expected OmniLidar at {self._stage_prim_path}; "
                     f"check {self._usd_path}:{self._sensor_prim_path}"
                 )
+            # LIO performs its own deskew using the per-return timestamps.
+            # Do not give it a cloud that RTX has already deskewed.
+            self._sensor.GetAttribute("omni:sensor:Core:outputMotionCompensationState").Set("NONCOMPENSATED")
             return
         
         _, self._sensor = omni.kit.commands.execute(

@@ -1,0 +1,679 @@
+diff --git a/simulator/pegasus/simulator/logic/backends/livox_packets.py b/simulator/pegasus/simulator/logic/backends/livox_packets.py
+index 1c06189..f494ca5 100644
+--- a/simulator/pegasus/simulator/logic/backends/livox_packets.py
++++ b/simulator/pegasus/simulator/logic/backends/livox_packets.py
+@@ -1,5 +1,5 @@
+-# [ZAV 변경] RTX 점별 실제 시각을 보존해 FAST-LIVO CustomMsg용 100 ms 패킷을 만듭니다.
+-"""Group real RTX acquisition timestamps into 100 ms Livox-compatible packets.
++# [ZAV 변경] RTX XYZ의 프레임 기준 시각을 보존해 Livox 호환 100 ms 패킷을 만듭니다.
++"""Group time-consistent RTX snapshots into 100 ms Livox-compatible packets.
+ 
+ Wire format: little-endian uint64 start_ns, uint32 count, then 20-byte records:
+ float32 x/y/z, uint32 offset_ns, uint8 reflectivity/line/tag/reserved.
+@@ -9,6 +9,22 @@ this does not reproduce the proprietary Mid360 non-repetitive firing pattern.
+ import struct
+ import numpy as np
+ 
++
++def snapshot_timestamps(count, frame_start_ns, frame_end_ns, clock_offset_ns, sim_time_ns):
++    """Label XYZ by its common GMO sensor-frame pose, not per-ray firing time.
++
++    Isaac 5.1's scan-buffer XYZ is referenced to frameStart. Combining those
++    coordinates with firing timestamps makes downstream LIO apply the wrong motion.
++    This is a render-rate snapshot model, not a rolling Mid360 timing model.
++    """
++    start = int(frame_start_ns) + int(clock_offset_ns)
++    end = int(frame_end_ns) + int(clock_offset_ns)
++    if not 0 <= start <= end or end - start > 500_000_000:
++        raise ValueError(f"Invalid RTX snapshot interval: {start}..{end}")
++    if abs(end - int(sim_time_ns)) > 100_000_000:
++        raise ValueError("RTX snapshot and simulation clocks are not synchronized")
++    return np.full(int(count), start, dtype=np.int64)
++
+ POINT_DTYPE = np.dtype([
+     ("x", "<f4"), ("y", "<f4"), ("z", "<f4"), ("offset", "<u4"),
+     ("reflectivity", "u1"), ("line", "u1"), ("tag", "u1"), ("reserved", "u1"),
+diff --git a/simulator/pegasus/simulator/logic/backends/ros2_backend.py b/simulator/pegasus/simulator/logic/backends/ros2_backend.py
+index fa56b98..f7923d5 100644
+--- a/simulator/pegasus/simulator/logic/backends/ros2_backend.py
++++ b/simulator/pegasus/simulator/logic/backends/ros2_backend.py
+@@ -542,7 +542,7 @@ class ROS2Backend(Backend):
+         if data["lidar_name"] not in self.graphical_sensors_writers:
+             self.add_lidar_writter(data)
+ 
+-    # [ZAV 변경] XYZ 미리보기와 점별 시각을 가진 Livox 호환 패킷을 같은 RTX 측정에서 만듭니다.
++    # [ZAV 변경] 같은 RTX 측정으로 XYZ 미리보기와 프레임 시각이 일관된 Livox 패킷을 만듭니다.
+     def _publish_python_lidar(self, data):
+         """Read the RTX annotator on the render callback and publish XYZ on ROS 2."""
+         name = data["lidar_name"]
+@@ -595,18 +595,9 @@ class ROS2Backend(Backend):
+                 self._lidar_streams[name] = PointCloudStream(int(data["tcp_port"]))
+             self._lidar_streams[name].submit(serialize_message(msg))
+         if data.get("livox_tcp_port"):
+-            # Isaac 5.1 reports a truncated timestamp array length through
+-            # Replicator, while the native GPU buffer contains one uint64 per
+-            # XYZ point. Copy the native buffer using the verified XYZ count.
+-            import warp as wp
++            # Snapshot timing needs only the GMO pose interval. Do not copy
++            # the unused per-ray timestamp buffer from GPU to CPU.
+             from isaacsim.sensors.rtx import get_gmo_data
+-            node = annotator.get_node()
+-            ptr = node.get_attribute("outputs:timestampPtr").get()
+-            device_index = node.get_attribute("outputs:cudaDeviceIndex").get()
+-            native_timestamps = wp.array(
+-                ptr=ptr, dtype=wp.uint64, shape=(len(xyz),),
+-                device=f"cuda:{device_index}" if device_index >= 0 else "cpu", copy=False,
+-            ).numpy().copy()
+             # Only read scalar GMO header fields; array fields can be GPU
+             # pointers and must not be dereferenced as host numpy arrays.
+             gmo = get_gmo_data(self._lidar_gmo[name].get_data())
+@@ -617,11 +608,18 @@ class ROS2Backend(Backend):
+                 self._lidar_clock_offsets[name] = offset
+                 self._livox_packetizers.pop(name, None)
+             result = dict(result)
+-            result["timestamp"] = native_timestamps.astype(np.int64) + self._lidar_clock_offsets[name]
++            from .livox_packets import snapshot_timestamps
++            result["timestamp"] = snapshot_timestamps(
++                len(xyz), gmo.frameStart.timestampNs, gmo.frameEnd.timestampNs,
++                self._lidar_clock_offsets[name], stamp_ns,
++            )
+             if name not in self._livox_packetizers:
+                 from .livox_packets import LivoxPackets
+                 self._livox_packetizers[name] = LivoxPackets(int(data.get("livox_scan_lines", 4)))
+-                print(f"[Livox] Native per-point timestamps: {len(native_timestamps)}; RTX-to-sim offset_ns={self._lidar_clock_offsets[name]}", flush=True)
++                print(f"[Livox] Frame-coherent snapshot: {len(xyz)} points; "
++                      f"frame_start_ns={int(result['timestamp'][0])}; "
++                      f"frame_end_ns={int(gmo.frameEnd.timestampNs) + self._lidar_clock_offsets[name]}; "
++                      f"motion_state={gmo.motionCompensationState}", flush=True)
+             packets = self._livox_packetizers[name].push(result, stamp_ns)
+             key = "livox:" + name
+             if key not in self._lidar_streams:
+diff --git a/simulator/pegasus/simulator/logic/graphical_sensors/lidar.py b/simulator/pegasus/simulator/logic/graphical_sensors/lidar.py
+index 32cfc36..cabafd1 100644
+--- a/simulator/pegasus/simulator/logic/graphical_sensors/lidar.py
++++ b/simulator/pegasus/simulator/logic/graphical_sensors/lidar.py
+@@ -90,6 +90,9 @@ class Lidar(GraphicalSensor):
+                     f"Expected OmniLidar at {self._stage_prim_path}; "
+                     f"check {self._usd_path}:{self._sensor_prim_path}"
+                 )
++            # LIO performs its own deskew using the per-return timestamps.
++            # Do not give it a cloud that RTX has already deskewed.
++            self._sensor.GetAttribute("omni:sensor:Core:outputMotionCompensationState").Set("NONCOMPENSATED")
+             return
+         
+         _, self._sensor = omni.kit.commands.execute(
+diff --git a/simulator/pegasus/simulator/logic/vehicles/vehicle.py b/simulator/pegasus/simulator/logic/vehicles/vehicle.py
+index 1d9a9cc..10c115a 100644
+--- a/simulator/pegasus/simulator/logic/vehicles/vehicle.py
++++ b/simulator/pegasus/simulator/logic/vehicles/vehicle.py
+@@ -294,12 +294,6 @@ class Vehicle(Robot):
+         # Get the current position and orientation in the inertial frame
+         pose = self.get_dc_interface().get_rigid_body_pose(body)
+ 
+-        # Get the attitude according to the convention [w, x, y, z]
+-        prim = self._world.stage.GetPrimAtPath(self._stage_prefix + "/body")
+-        rotation_quat = get_world_transform_xform(prim).GetQuaternion()
+-        rotation_quat_real = rotation_quat.GetReal()
+-        rotation_quat_img = rotation_quat.GetImaginary()
+-
+         # Get the angular velocity of the vehicle expressed in the body frame of reference
+         ang_vel = self.get_dc_interface().get_rigid_body_angular_velocity(body)
+ 
+@@ -313,9 +307,10 @@ class Vehicle(Robot):
+         # Update the state variable X = [x,y,z]
+         self._state.position = np.array(pose.p)
+ 
+-        # Get the quaternion according in the [qx,qy,qz,qw] standard
++        # Keep attitude on the same PhysX tick as position and velocity. USD
++        # transforms refresh at render rate and can lag the 200 Hz IMU.
+         self._state.attitude = np.array(
+-            [rotation_quat_img[0], rotation_quat_img[1], rotation_quat_img[2], rotation_quat_real]
++            [pose.r.x, pose.r.y, pose.r.z, pose.r.w]
+         )
+ 
+         # Express the velocity of the vehicle in the inertial frame X_dot = [x_dot, y_dot, z_dot]
+@@ -410,4 +405,4 @@ class Vehicle(Robot):
+         if self._vehicle_dc_interface is None:
+             self._vehicle_dc_interface = _dynamic_control.acquire_dynamic_control_interface()
+ 
+-        return self._vehicle_dc_interface
+\ No newline at end of file
++        return self._vehicle_dc_interface
+diff --git a/simulator/zav_sim.py b/simulator/zav_sim.py
+index 2b509cb..e884c61 100755
+--- a/simulator/zav_sim.py
++++ b/simulator/zav_sim.py
+@@ -47,8 +47,11 @@ if sys.platform == "win32":
+ 
+ from isaacsim import SimulationApp
+ 
+-# 정상 작동하던 기존 설정으로 복원
+-simulation_app = SimulationApp({"headless": False, "sync_loads": False})
++# Enable motion-aware RTX geometry. The Livox adapter separately labels each
++# XYZ snapshot with its common GMO frameStart pose time.
++simulation_app = SimulationApp({
++    "headless": False, "sync_loads": False, "enable_motion_bvh": True,
++})
+ 
+ # 초기화 중 확장 모듈 로딩 충돌 여부 확인
+ for _ in range(5):
+@@ -77,6 +80,9 @@ import carb.settings
+ import omni.appwindow
+ import omni.timeline
+ import omni.usd
++
++if not carb.settings.get_settings().get("/renderer/raytracingMotion/enabled"):
++    raise RuntimeError("RTX Motion BVH must be enabled for timestamped Mid360 scans")
+ from omni.isaac.core.world import World
+ import omni.isaac.core.utils.prims as prim_utils
+ 
+@@ -275,6 +281,7 @@ class ZAVPlaneApp:
+         # 6. 물리 시뮬레이션 환경 리셋 (Articulation 및 관절 초기화)
+         print("[INIT] Resetting world...", flush=True)
+         self.world.reset()
++        self.world.add_physics_callback("zav_ground_truth", lambda dt: self.publish_ground_truth())
+         print("=" * 60)
+         print("[Ready] Full Warehouse 시뮬레이션 및 3인칭 줌 추적 카메라 준비 완료!")
+         print("=" * 60)
+@@ -334,9 +341,13 @@ class ZAVPlaneApp:
+         self.pg.set_viewport_camera(cam_eye.tolist(), cam_target.tolist())
+ 
+     def publish_ground_truth(self):
+-        state = self.drone.state
+-        rotation = Rotation.from_quat(state.attitude)
+-        position = np.asarray(state.position) + rotation.apply(self._imu_offset)
++        # Read the physical rigid body directly: never copy EKF/LIO odometry or
++        # a render-rate USD transform into ground truth.
++        dc = self.drone.get_dc_interface()
++        body = dc.get_rigid_body(self.drone._stage_prefix + "/body")
++        pose = dc.get_rigid_body_pose(body)
++        rotation = Rotation.from_quat([pose.r.x, pose.r.y, pose.r.z, pose.r.w])
++        position = np.asarray(pose.p) + rotation.apply(self._imu_offset)
+         attitude = (rotation * self._imu_rotation).as_quat()
+         msg = self._truth_type()
+         stamp_ns = round(float(self.world.current_time) * 1e9)
+@@ -348,12 +359,13 @@ class ZAVPlaneApp:
+         for axis, value in zip(("x", "y", "z", "w"), attitude):
+             setattr(msg.pose.pose.orientation, axis, float(value))
+         # Twist is expressed in the mounted IMU frame (Odometry convention).
+-        velocity = np.asarray(state.linear_velocity) + rotation.apply(
+-            np.cross(state.angular_velocity, self._imu_offset))
++        angular_world = np.asarray(dc.get_rigid_body_angular_velocity(body))
++        velocity = np.asarray(dc.get_rigid_body_linear_velocity(body)) + np.cross(
++            angular_world, rotation.apply(self._imu_offset))
+         imu_world = rotation * self._imu_rotation
+         for axis, value in zip(("x", "y", "z"), imu_world.inv().apply(velocity)):
+             setattr(msg.twist.twist.linear, axis, float(value))
+-        for axis, value in zip(("x", "y", "z"), self._imu_rotation.inv().apply(state.angular_velocity)):
++        for axis, value in zip(("x", "y", "z"), imu_world.inv().apply(angular_world)):
+             setattr(msg.twist.twist.angular, axis, float(value))
+         self._truth_pub.publish(msg)
+ 
+@@ -362,7 +374,6 @@ class ZAVPlaneApp:
+         self.timeline.play()
+         while simulation_app.is_running():
+             self.world.step(render=True)
+-            self.publish_ground_truth()
+             self.update_chase_camera()
+         
+         self.timeline.stop()
+diff --git a/src/FAST-LIVO2/CMakeLists.txt b/src/FAST-LIVO2/CMakeLists.txt
+index 7646944..d53ef25 100644
+--- a/src/FAST-LIVO2/CMakeLists.txt
++++ b/src/FAST-LIVO2/CMakeLists.txt
+@@ -100,6 +100,11 @@ ament_auto_add_executable(fastlivo_mapping src/main.cpp)
+ target_link_libraries(fastlivo_mapping vio lio pre imu_proc laser_mapping)
+ 
+ if(BUILD_TESTING)
++  find_package(ament_cmake_gtest REQUIRED)
++  ament_add_gtest(test_livox_timing test/test_livox_timing.cpp)
++  target_link_libraries(test_livox_timing pre)
++  ament_add_gtest(test_sparse_deskew test/test_sparse_deskew.cpp)
++  target_link_libraries(test_sparse_deskew imu_proc)
+   find_package(ament_lint_auto REQUIRED)
+   # the following line skips the linter which checks for copyrights
+   # comment the line when a copyright and license is added to all source files
+diff --git a/src/FAST-LIVO2/include/IMU_Processing.h b/src/FAST-LIVO2/include/IMU_Processing.h
+index 67ef9d0..d314794 100644
+--- a/src/FAST-LIVO2/include/IMU_Processing.h
++++ b/src/FAST-LIVO2/include/IMU_Processing.h
+@@ -79,7 +79,7 @@ private:
+   V3D mean_gyr;
+   V3D angvel_last;
+   V3D acc_s_last;
+-  double last_prop_end_time;
++  double last_prop_end_time = 0.0;
+   double time_last_scan;
+   int init_iter_num = 1, MAX_INI_COUNT = 20;
+   bool b_first_frame = true;
+@@ -89,4 +89,4 @@ private:
+   bool exposure_estimate_en = true;
+ };
+ typedef std::shared_ptr<ImuProcess> ImuProcessPtr;
+-#endif
+\ No newline at end of file
++#endif
+diff --git a/src/FAST-LIVO2/package.xml b/src/FAST-LIVO2/package.xml
+index 2c2463b..c3ee752 100644
+--- a/src/FAST-LIVO2/package.xml
++++ b/src/FAST-LIVO2/package.xml
+@@ -37,6 +37,7 @@
+   <depend>livox_ros_driver2</depend>
+ 
+   <test_depend>ament_lint_auto</test_depend>
++  <test_depend>ament_cmake_gtest</test_depend>
+   <test_depend>ament_lint_common</test_depend>
+ 
+   <export>
+diff --git a/src/FAST-LIVO2/src/IMU_Processing.cpp b/src/FAST-LIVO2/src/IMU_Processing.cpp
+index 35c35e4..4adeb60 100755
+--- a/src/FAST-LIVO2/src/IMU_Processing.cpp
++++ b/src/FAST-LIVO2/src/IMU_Processing.cpp
+@@ -148,6 +148,7 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, StatesGroup &state_inout, in
+   state_inout.bias_g = Zero3d; // mean_gyr;
+ 
+   last_imu = meas.imu.back();
++  last_prop_end_time = rclcpp::Time(last_imu->header.stamp).seconds();
+ }
+ 
+ void ImuProcess::Forward_without_imu(LidarMeasureGroup &meas, StatesGroup &state_inout, PointCloudXYZI &pcl_out)
+@@ -496,9 +497,13 @@ void ImuProcess::UndistortPcl(LidarMeasureGroup &lidar_meas, StatesGroup &state_
+   if (lidar_meas.lio_vio_flg == LIO)
+   {
+     auto it_pcl = pcl_wait_proc.points.end() - 1;
++    // Point offsets use scan start; IMUpose offsets use the previous update.
++    // These origins differ for sparse scans and frame-coherent snapshots.
++    const double scan_start_offset = lidar_meas.lidar_frame_beg_time - prop_beg_time;
++    bool all_points_processed = false;
+     M3D extR_Ri(Lid_rot_to_IMU.transpose() * state_inout.rot_end.transpose());
+     V3D exrR_extT(Lid_rot_to_IMU.transpose() * Lid_offset_to_IMU);
+-    for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); it_kp--)
++    for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin() && !all_points_processed; it_kp--)
+     {
+       auto head = it_kp - 1;
+       auto tail = it_kp;
+@@ -513,9 +518,9 @@ void ImuProcess::UndistortPcl(LidarMeasureGroup &lidar_meas, StatesGroup &state_
+       // printf("it_pcl->curvature: %lf pt dt: %lf \n", it_pcl->curvature,
+       // it_pcl->curvature / double(1000) - head->offset_time);
+ 
+-      for (; it_pcl->curvature / double(1000) > head->offset_time; it_pcl--)
++      for (; it_pcl->curvature / double(1000) + scan_start_offset >= head->offset_time; it_pcl--)
+       {
+-        dt = it_pcl->curvature / double(1000) - head->offset_time;
++        dt = it_pcl->curvature / double(1000) + scan_start_offset - head->offset_time;
+ 
+         /* Transform to the 'end' frame */
+         M3D R_i(R_imu * Exp(angvel_avr, dt));
+@@ -532,7 +537,11 @@ void ImuProcess::UndistortPcl(LidarMeasureGroup &lidar_meas, StatesGroup &state_
+         it_pcl->y = P_compensate(1);
+         it_pcl->z = P_compensate(2);
+ 
+-        if (it_pcl == pcl_wait_proc.points.begin()) break;
++        if (it_pcl == pcl_wait_proc.points.begin())
++        {
++          all_points_processed = true;
++          break;
++        }
+       }
+     }
+     pcl_out = pcl_wait_proc;
+@@ -587,4 +596,4 @@ void ImuProcess::Process2(LidarMeasureGroup &lidar_meas, StatesGroup &stat, Poin
+ 
+   UndistortPcl(lidar_meas, stat, *cur_pcl_un_);
+   // cout << "[ IMU ] undistorted point num: " << cur_pcl_un_->size() << endl;
+-}
+\ No newline at end of file
++}
+diff --git a/src/FAST-LIVO2/src/preprocess.cpp b/src/FAST-LIVO2/src/preprocess.cpp
+index 9b351da..9ed29d7 100755
+--- a/src/FAST-LIVO2/src/preprocess.cpp
++++ b/src/FAST-LIVO2/src/preprocess.cpp
+@@ -170,15 +170,9 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::ConstPtr
+         pl_full[i].intensity = msg->points[i].reflectivity;
+         pl_full[i].curvature = msg->points[i].offset_time / float(1000000); // use curvature as time of each laser points
+ 
+-        if (i == 0)
+-          pl_full[i].curvature = fabs(pl_full[i].curvature) < 1.0 ? pl_full[i].curvature : 0.0;
+-        else
+-        {
+-          // if(fabs(pl_full[i].curvature - pl_full[i - 1].curvature) > 1.0) ROS_ERROR("time jump: %f", fabs(pl_full[i].curvature - pl_full[i - 1].curvature));
+-          pl_full[i].curvature = fabs(pl_full[i].curvature - pl_full[i - 1].curvature) < 1.0
+-                                     ? pl_full[i].curvature
+-                                     : pl_full[i - 1].curvature + 0.004166667f; // float(100/24000)
+-        }
++        // Preserve the supplied acquisition time. Sparse/decimated clouds and
++        // frame-coherent simulator snapshots can have valid gaps above 1 ms;
++        // replacing them with an assumed firing interval corrupts IMU deskew.
+ 
+         if (valid_num % point_filter_num == 0)
+         {
+@@ -1077,4 +1071,4 @@ bool Preprocess::edge_jump_judge(const PointCloudXYZI &pl, vector<orgtype> &type
+   if (d1 > edgea * d2 || (d1 - d2) > edgeb) { return false; }
+ 
+   return true;
+-}
+\ No newline at end of file
++}
+diff --git a/src/Super-LIO/super_lio/CMakeLists.txt b/src/Super-LIO/super_lio/CMakeLists.txt
+index 1c2b3e5..737c223 100755
+--- a/src/Super-LIO/super_lio/CMakeLists.txt
++++ b/src/Super-LIO/super_lio/CMakeLists.txt
+@@ -131,6 +131,8 @@ if(BUILD_TESTING)
+   target_link_libraries(test_odometry_compat Eigen3::Eigen)
+   ament_add_gtest(test_imu_repropagation test/test_imu_repropagation.cpp)
+   target_link_libraries(test_imu_repropagation lio)
++  ament_add_gtest(test_imu_boundary test/test_imu_boundary.cpp)
++  target_link_libraries(test_imu_boundary lio)
+ endif()
+ 
+ ament_package()
+diff --git a/src/Super-LIO/super_lio/src/ros/ROSWrapper.cpp b/src/Super-LIO/super_lio/src/ros/ROSWrapper.cpp
+index 9bd9c84..3c6218e 100644
+--- a/src/Super-LIO/super_lio/src/ros/ROSWrapper.cpp
++++ b/src/Super-LIO/super_lio/src/ros/ROSWrapper.cpp
+@@ -1,5 +1,6 @@
+ 
+ #include "ros/ROSWrapper.h"
++#include "lio/imu_boundary.h"
+ #include "ros/odometry_compat.h"
+ #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+ 
+@@ -564,6 +565,9 @@ bool ROSWrapper::sync_measure(MeasureGroup& meas){
+     imu_buffer_.pop_front();
+   }
+ 
++  if (!imu_buffer_.empty()) {
++    appendImuBoundary(meas.imu, imu_buffer_.front(), meas.lidar.end_time);
++  }
+   last_timestamp_lidar_ = meas.lidar.end_time;
+   lidar_buffer_.pop_front();
+   lidar_pushed_ = false;
+@@ -804,4 +808,4 @@ void ROSWrapper::set_initial_data(BASIC::SE3& init_pose, bool& flg_get_init_gues
+ }
+ 
+ 
+-} // namespace END.
+\ No newline at end of file
++} // namespace END.
+diff --git a/simulator/tests/check_ground_truth_source.py b/simulator/tests/check_ground_truth_source.py
+new file mode 100644
+index 0000000..2642fcc
+--- /dev/null
++++ b/simulator/tests/check_ground_truth_source.py
+@@ -0,0 +1,49 @@
++"""GT must read PhysX directly even when an estimator/state cache is wrong."""
++import ast
++from pathlib import Path
++from types import SimpleNamespace as NS
++import numpy as np
++from scipy.spatial.transform import Rotation
++
++path = Path(__file__).resolve().parents[1] / "zav_sim.py"
++tree = ast.parse(path.read_text())
++method = next(n for c in tree.body if isinstance(c, ast.ClassDef)
++              for n in c.body if isinstance(n, ast.FunctionDef) and n.name == "publish_ground_truth")
++namespace = {"np": np, "Rotation": Rotation}
++exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), "exec"), namespace)
++
++rotation = Rotation.from_euler("xyz", [10, -5, 30], degrees=True)
++q = rotation.as_quat()
++position = np.array([1., 2., 3.])
++velocity = np.array([.2, -.4, .1])
++omega = np.array([.3, -.2, .4])
++offset = np.array([.04, .02, .15])
++mount = Rotation.from_euler("y", 22, degrees=True)
++dc = NS(get_rigid_body=lambda _: 1,
++        get_rigid_body_pose=lambda _: NS(p=position, r=NS(**dict(zip("xyzw", q)))),
++        get_rigid_body_angular_velocity=lambda _: omega,
++        get_rigid_body_linear_velocity=lambda _: velocity)
++
++class Drone:
++    _stage_prefix = "/drone"
++    def get_dc_interface(self): return dc
++    @property
++    def state(self): raise AssertionError("GT read cached/estimated state")
++
++def message():
++    return NS(header=NS(stamp=NS()), pose=NS(pose=NS(position=NS(), orientation=NS())),
++              twist=NS(twist=NS(linear=NS(), angular=NS())))
++
++published = []
++app = NS(drone=Drone(), world=NS(current_time=1.25), _imu_offset=offset,
++         _imu_rotation=mount, _truth_type=message, _truth_pub=NS(publish=published.append))
++namespace["publish_ground_truth"](app)
++msg = published[0]
++np.testing.assert_allclose([getattr(msg.pose.pose.position, k) for k in "xyz"],
++                           position + rotation.apply(offset))
++actual = Rotation.from_quat([getattr(msg.pose.pose.orientation, k) for k in "xyzw"])
++assert ((rotation * mount).inv() * actual).magnitude() < 1e-12
++np.testing.assert_allclose([getattr(msg.twist.twist.linear, k) for k in "xyz"],
++                           (rotation * mount).inv().apply(velocity + np.cross(omega, rotation.apply(offset))))
++assert (msg.header.stamp.sec, msg.header.stamp.nanosec) == (1, 250_000_000)
++print("PASS: independent PhysX GT pose, sensor lever arm, twist and measurement timestamp")
+diff --git a/simulator/tests/check_livox_snapshot_timing.py b/simulator/tests/check_livox_snapshot_timing.py
+new file mode 100644
+index 0000000..ef84857
+--- /dev/null
++++ b/simulator/tests/check_livox_snapshot_timing.py
+@@ -0,0 +1,36 @@
++"""Check frame-time semantics and packetization without Isaac Sim or ROS."""
++import importlib.util
++from pathlib import Path
++import struct
++import numpy as np
++
++path = Path(__file__).resolve().parents[1] / "pegasus/simulator/logic/backends/livox_packets.py"
++spec = importlib.util.spec_from_file_location("livox_packets", path)
++module = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(module)
++
++packetizer = module.LivoxPackets()
++packets = []
++for index in range(3):
++    start = 10_000_000 + index * 50_000_000
++    end = start + 50_000_000
++    times = module.snapshot_timestamps(3, start + 2_000_000_000, end + 2_000_000_000,
++                                       -2_000_000_000, end)
++    np.testing.assert_array_equal(times, [start] * 3)
++    result = {"data": np.array([[1., 0., 0.], [2., 0., 0.], [3., 0., 0.]]),
++              "timestamp": times, "emitterId": np.arange(3), "intensity": np.ones(3)}
++    packets.extend(packetizer.push(result, end))
++    assert packetizer.push(result, end) == []  # repeated render read, no duplicate points
++assert len(packets) == 1
++stamp, count = struct.unpack_from("<QI", packets[0])
++points = np.frombuffer(packets[0], dtype=module.POINT_DTYPE, offset=12)
++assert stamp == 10_000_000 and count == 6
++np.testing.assert_array_equal(points["offset"], [0, 0, 0, 50_000_000, 50_000_000, 50_000_000])
++np.testing.assert_allclose(points["x"], [1, 2, 3, 1, 2, 3])
++try:
++    module.snapshot_timestamps(1, 100, 200, 0, 200_000_000)
++except ValueError:
++    pass
++else:
++    raise AssertionError("Unsynchronized sensor clock accepted")
++print("PASS: snapshot pose times, preserved XYZ, 100 ms packets, duplicate reads, clock validation")
+diff --git a/simulator/tests/check_vehicle_physics_pose.py b/simulator/tests/check_vehicle_physics_pose.py
+new file mode 100644
+index 0000000..a37bc44
+--- /dev/null
++++ b/simulator/tests/check_vehicle_physics_pose.py
+@@ -0,0 +1,30 @@
++"""Vehicle pose and body-frame vectors must use one PhysX tick, without reading USD.
++Run the actual update_state method with a fake dynamic-control interface so this
++regression test needs neither a GPU nor an Isaac Sim install.
++"""
++import ast
++from pathlib import Path
++from types import SimpleNamespace
++import numpy as np
++from scipy.spatial.transform import Rotation
++
++path=Path(__file__).resolve().parents[1]/'pegasus/simulator/logic/vehicles/vehicle.py'
++module=ast.parse(path.read_text());method=next(n for c in module.body if isinstance(c,ast.ClassDef) for n in c.body if isinstance(n,ast.FunctionDef) and n.name=='update_state')
++namespace={'np':np,'Rotation':Rotation}
++exec(compile(ast.Module(body=[method],type_ignores=[]),str(path),'exec'),namespace)
++
++def forbidden_usd(*args):
++    raise AssertionError('Physics-state update read render-rate USD pose')
++
++rotation=Rotation.from_euler('xyz',[25,-10,70],degrees=True);q=rotation.as_quat();world_v=np.array([1.,2.,3.]);world_w=np.array([.5,-.3,1.2]);world_a=np.array([.2,-.4,.7]);dt=.005
++state=SimpleNamespace(linear_velocity=world_v-world_a*dt)
++pose=SimpleNamespace(p=[3.,4.,5.],r=SimpleNamespace(x=q[0],y=q[1],z=q[2],w=q[3]))
++dc=SimpleNamespace(get_rigid_body=lambda _:1,get_rigid_body_pose=lambda _:pose,get_rigid_body_angular_velocity=lambda _:world_w,get_rigid_body_linear_velocity=lambda _:world_v)
++vehicle=SimpleNamespace(_stage_prefix='/test',_state=state,get_dc_interface=lambda:dc,_world=SimpleNamespace(stage=SimpleNamespace(GetPrimAtPath=forbidden_usd)))
++namespace['update_state'](vehicle,dt)
++np.testing.assert_allclose(state.position,pose.p)
++assert (rotation.inv()*Rotation.from_quat(state.attitude)).magnitude()<1e-12
++np.testing.assert_allclose(state.angular_velocity,rotation.inv().apply(world_w),atol=1e-12)
++np.testing.assert_allclose(state.linear_body_velocity,rotation.inv().apply(world_v),atol=1e-12)
++np.testing.assert_allclose(state.linear_acceleration,world_a,atol=1e-10)
++print('PASS: pose, gyro frame, body velocity and acceleration use PhysX; no USD access')
+diff --git a/src/FAST-LIVO2/test/test_livox_timing.cpp b/src/FAST-LIVO2/test/test_livox_timing.cpp
+new file mode 100644
+index 0000000..527cf58
+--- /dev/null
++++ b/src/FAST-LIVO2/test/test_livox_timing.cpp
+@@ -0,0 +1,23 @@
++#include <gtest/gtest.h>
++#include "preprocess.h"
++
++TEST(LivoxTiming, PreservesSparseSnapshotTimes) {
++  Preprocess processor;
++  processor.set(false, AVIA, .5, 1);
++  processor.blind_sqr = .25;
++  auto message = std::make_shared<livox_ros_driver2::msg::CustomMsg>();
++  const uint32_t times[] = {0, 0, 50000000, 50000000, 100000000};
++  for (const auto time : times) {
++    livox_ros_driver2::msg::CustomPoint point;
++    point.x = 2.; point.y = .1; point.z = .2;
++    point.line = 0; point.tag = 0x10; point.offset_time = time;
++    message->points.push_back(point);
++  }
++  message->point_num = message->points.size();
++  PointCloudXYZI::Ptr output(new PointCloudXYZI());
++  processor.process(message, output);
++  ASSERT_EQ(output->size(), 5u);
++  for (size_t i=0; i<output->size(); ++i) {
++    EXPECT_NEAR(output->points[i].curvature, times[i] / 1000000., 1e-5);
++  }
++}
+diff --git a/src/FAST-LIVO2/test/test_sparse_deskew.cpp b/src/FAST-LIVO2/test/test_sparse_deskew.cpp
+new file mode 100644
+index 0000000..3a3b264
+--- /dev/null
++++ b/src/FAST-LIVO2/test/test_sparse_deskew.cpp
+@@ -0,0 +1,48 @@
++#include <gtest/gtest.h>
++#include "IMU_Processing.h"
++
++static sensor_msgs::msg::Imu::ConstPtr imuAt(int tick, double yaw_rate) {
++  auto imu = std::make_shared<sensor_msgs::msg::Imu>();
++  imu->header.stamp.nanosec = tick * 5000000;
++  imu->linear_acceleration.z = G_m_s2;
++  imu->angular_velocity.z = yaw_rate;
++  return imu;
++}
++
++TEST(SparseDeskew, UsesPhysicalPointTimeAcrossScanGapIncludingFirstPoint) {
++  ImuProcess processor;
++  processor.first_lidar_time = 0.;
++  processor.set_imu_init_frame_num(0);
++  StatesGroup state;
++  LidarMeasureGroup group;
++  group.lio_vio_flg = LIO;
++  MeasureGroup initial;
++  initial.lio_time = .005;
++  initial.imu = {imuAt(0, 0.), imuAt(1, 0.)};
++  group.measures.push_back(initial);
++  PointCloudXYZI::Ptr output(new PointCloudXYZI());
++  processor.Process2(group, state, output);
++  ASSERT_FALSE(processor.imu_need_init);
++  group.measures.clear();
++  group.lidar_frame_beg_time = .055;
++  group.lidar_frame_end_time = .105;
++  MeasureGroup measurement;
++  measurement.lio_time = .105;
++  for (int tick=2; tick<=21; ++tick) measurement.imu.push_back(imuAt(tick, 1.));
++  group.measures.push_back(measurement);
++  const V3D world_point(2., .3, .1);
++  for (double offset : {0., 0., 50., 50.}) {
++    const double angle = .0475 + offset / 1000.;
++    const V3D local = Eigen::AngleAxisd(-angle, V3D::UnitZ()) * world_point;
++    PointType point;
++    point.x=local.x(); point.y=local.y(); point.z=local.z(); point.curvature=offset;
++    group.lidar->push_back(point);
++  }
++  group.pcl_proc_cur = group.lidar;
++  processor.Process2(group, state, output);
++  ASSERT_EQ(output->size(), 4u);
++  const V3D expected = Eigen::AngleAxisd(-.0975, V3D::UnitZ()) * world_point;
++  for (const auto& point : output->points) {
++    EXPECT_LT((V3D(point.x, point.y, point.z)-expected).norm(), 2e-5);
++  }
++}
+diff --git a/src/Super-LIO/super_lio/include/lio/imu_boundary.h b/src/Super-LIO/super_lio/include/lio/imu_boundary.h
+new file mode 100644
+index 0000000..ac0ef3a
+--- /dev/null
++++ b/src/Super-LIO/super_lio/include/lio/imu_boundary.h
+@@ -0,0 +1,27 @@
++#pragma once
++
++#include <cmath>
++#include <deque>
++#include "common/ds.h"
++
++namespace LI2Sup {
++
++// Complete the integration interval without consuming the first IMU sample of
++// the next scan. Never extrapolate beyond the samples actually received.
++inline bool appendImuBoundary(std::deque<IMUData>& samples,
++                              const IMUData& next, double end_time) {
++  if (samples.empty()) return false;
++  const auto& previous = samples.back();
++  if (!std::isfinite(end_time) || !std::isfinite(previous.secs) ||
++      !std::isfinite(next.secs) || !(previous.secs < end_time) ||
++      !(end_time <= next.secs)) return false;
++  const double alpha = (end_time - previous.secs) / (next.secs - previous.secs);
++  IMUData boundary = previous;
++  boundary.secs = end_time;
++  boundary.acc += alpha * (next.acc - previous.acc);
++  boundary.gyr += alpha * (next.gyr - previous.gyr);
++  samples.push_back(boundary);
++  return true;
++}
++
++}  // namespace LI2Sup
+diff --git a/src/Super-LIO/super_lio/test/test_imu_boundary.cpp b/src/Super-LIO/super_lio/test/test_imu_boundary.cpp
+new file mode 100644
+index 0000000..16650c2
+--- /dev/null
++++ b/src/Super-LIO/super_lio/test/test_imu_boundary.cpp
+@@ -0,0 +1,27 @@
++#include <gtest/gtest.h>
++#include "lio/imu_boundary.h"
++using namespace LI2Sup;
++using namespace BASIC;
++
++TEST(ImuBoundary, CompletesScanWithoutConsumingFutureSample) {
++  IMUData a, b;
++  a.secs = .095; b.secs = .100;
++  a.acc = V3(1, 0, 9.80665); b.acc = V3(2, 0, 9.80665);
++  a.gyr = V3(0, 0, .1); b.gyr = V3(0, 0, .2);
++  std::deque<IMUData> samples{a};
++  ASSERT_TRUE(appendImuBoundary(samples, b, .0998));
++  ASSERT_EQ(samples.size(), 2u);
++  EXPECT_DOUBLE_EQ(samples.back().secs, .0998);
++  EXPECT_NEAR(samples.back().acc.x(), 1.96, 1e-6);
++  EXPECT_NEAR(samples.back().gyr.z(), .196, 1e-6);
++  EXPECT_DOUBLE_EQ(b.secs, .100);
++  EXPECT_FALSE(appendImuBoundary(samples, b, .0998));
++  EXPECT_FALSE(appendImuBoundary(samples, b, .101));
++}
++
++TEST(ImuBoundary, DoesNotInventAnIntervalWithoutPredecessor) {
++  std::deque<IMUData> samples;
++  IMUData next; next.secs = 1.;
++  EXPECT_FALSE(appendImuBoundary(samples, next, .9));
++  EXPECT_TRUE(samples.empty());
++}

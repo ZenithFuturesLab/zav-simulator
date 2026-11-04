@@ -1,0 +1,18 @@
+{
+  "runtime": {
+    "lidar_time_contract": "GMO frameStart-coherent snapshots",
+    "motion_bvh": true,
+    "hydra_mask": "0",
+    "physics_dt": 0.005,
+    "rendering_dt": 0.05,
+    "controller": "PhysX mounted-IMU GT -> bridge mount removal -> PX4 EKF; neither LIO feeds flight",
+    "sensor_motion_state": "NONCOMPENSATED"
+  },
+  "imu_messages": 19287,
+  "gt_samples": 30200,
+  "imu_gaps_over_7_5_ms": 0,
+  "imu_max_gap_ms": 5.000000000009663,
+  "gyro_world_rmse_deg_s": 2.832792414183028e-07,
+  "gyro_world_peak_error_deg_s": 4.508387466932186e-06,
+  "gt_source": "Direct PhysX rigid-body pose and world angular velocity, no EKF state access"
+}

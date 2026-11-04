@@ -131,6 +131,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_odometry_compat Eigen3::Eigen)
   ament_add_gtest(test_imu_repropagation test/test_imu_repropagation.cpp)
   target_link_libraries(test_imu_repropagation lio)
+  ament_add_gtest(test_imu_boundary test/test_imu_boundary.cpp)
+  target_link_libraries(test_imu_boundary lio)
 endif()
 
 ament_package()
