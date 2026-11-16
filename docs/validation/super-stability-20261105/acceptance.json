@@ -1,0 +1,28 @@
+{
+  "accepted": true,
+  "scope": "Local Warehouse PX4 SITL; default 1m/s planner profile",
+  "required_trials": [
+    "normal-13.jsonl",
+    "normal-14.jsonl",
+    "height-15.jsonl",
+    "planner-stop-09.jsonl",
+    "lio-stop-10.jsonl",
+    "manual-stop-11.jsonl",
+    "safety-land-12.jsonl",
+    "recovery-07.jsonl"
+  ],
+  "normal_goals_reached": 10,
+  "aligned_error_max_m": 0.3020252893616449,
+  "predicted_error_max_m": 0.32071054011490147,
+  "endpoint_error_max_m": 0.14061468630166896,
+  "command_gap_max_s": 0.022934130000066943,
+  "limitations": [
+    "Finite SITL tests, not real-aircraft certification",
+    "Preliminary baro telemetry gap triggered intended fail-closed stop; no thresholds relaxed"
+  ],
+  "final_aircraft_state": {
+    "armed": false,
+    "landed": true
+  },
+  "test_processes_stopped": true
+}

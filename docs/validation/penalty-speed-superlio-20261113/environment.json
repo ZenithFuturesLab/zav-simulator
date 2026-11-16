@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-13",
+  "timezone": "Asia/Seoul",
+  "gui": true,
+  "scenario": "high_speed",
+  "backend": "super_lio",
+  "gpu": "NVIDIA GeForce RTX 5060 Ti, 580.178.04",
+  "trials": 27,
+  "final_profile": "/home/goat/zenith_ws/src/zav_super/config/high_speed_super_lio.yaml",
+  "selection_policy": {
+    "policy": "completion_clearance_priority",
+    "chosen_by_user": "정상 완주·충돌 여유를 우선하고 위치 오차는 함께 보고",
+    "accuracy_is_reported_not_a_gate": true,
+    "removed_diagnostic_abort": "truth/LIO distance >2m alone",
+    "retained": "All onboard protection unchanged; physical envelope and independent goal/clearance/rate checks remain."
+  }
+}

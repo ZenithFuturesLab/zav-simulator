@@ -1,0 +1,212 @@
+--- official/include/ros_interface/ros2/ros2_adapter.hpp
++++ zav/include/ros_interface/ros2/ros2_adapter.hpp
+@@ -26,7 +26,9 @@
+ #ifndef SRC_ROS2_ADAPTER_HPP
+ #define SRC_ROS2_ADAPTER_HPP
+ 
++#include <builtin_interfaces/msg/time.hpp>
+ #include "rclcpp/rclcpp.hpp"
++#include <cmath>
+ #include "ros_interface/ros_interface.hpp"
+ #include "visualization_msgs/msg/marker_array.hpp"
+ #include "sensor_msgs/msg/point_cloud2.hpp"
+@@ -37,8 +39,6 @@
+ #include "pcl/point_types.h"
+ #include "pcl_conversions/pcl_conversions.h"
+ #include <random>
+-#include "mars_quadrotor_msgs/msg/position_command.hpp"
+-#include "mars_quadrotor_msgs/msg/polynomial_trajectory.hpp"
+ #include "geometry_msgs/msg/point.hpp"
+ #include "rosgraph_msgs/msg/clock.hpp"
+ 
+@@ -50,10 +50,8 @@
+     using MarkerPubPtr = rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr;
+     using PointCloud2PubPtr = rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr;
+     using PathPubPtr = rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr;
+-    using PositionCommandPubPtr = rclcpp::Publisher<mars_quadrotor_msgs::msg::PositionCommand>::SharedPtr;
+-    using PolynomialTrajectoryPubPtr = rclcpp::Publisher<mars_quadrotor_msgs::msg::PolynomialTrajectory>::SharedPtr;
+-
+-    const std::string DEFAULT_FRAME_ID = "world";
++
++    const std::string DEFAULT_FRAME_ID = "camera_init";
+ 
+     class Ros1Adapter {
+     public:
+@@ -84,7 +82,7 @@
+             pcl::toROSMsg(cloud, pc2);
+             pc2.header.frame_id = DEFAULT_FRAME_ID;
+             auto sim_clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+-            pc2.header.stamp = sim_clock->now();
++            pc2.header.stamp = builtin_interfaces::msg::Time{};
+         }
+ 
+         static void addPathToMarkerArray(visualization_msgs::msg::MarkerArray &mkr_ary,
+@@ -110,7 +108,7 @@
+                 visualization_msgs::msg::Marker point;
+                 point.header.frame_id = DEFAULT_FRAME_ID;
+                 auto sim_clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+-                point.header.stamp = sim_clock->now();
++                point.header.stamp = builtin_interfaces::msg::Time{};
+                 point.ns = ns.c_str();
+                 point.id = point_id++;
+                 point.action = visualization_msgs::msg::Marker::ADD;
+@@ -136,7 +134,7 @@
+                     // publish lines
+                     visualization_msgs::msg::Marker line_list;
+                     line_list.header.frame_id = DEFAULT_FRAME_ID;
+-                    line_list.header.stamp = sim_clock->now();
++                    line_list.header.stamp = builtin_interfaces::msg::Time{};
+                     line_list.ns = ns + "_line";
+                     line_list.id = line_cnt++;
+                     line_list.action = visualization_msgs::msg::Marker::ADD;
+@@ -176,7 +174,7 @@
+             // * 1) Visualize the color
+             double t_sum = traj.getTotalDuration();
+             auto sim_clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+-            if (t_sum < 1e-2 || isnan(t_sum) || traj.empty()) {
++            if (t_sum < 1e-2 || std::isnan(t_sum) || traj.empty()) {
+                 std::cout << REDPURPLE << "[Trajectory::Visualize] ERROR, the total duration is too small" << RESET
+                           << std::endl;
+                 return;
+@@ -189,7 +187,7 @@
+             double map_factor = 1.0 / vel_max;
+             last_pos = traj.getPos(0);
+             line_list.header.frame_id = DEFAULT_FRAME_ID;
+-            line_list.header.stamp = sim_clock->now();
++            line_list.header.stamp = builtin_interfaces::msg::Time{};
+             line_list.ns = name_space;
+             line_list.action = visualization_msgs::msg::Marker::ADD;
+             line_list.pose.orientation.w = 1.0;
+@@ -251,7 +249,7 @@
+                 visualization_msgs::msg::Marker marker_ball;
+                 static int ball_id = 0;
+                 marker_ball.header.frame_id = DEFAULT_FRAME_ID;
+-                marker_ball.header.stamp = sim_clock->now();
++                marker_ball.header.stamp = builtin_interfaces::msg::Time{};
+                 marker_ball.ns = name_space + "_waypoints";
+                 marker_ball.action = visualization_msgs::msg::Marker::ADD;
+                 marker_ball.pose.orientation.w = 1.0;
+@@ -313,7 +311,7 @@
+             const auto &have_seed_line = poly.HaveSeedLine();
+             const auto &seed_line = poly.seed_line;
+             auto sim_clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+-            if (isnan(planes.sum())) {
++            if (std::isnan(planes.sum())) {
+                 printf(" -- [Poly] ERROR, try to visualize polytope with NaN, force return.\n");
+                 return;
+             }
+@@ -342,7 +340,7 @@
+             mesh.leftCols(oldTris.cols()) = oldTris;
+             mesh.rightCols(curTris.cols()) = curTris;
+ 
+-            if (isnan(mesh.sum())) {
++            if (std::isnan(mesh.sum())) {
+                 printf(" -- [WARN] Trying to publish ill polytope.\n");
+                 return;
+             }
+@@ -363,7 +361,7 @@
+                 /* Publish point */
+                 visualization_msgs::msg::Marker point;
+                 point.header.frame_id = DEFAULT_FRAME_ID;
+-                point.header.stamp = sim_clock->now();
++                point.header.stamp = builtin_interfaces::msg::Time{};
+                 point.ns = ns + " pt";
+                 point.id = point_id++;
+                 point.action = visualization_msgs::msg::Marker::ADD;
+@@ -399,7 +397,7 @@
+                 // publish lines
+                 visualization_msgs::msg::Marker line_list;
+                 line_list.header.frame_id = DEFAULT_FRAME_ID;
+-                line_list.header.stamp = sim_clock->now();
++                line_list.header.stamp = builtin_interfaces::msg::Time{};
+                 line_list.ns = ns + " line";
+                 line_list.id = line_cnt++;
+                 line_list.action = visualization_msgs::msg::Marker::ADD;
+@@ -432,7 +430,7 @@
+ 
+             geometry_msgs::msg::Point point;
+             meshMarker.id = mesh_id++;
+-            meshMarker.header.stamp = sim_clock->now();
++            meshMarker.header.stamp = builtin_interfaces::msg::Time{};
+             meshMarker.header.frame_id = DEFAULT_FRAME_ID;
+             meshMarker.pose.orientation.w = 1.00;
+             meshMarker.action = visualization_msgs::msg::Marker::ADD;
+@@ -445,7 +443,7 @@
+             meshMarker.scale.z = 1.0;
+ 
+             edgeMarker = meshMarker;
+-            edgeMarker.header.stamp = sim_clock->now();
++            edgeMarker.header.stamp = builtin_interfaces::msg::Time{};
+             edgeMarker.header.frame_id = DEFAULT_FRAME_ID;
+             edgeMarker.id = edge_id++;
+             edgeMarker.type = visualization_msgs::msg::Marker::LINE_LIST;
+@@ -530,8 +528,8 @@
+                     static int cnt = 0;
+                     // publish lines
+                     visualization_msgs::msg::Marker line_list;
+-                    line_list.header.frame_id = "world";
+-                    line_list.header.stamp = sim_clock->now();
++                    line_list.header.frame_id = "camera_init";
++                    line_list.header.stamp = builtin_interfaces::msg::Time{};
+                     line_list.ns = ns;
+                     line_list.id = cnt++;
+                     line_list.action = visualization_msgs::msg::Marker::ADD;
+@@ -587,8 +585,8 @@
+             //Publish Bounding box
+             int id = 0;
+             visualization_msgs::msg::Marker line_strip;
+-            line_strip.header.stamp = sim_clock->now();
+-            line_strip.header.frame_id = "world";
++            line_strip.header.stamp = builtin_interfaces::msg::Time{};
++            line_strip.header.frame_id = "camera_init";
+             line_strip.action = visualization_msgs::msg::Marker::ADD;
+             line_strip.ns = ns;
+             line_strip.pose.orientation.w = 1.0;
+@@ -652,11 +650,11 @@
+             auto sim_clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+             static int cnt = 0;
+             Vec3f cur_pos = pt;
+-            if (isnan(pt.x()) || isnan(pt.y()) || isnan(pt.z())) {
++            if (std::isnan(pt.x()) || std::isnan(pt.y()) || std::isnan(pt.z())) {
+                 return;
+             }
+-            marker_ball.header.frame_id = "world";
+-            marker_ball.header.stamp = sim_clock->now();
++            marker_ball.header.frame_id = "camera_init";
++            marker_ball.header.stamp = builtin_interfaces::msg::Time{};
+             marker_ball.ns = ns.c_str();
+             marker_ball.id = id >= 0 ? id : cnt++;
+             marker_ball.action = visualization_msgs::msg::Marker::ADD;
+@@ -690,8 +688,8 @@
+             static int id = 0;
+             mkr.id = id++;
+             mkr.type = visualization_msgs::msg::Marker::SPHERE;
+-            mkr.header.frame_id = "world";
+-            mkr.header.stamp = sim_clock->now();
++            mkr.header.frame_id = "camera_init";
++            mkr.header.stamp = builtin_interfaces::msg::Time{};
+             mkr.ns = ns;
+             mkr.id = id++;
+             mkr.action = visualization_msgs::msg::Marker::ADD;
+@@ -720,8 +718,8 @@
+             auto sim_clock = std::make_shared<rclcpp::Clock>(RCL_ROS_TIME);
+             /* Publish point */
+             visualization_msgs::msg::Marker point;
+-            point.header.frame_id = "world";
+-            point.header.stamp = sim_clock->now();
++            point.header.frame_id = "camera_init";
++            point.header.stamp = builtin_interfaces::msg::Time{};
+             point.ns = ns.c_str();
+             point.id = point_id++;
+             point.action = visualization_msgs::msg::Marker::ADD;
+@@ -750,8 +748,8 @@
+ 
+             // publish lines
+             visualization_msgs::msg::Marker line_list;
+-            line_list.header.frame_id = "world";
+-            line_list.header.stamp = sim_clock->now();
++            line_list.header.frame_id = "camera_init";
++            line_list.header.stamp = builtin_interfaces::msg::Time{};
+             line_list.ns = ns + "line";
+             line_list.id = line_cnt++;
+             line_list.action = visualization_msgs::msg::Marker::ADD;

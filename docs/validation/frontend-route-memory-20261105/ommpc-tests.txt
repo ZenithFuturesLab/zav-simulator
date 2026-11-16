@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /home/goat/zenith_ws/build/zav_ommpc
+Test project /home/goat/zenith_ws/build/zav_ommpc
+    Start 1: upstream_ommpc_core
+1/1 Test #1: upstream_ommpc_core ..............   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.00 sec

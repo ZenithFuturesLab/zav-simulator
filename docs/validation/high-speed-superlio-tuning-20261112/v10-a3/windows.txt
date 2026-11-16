@@ -1,0 +1,132 @@
+
+xwininfo: Window id: 0x204 (the root window) (has no name)
+
+  Root window id: 0x204 (the root window) (has no name)
+  Parent window id: 0x0 (none)
+     79 children:
+     0x7ea179 "org.gnome.Nautilus": ("org.gnome.Nautilus" "Org.gnome.Nautilus")  1x1+-99+-99  +-99+-99
+        1 child:
+        0x7ea17a (has no name): ()  1x1+-1+-1  +-100+-100
+     0x7ea0da "org.gnome.Nautilus": ("org.gnome.Nautilus" "Org.gnome.Nautilus")  1x1+-99+-99  +-99+-99
+        1 child:
+        0x7ea0db (has no name): ()  1x1+-1+-1  +-100+-100
+     0x40000a "gnome-shell": ("gnome-shell" "Gnome-shell")  1x1+-200+-200  +-200+-200
+        1 child:
+        0x40000b (has no name): ()  1x1+-1+-1  +-201+-201
+     0x402003 (has no name): ()  751x1071+1179+19  +1179+19
+        1 child:
+        0x4e00106 "/home/goat/zenith_ws/install/zav_super/share/zav_super/rviz/super.rviz* - RViz": ("rviz2" "rviz2")  731x1016+10+45  +1189+64
+           2 children:
+           0x4e00109 "Qt NET_WM User Time Window": ()  1x1+-1+-1  +1188+63
+           0x4e00013 "rviz2": ("rviz2" "rviz2")  681x908+25+70  +1214+134
+              2 children:
+              0x4e00108 "Qt NET_WM User Time Window": ()  1x1+-1+-1  +1213+133
+              0x5400004 (has no name): ()  681x908+0+0  +1214+134
+     0x5200001 (has no name): ()  1x1+0+0  +0+0
+        1 child:
+        0x5400002 (has no name): ()  1x1+0+0  +0+0
+     0x4e00008 "rviz2": ()  1x1+0+0  +0+0
+     0x5000001 "rviz2": ("rviz2" "Rviz2")  10x10+10+10  +10+10
+     0x4e00004 "Qt Selection Owner for rviz2": ()  3x3+0+0  +0+0
+     0x401fe6 (has no name): ()  1460x955+160+119  +160+119
+        1 child:
+        0x480000b "Isaac Sim Python 5.1.0": ("Isaac Sim Python 5.1.0" "Isaac Sim Python 5.1.0")  1440x900+10+45  +170+164
+     0x1a0000f (has no name): ()  1x1+0+0  +0+0
+     0x4800007 (has no name): ()  1x1+0+0  +0+0
+     0x4800001 (has no name): ()  1x1+0+0  +0+0
+     0x1a0000e (has no name): ()  1x1+0+0  +0+0
+     0x1a0000d (has no name): ()  1x1+0+0  +0+0
+     0x1a0000c (has no name): ()  1x1+0+0  +0+0
+     0x3c00004 "Welcome - Untitled (Workspace) - Visual Studio Code": ("code" "code")  1850x1053+70+27  +70+27
+        1 child:
+        0x4400004 (has no name): ()  1850x1053+0+0  +70+27
+     0x38000f8 "*Untitled Document 2 - gedit": ("gedit" "Gedit")  952x799+236+118  +236+118
+        1 child:
+        0x38000f9 (has no name): ()  1x1+-1+-1  +235+117
+     0x1a0000b (has no name): ()  1x1+0+0  +0+0
+     0x1a0000a (has no name): ()  1x1+0+0  +0+0
+     0x22027c3 "x-terminal-emulator": ()  10x10+-100+-100  +-100+-100
+     0x3e00003 "code": ("code" "Code")  200x200+0+0  +0+0
+        1 child:
+        0x3e00004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x3c0000a (has no name): ()  1x1+0+0  +0+0
+     0x40150b (has no name): ()  754x506+261+204  +261+204
+        1 child:
+        0x2200007 "goat@goat-desktop: ~/zenith_ws": ("x-terminal-emulator" "X-terminal-emulator")  734x451+10+45  +271+249
+           1 child:
+           0x2200008 (has no name): ()  1x1+-1+-1  +270+248
+     0x2a00004 "SUPER/super_planner/config/static_high_speed.yaml at master · hku-mars/SUPER - Google Chrome": ("google-chrome" "Google-chrome")  1850x1053+70+27  +70+27
+     0x600c02 "config": ("org.gnome.Nautilus" "Org.gnome.Nautilus")  882x719+997+141  +997+141
+        1 child:
+        0x600c03 (has no name): ()  1x1+-1+-1  +996+140
+     0x3a0000a "goat@goat-desktop: ~/zenith_ws": ("gnome-terminal-server" "Gnome-terminal")  786x533+94+54  +94+54
+        1 child:
+        0x3a0000b (has no name): ()  1x1+-1+-1  +93+53
+     0x3e00001 "code": ("code" "Code")  10x10+10+10  +10+10
+     0x3c00000 "Chromium clipboard": ()  10x10+-100+-100  +-100+-100
+     0x3a00006 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x3a00002 "Terminal": ()  10x10+-100+-100  +-100+-100
+     0x3a00001 "Terminal": ("gnome-terminal-server" "Gnome-terminal-server")  10x10+10+10  +10+10
+     0x71b975 "org.gnome.Nautilus": ("org.gnome.Nautilus" "Org.gnome.Nautilus")  289x175+1461+692  +1461+692
+        1 child:
+        0x71b976 (has no name): ()  1x1+-1+-1  +1460+691
+     0x1a00009 (has no name): ()  1x1+0+0  +0+0
+     0x2200003 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x2200001 "x-terminal-emulator": ("x-terminal-emulator" "")  10x10+10+10  +10+10
+     0x1a00008 (has no name): ()  1x1+0+0  +0+0
+     0x40119d (has no name): ()  1x1+-1+-1  +-1+-1
+     0x40119c (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1a00007 (has no name): ()  1x1+0+0  +0+0
+     0x3800136 "gedit": ()  10x10+-100+-100  +-100+-100
+     0x38000f4 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x3800001 "gedit": ("gedit" "Gedit")  10x10+10+10  +10+10
+     0x603564 "org.gnome.Nautilus": ("org.gnome.Nautilus" "Org.gnome.Nautilus")  318x330+1370+470  +1370+470
+        1 child:
+        0x603565 (has no name): ()  1x1+-1+-1  +1369+469
+     0x2c00003 "google-chrome-stable": ("google-chrome-stable" "Google-chrome-stable")  200x200+0+0  +0+0
+        1 child:
+        0x2c00004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x2a00006 (has no name): ()  1x1+0+0  +0+0
+     0x2c00001 "google-chrome-stable": ("google-chrome-stable" "Google-chrome-stable")  10x10+10+10  +10+10
+     0x2a00000 "Chromium clipboard": ()  10x10+-100+-100  +-100+-100
+     0x2600001 "update-notifier": ("update-notifier" "Update-notifier")  10x10+10+10  +10+10
+     0x60019c "org.gnome.Nautilus": ()  10x10+-100+-100  +-100+-100
+     0x600003 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x2400002 "snapd-desktop-integration": ("snapd-desktop-integration" "snapd-desktop-integration")  1x1+0+0  +0+0
+        1 child:
+        0x2400003 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1e00008 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1e00003 "@!0,0;BDHF": ("gjs" "Gjs")  1920x1080+0+0  +0+0
+        1 child:
+        0x1e00004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1e00001 "gjs": ("gjs" "Gjs")  10x10+10+10  +10+10
+     0x1600001 "xdg-desktop-portal-gtk": ("xdg-desktop-portal-gtk" "Xdg-desktop-portal-gtk")  10x10+10+10  +10+10
+     0x400038 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x2000002 (has no name): ("" "")  1x1+-100+-100  +-100+-100
+        1 child:
+        0x2000003 (has no name): ()  1x1+-1+-1  +-101+-101
+     0x1c00001 "evolution-alarm-notify": ("evolution-alarm-notify" "Evolution-alarm-notify")  10x10+10+10  +10+10
+     0x1a00003 "ibus-xim": ()  1x1+0+0  +0+0
+        1 child:
+        0x1a00004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1400002 (has no name): ()  10x10+0+0  +0+0
+     0x1a00001 "ibus-x11": ("ibus-x11" "Ibus-x11")  10x10+10+10  +10+10
+     0x1800001 "ibus-extension-gtk3": ("ibus-extension-gtk3" "Ibus-extension-gtk3")  10x10+10+10  +10+10
+     0x1200001 "gsd-wacom": ("gsd-wacom" "Gsd-wacom")  10x10+10+10  +10+10
+     0xe00001 "gsd-power": ("gsd-power" "Gsd-power")  10x10+10+10  +10+10
+     0xa00001 "gsd-keyboard": ("gsd-keyboard" "Gsd-keyboard")  10x10+10+10  +10+10
+     0x1400001 "gsd-xsettings": ("gsd-xsettings" "Gsd-xsettings")  10x10+10+10  +10+10
+     0x1000001 "gsd-media-keys": ("gsd-media-keys" "Gsd-media-keys")  10x10+10+10  +10+10
+     0xc00001 "gsd-color": ("gsd-color" "Gsd-color")  10x10+10+10  +10+10
+     0x600001 "org.gnome.Nautilus": ("org.gnome.Nautilus" "Org.gnome.Nautilus")  10x10+10+10  +10+10
+     0x400031 "gnome-shell": ()  10x10+-100+-100  +-100+-100
+     0x400011 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x40000f (has no name): ()  1x1+-100+-100  +-100+-100
+     0x40000e (has no name): ()  1x1+-1+-1  +-1+-1
+     0x400008 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x400007 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x400006 "GNOME Shell": ()  1x1+-100+-100  +-100+-100
+     0x400001 "gnome-shell": ("gnome-shell" "Gnome-shell")  10x10+10+10  +10+10
+     0x200007 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x400010 "mutter guard window": ()  1920x1080+0+0  +0+0
+

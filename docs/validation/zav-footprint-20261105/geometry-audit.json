@@ -1,0 +1,50 @@
+{
+  "source_usd": "simulator/pegasus/simulator/assets/Robots/ZAV_v1/ZAV_v1.usd",
+  "source_usd_sha256": "73781389d524fddf56d9a3421fda0bcb705f6dabfe252e40faa2d7f3747b17a4",
+  "user_dimensions_m": [
+    0.408,
+    0.408,
+    0.2455
+  ],
+  "usd_dimensions_m": [
+    0.4079783831764615,
+    0.40797838317646146,
+    0.24463631240881087
+  ],
+  "body_min_m": [
+    -0.20398919158823042,
+    -0.20398919158823065,
+    -0.095
+  ],
+  "body_max_m": [
+    0.2039891915882311,
+    0.2039891915882308,
+    0.14963631240881087
+  ],
+  "meshes": 593,
+  "unique_vertices": 346102,
+  "body_horizontal_radius_m": 0.24494736421768262,
+  "body_sphere_radius_m": 0.24932232932372417,
+  "imu_position_body_m": [
+    0.038876665301744696,
+    0.02329,
+    0.15181667913591163
+  ],
+  "actual_imu_sphere_radius_m": 0.35101815144300086,
+  "current_cylinder_radius_m": 0.27,
+  "current_cylinder_height_m": 0.25,
+  "current_cylinder_volume_m3": 0.057255526111673984,
+  "convex_hull_volume_m3": 0.0196755549382557,
+  "physics_proxy_vertices": 64,
+  "physics_proxy_volume_m3": 0.02558847450326592,
+  "physics_proxy_imu_radius_m": 0.35532240410711696,
+  "physics_proxy_body_radius_m": 0.2502218915568826,
+  "physics_proxy_contains_all_model_vertices": true,
+  "hull_vertices": 319,
+  "hull_triangles": 634,
+  "hull_contains_all_model_vertices": true,
+  "current_robot_radius_m": 0.43,
+  "current_nominal_inflation_m": 0.6,
+  "planning_radius_extra_over_actual_imu_extent_m": 0.07898184855699913,
+  "current_cylinder_radial_extra_over_actual_m": 0.025052635782317395
+}

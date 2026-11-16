@@ -37,17 +37,22 @@ import termios
 import tty
 import subprocess
 from pathlib import Path
+from collections import deque
 
 import rclpy
 from rclpy.node import Node
+from rclpy.clock import Clock, ClockType
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 
 # ROS 2 표준 메시지
-from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import Bool
+from geometry_msgs.msg import Twist, PoseStamped, AccelStamped
+from nav_msgs.msg import Odometry
+from zav_control.super_tracking import tracking_setpoint, predict_position, feedback_at_epoch, velocity_heading, acceleration_feedforward
+from std_msgs.msg import Bool, Float64
 
 # PX4 uORB 메시지 인터페이스
 from px4_msgs.msg import (
+    VehicleRatesSetpoint,
     OffboardControlMode,
     TrajectorySetpoint,
     VehicleCommand,
@@ -203,7 +208,7 @@ class Win32MultiKeyReader:
 
 def read_key_nonblocking(fd: int) -> str:
     """리눅스 터미널 비차단 단일 키 입력"""
-    rlist, _, _ = select.select([fd], [], [], 0.005)
+    rlist, _, _ = select.select([fd], [], [], 0.0)
     if not rlist:
         return ''
     try:
@@ -334,16 +339,59 @@ class ZAVFlightManager(Node):
         self.create_subscription(Bool, '/zav/lio_safety/ready',
                                  self._lio_ready_cb, safety_qos)
 
+        # Experimental SITL integration. Legacy goal input is isolated when enabled.
+        self.super_tracking = bool(self.declare_parameter('super_tracking', False).value)
+        self.super_controller = self.declare_parameter('super_controller', 'px4').value
+        if self.super_controller not in ('px4', 'ommpc'):
+            raise ValueError('super_controller must be px4 or ommpc')
+        self.ommpc_active = False
+        self.ommpc_rates = None
+        self.ommpc_rates_rx = 0.
+        self.ommpc_request_wall = None
+        if self.super_controller == 'ommpc':
+            self.ommpc_rates_pub = self.create_publisher(VehicleRatesSetpoint, '/fmu/in/vehicle_rates_setpoint', qos_px4)
+            self.ommpc_yaw_pub = self.create_publisher(Float64, '/zav_ommpc/yaw_enu', 1)
+            self.create_subscription(VehicleRatesSetpoint, '/zav_ommpc/rates_setpoint', self._ommpc_rates_cb, 1)
+
+        self.super_follow_velocity_yaw = bool(self.declare_parameter('super_follow_velocity_yaw',False).value)
+        self.super_yaw_wall = None
+        self.super_acceleration_feedforward = bool(self.declare_parameter('super_acceleration_feedforward',False).value)
+        self.super_accel_samples = {}
+        self.super_ff_last_match_wall = None
+        self.super_acceleration_active = False
+        self.super_max_speed = float(self.declare_parameter('super_max_speed_m_s', 1.5).value)
+        if not math.isfinite(self.super_max_speed) or not .25 <= self.super_max_speed <= 3.5:
+            raise ValueError('super_max_speed_m_s must be 0.25..3.5 for staged SITL tests')
+        self.super_command = None
+        self.super_odom = None
+        self.super_odom_history = deque(maxlen=200)
+        self.super_command_rx = self.super_odom_rx = 0.0
+        self.super_blocked = False
+        self.execution_enable_pub = self.create_publisher(Bool, '/zav_super/execution_enabled', safety_qos)
+        self.execution_last_value = None
+        self.execution_last_publish = 0.
+        if self.super_tracking:
+            tracking_odom_topic = self.declare_parameter('super_odometry_topic', '/aft_mapped_to_init').value
+            self.create_subscription(Odometry, tracking_odom_topic, self._super_odom_cb, qos_feedback)
+            self.create_subscription(Odometry, '/zav_super/tracking_command', self._super_command_cb, 1)
+            if self.super_acceleration_feedforward:
+                self.create_subscription(AccelStamped, '/zav_super/tracking_acceleration', self._super_accel_cb, 1)
+
         # 상위 플래너 외부 입력 인터페이스
         # 1. 위치 목표 (Position Command / Goal Pose)
-        self.create_subscription(PoseStamped, '/zav/goal_pose', self._on_goal_pose, 10)
+        if not self.super_tracking:
+            self.create_subscription(PoseStamped, '/zav/goal_pose', self._on_goal_pose, 10)
         # 2. 속도 목표 (Velocity Command)
-        self.create_subscription(Twist, '/zav/cmd_vel', self._on_cmd_vel, 10)
+        if not self.super_tracking:
+            self.create_subscription(Twist, '/zav/cmd_vel', self._on_cmd_vel, 10)
 
         # 50Hz (20ms) 고정밀 제어 루프
         self.dt = 0.02
         self.last_loop_time = time.time()
-        self.timer = self.create_timer(self.dt, self._control_loop)
+        # /clock may be published at only 20Hz. Keep ROS time for reference
+        # stamps, but schedule PX4 control/heartbeat independently at 50Hz.
+        self.control_clock = Clock(clock_type=ClockType.STEADY_TIME)
+        self.timer = self.create_timer(self.dt, self._control_loop, clock=self.control_clock)
 
         self._print_guide()
 
@@ -391,6 +439,162 @@ class ZAVFlightManager(Node):
             self.is_flying = True
             self.target_yaw = wrap_pi(msg.heading)
 
+    def _announce_execution(self, force=False):
+        enabled = bool(self.super_tracking and self.flight_mode == 'OFFBOARD_TRAJ' and
+                       self.setpoints_enabled and self.is_armed and self.is_flying and
+                       not self.lio_safety_latched and not self.super_blocked)
+        now = time.monotonic()
+        if force or enabled != self.execution_last_value or now-self.execution_last_publish >= .2:
+            self.execution_enable_pub.publish(Bool(data=enabled))
+            self.execution_last_value, self.execution_last_publish = enabled, now
+
+    def _super_odom_cb(self, msg):
+        self.super_odom = msg
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec*1e-9
+        self.super_odom_history.append((stamp, msg))
+        self.super_odom_rx = time.monotonic()
+
+    def _super_accel_cb(self, msg):
+        key=(msg.header.stamp.sec,msg.header.stamp.nanosec)
+        self.super_accel_samples[key]=(msg,time.monotonic())
+        if len(self.super_accel_samples)>32:
+            self.super_accel_samples.pop(next(iter(self.super_accel_samples)))
+
+    def _super_command_cb(self, msg):
+        if self.flight_mode == "OFFBOARD_TRAJ" and not self.super_blocked:
+            self.super_command = msg
+            self.super_command_rx = time.monotonic()
+
+    def _ommpc_rates_cb(self, msg):
+        self.ommpc_rates = msg
+        self.ommpc_rates_rx = time.monotonic()
+
+    def _super_setpoint(self, sp):
+        """Fail closed until mode 2 is explicitly reselected after any fault."""
+        mono = time.monotonic()
+        measured_at_command = None
+        use_ommpc = False
+        acceleration = [float('nan')]*3
+        self.super_acceleration_active = False
+        try:
+            if self.super_blocked or self.super_command is None:
+                raise ValueError('waiting for a new trajectory')
+            if mono-self.super_command_rx > 0.25:
+                raise ValueError('tracking command timeout (check replanner status)')
+            if mono-self.super_odom_rx > 0.25:
+                raise ValueError('LIO odometry timeout')
+            if mono-self.last_position_time > 0.25 or not self.position_ready:
+                raise ValueError('PX4 local position stale or invalid')
+            if (self.lio_safety_ready is not True or self.lio_safety_rx is None or
+                    mono-self.lio_safety_rx > 1.0):
+                raise ValueError('LIO safety is not ready')
+            cmd, odom = self.super_command, self.super_odom
+            def stamp(m):
+                return m.header.stamp.sec + m.header.stamp.nanosec*1e-9
+            history = getattr(self, 'super_odom_history', [(stamp(odom), odom)])
+            odom = feedback_at_epoch(history, stamp(cmd))
+            now_ros = self.get_clock().now().nanoseconds*1e-9
+            if any(not -0.05 <= now_ros-stamp(m) <= 0.3 for m in (cmd, odom)):
+                raise ValueError('invalid tracking timestamp')
+            if (cmd.header.frame_id != 'camera_init' or odom.header.frame_id != 'camera_init' or
+                    cmd.child_frame_id != 'camera_init'):
+                raise ValueError('invalid tracking frame')
+            # This opt-in path assumes the same ENU alignment as lio_px4_bridge.
+            # Check heading after removing the simulator's +22 degree IMU mount.
+            from zav_control.lio_px4_bridge import mul, rotate
+            q = odom.pose.pose.orientation
+            a = math.radians(22.0)/2
+            body = mul([q.w, q.x, q.y, q.z], [math.cos(a), 0., -math.sin(a), 0.])
+            yaw = quat_to_yaw(body[1], body[2], body[3], body[0])
+            if not math.isfinite(yaw) or abs(wrap_pi(self.current_yaw-(math.pi/2-yaw))) > 0.2:
+                raise ValueError('ENU/NED heading mismatch')
+            def xyz(p):
+                return [p.x, p.y, p.z]
+            if not all(math.isfinite(odom.twist.covariance[i]) and odom.twist.covariance[i] > 0
+                       for i in (0, 7, 14)):
+                raise ValueError('LIO velocity unavailable for epoch alignment')
+            world_velocity = rotate([q.w,q.x,q.y,q.z], xyz(odom.twist.twist.linear))
+            measured_at_command = predict_position(xyz(odom.pose.pose.position), world_velocity,
+                                                   stamp(cmd)-stamp(odom))
+            sp.position, sp.velocity = tracking_setpoint(
+                xyz(cmd.pose.pose.position), measured_at_command,
+                [self.current_x, self.current_y, -self.current_alt], xyz(cmd.twist.twist.linear),
+                max_speed=getattr(self, 'super_max_speed', 1.5))
+            if getattr(self, 'super_acceleration_feedforward', False):
+                if self.super_ff_last_match_wall is None: self.super_ff_last_match_wall=mono
+                key=(cmd.header.stamp.sec,cmd.header.stamp.nanosec)
+                pair=self.super_accel_samples.get(key)
+                if pair is not None:
+                    acc, received=pair
+                    if acc.header.frame_id!='camera_init' or mono-received>.25:
+                        raise ValueError('invalid tracking acceleration frame/freshness')
+                    acceleration=acceleration_feedforward(xyz(acc.accel.linear))
+                    self.super_ff_last_match_wall=mono
+                    self.super_acceleration_active=True
+                elif mono-self.super_ff_last_match_wall>.25:
+                    raise ValueError('matching tracking acceleration timeout')
+            if getattr(self, 'super_follow_velocity_yaw', False):
+                previous_wall = self.super_yaw_wall
+                dt = min(.1, max(0., mono-previous_wall)) if previous_wall is not None else 0.
+                self.hold_yaw = velocity_heading(xyz(cmd.twist.twist.linear), self.hold_yaw, dt)
+                self.super_yaw_wall = mono
+            self.hold_x, self.hold_y, self.hold_z = self.current_x, self.current_y, -self.current_alt
+            if getattr(self, 'super_controller', 'px4') == 'ommpc':
+                self.ommpc_yaw_pub.publish(Float64(data=wrap_pi(math.pi/2-self.hold_yaw)))
+                if self.ommpc_request_wall is None:
+                    self.ommpc_request_wall = mono
+                rates = self.ommpc_rates
+                if rates is not None and mono-self.ommpc_rates_rx < .12:
+                    age = self.get_clock().now().nanoseconds*1e-9-rates.timestamp*1e-6
+                    values = [rates.roll, rates.pitch, rates.yaw, *rates.thrust_body]
+                    if (not all(math.isfinite(x) for x in values) or not -.05 <= age <= .15
+                            or max(abs(rates.roll),abs(rates.pitch)) > 2.01
+                            or abs(rates.yaw)>1.51 or abs(rates.thrust_body[0])>1e-6
+                            or abs(rates.thrust_body[1])>1e-6 or not -.9 <= rates.thrust_body[2] <= -.04):
+                        raise ValueError('invalid OMMPC body-rate/thrust output')
+                    use_ommpc = True
+                elif mono-self.ommpc_request_wall > .3:
+                    raise ValueError('OMMPC output timeout')
+        except ValueError as exc:
+            acceleration = [float('nan')]*3
+            self.super_acceleration_active = False
+            if self.super_command is not None and not self.super_blocked:
+                self.hold_x, self.hold_y, self.hold_z = self.current_x, self.current_y, -self.current_alt
+                self.super_blocked = True
+                cmd, odom = self.super_command, self.super_odom
+                detail = f' cmd_age={mono-self.super_command_rx:.3f}s lio_age={mono-self.super_odom_rx:.3f}s px4_age={mono-self.last_position_time:.3f}s'
+                if cmd is not None and odom is not None:
+                    target, measured = cmd.pose.pose.position, odom.pose.pose.position
+                    error = math.dist((target.x,target.y,target.z), (measured.x,measured.y,measured.z))
+                    if measured_at_command is not None:
+                        aligned_error = math.dist((target.x,target.y,target.z), measured_at_command)
+                        detail += f' aligned_error={aligned_error:.3f}m'
+                    detail += f' px4_heading_NED={self.current_yaw:.3f}'
+                detail += (f' raw_error={error:.3f}m target_ENU=({target.x:.3f},{target.y:.3f},{target.z:.3f})'
+                               f' measured_ENU=({measured.x:.3f},{measured.y:.3f},{measured.z:.3f})')
+                self.get_logger().error(f'SUPER tracking stopped: {exc};{detail}; select mode 2 and send a new goal')
+            sp.position = [float(self.hold_x), float(self.hold_y), float(self.hold_z)]
+            sp.velocity = [0., 0., 0.]
+        previous_ommpc = getattr(self, 'ommpc_active', False)
+        self.ommpc_active = use_ommpc
+        if use_ommpc:
+            self.super_acceleration_active = False
+            self.publish_offboard_mode()
+            source = self.ommpc_rates
+            rates = VehicleRatesSetpoint()
+            rates.timestamp = 0
+            rates.roll, rates.pitch, rates.yaw = source.roll, source.pitch, source.yaw
+            rates.thrust_body = [float(x) for x in source.thrust_body]
+            rates.reset_integral = not previous_ommpc
+            self.ommpc_rates_pub.publish(rates)
+            return
+        if previous_ommpc:
+            self.publish_offboard_mode()
+        sp.acceleration = acceleration
+        sp.yaw = float(self.hold_yaw)
+        sp.yawspeed = float('nan')
+        self.setpoint_pub.publish(sp)
+
     def _on_goal_pose(self, msg: PoseStamped):
         """
         [상위 플래너 위치 목표 콜백]
@@ -414,11 +618,13 @@ class ZAVFlightManager(Node):
     def publish_offboard_mode(self):
         """PX4 Offboard 위치/속도 제어 모드 플래그 송신"""
         mode = OffboardControlMode()
-        mode.position = True
-        mode.velocity = True
+        use_ommpc = bool(getattr(self,'ommpc_active',False) and self.flight_mode == 'OFFBOARD_TRAJ'
+                         and self.setpoints_enabled and not self.super_blocked)
+        mode.position = not use_ommpc
+        mode.velocity = not use_ommpc
         mode.acceleration = False
         mode.attitude = False
-        mode.body_rate = False
+        mode.body_rate = use_ommpc
         mode.timestamp = 0
         self.offboard_mode_pub.publish(mode)
 
@@ -500,6 +706,9 @@ class ZAVFlightManager(Node):
     # 50Hz 고정밀 메인 제어 루프
     # --------------------------------------------------------------------------
     def _control_loop(self):
+        if self.flight_mode != 'OFFBOARD_TRAJ' or not self.setpoints_enabled:
+            self.ommpc_active = False
+        self._announce_execution()
         now = time.time()
         dt = min(0.1, max(0.005, now - self.last_loop_time))
         self.last_loop_time = now
@@ -522,6 +731,10 @@ class ZAVFlightManager(Node):
             self.publish_offboard_mode()
             sp = TrajectorySetpoint()
             sp.timestamp = 0
+
+            if self.super_tracking:
+                self._super_setpoint(sp)
+                return
 
             # 1. 위치 목표(/zav/goal_pose)가 수신된 경우: 3차원 위치 자율 추종
             if self.ext_goal_pose is not None:
@@ -786,6 +999,14 @@ class ZAVFlightManager(Node):
             print("\r\n🎮 [모드 전환] -> 1번 Manual Teleop 모드 (수동 조종 활성화)\r\n")
 
         elif key in ('2',):
+            self.super_command = None
+            self.super_yaw_wall = None
+            self.super_accel_samples.clear()
+            self.super_ff_last_match_wall = None
+            self.super_blocked = False
+            self.ommpc_request_wall = None
+            self.ommpc_rates = None
+            self.ommpc_active = False
             self.flight_mode = "OFFBOARD_TRAJ"
             self.des_vx_body = self.cmd_vx_body = 0.0
             self.des_vy_body = self.cmd_vy_body = 0.0
@@ -796,7 +1017,8 @@ class ZAVFlightManager(Node):
             self.hold_y = self.current_y
             self.hold_z = -self.current_alt if self.current_alt > 0.3 else -2.0
             self.hold_yaw = self.current_yaw
-            print(f"\r\n🤖 [모드 전환] -> 2번 Offboard 자율비행 모드 (/zav/goal_pose 수신 대기 / 수동 키 잠금 ⛔)")
+            self._announce_execution(force=True)
+            print("\r\n[OFFBOARD] SUPER tracking command 대기" if self.super_tracking else "\r\n[OFFBOARD] /zav/goal_pose 대기")
             print(f"   현재 위치 유지 호버링: X={self.hold_x:.2f}m, Y={self.hold_y:.2f}m, Z={-self.hold_z:.2f}m\r\n")
 
         elif key in ('l', 'L'):
@@ -811,6 +1033,10 @@ class ZAVFlightManager(Node):
             self.is_taking_off = False
 
         elif key == ' ':
+            if self.super_tracking:
+                self.super_blocked = True
+                self.super_command = None
+                self.hold_x, self.hold_y, self.hold_z = self.current_x, self.current_y, -self.current_alt
             self.des_vx_body = self.cmd_vx_body = 0.0
             self.des_vy_body = self.cmd_vy_body = 0.0
             self.des_vz_ned = self.cmd_vz_ned = 0.0

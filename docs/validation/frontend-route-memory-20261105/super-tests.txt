@@ -1,0 +1,18 @@
+Internal ctest changing into directory: /home/goat/zenith_ws/build/zav_super
+Test project /home/goat/zenith_ws/build/zav_super
+    Start 1: frontend_route_memory
+1/6 Test #1: frontend_route_memory ............   Passed    0.00 sec
+    Start 2: static_map_occupied
+2/6 Test #2: static_map_occupied ..............   Passed    0.19 sec
+    Start 3: static_map_raycast
+3/6 Test #3: static_map_raycast ...............   Passed    0.19 sec
+    Start 4: committed_execution
+4/6 Test #4: committed_execution ..............   Passed    0.00 sec
+    Start 5: replanner_recovery
+5/6 Test #5: replanner_recovery ...............   Passed    0.17 sec
+    Start 6: backup_constraints
+6/6 Test #6: backup_constraints ...............   Passed    0.28 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =   0.85 sec

@@ -1,0 +1,11 @@
+{
+  "three_fresh_runs_passed": true,
+  "user_accuracy_preference_recorded": true,
+  "floor_clearance_passed": true,
+  "no_intermediate_landing": true,
+  "gui_both_verified": true,
+  "speed_matches_setting": true,
+  "source_matches_recommendation": true,
+  "installed_matches_source": true,
+  "other_source_inputs_unchanged": true
+}

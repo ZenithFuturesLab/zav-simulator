@@ -1,0 +1,131 @@
+{
+  "trial": "verify-baseline-positive-3",
+  "completed": true,
+  "landed": true,
+  "faults": [],
+  "physical_goal_min_distance_m": [
+    0.05386412431148972,
+    0.20561128543376664
+  ],
+  "tracking_sim_s": 45.894998974,
+  "tracking_wall_s": 47.88338883899996,
+  "physical_peak_speed_mps": 5.639133632946092,
+  "physical_p95_speed_mps": 5.564099666123081,
+  "path_length_m": 202.78840274926804,
+  "lio_rms_m": 0.19170803607784279,
+  "lio_p95_m": 0.31741565536343286,
+  "lio_max_m": 0.35082309808917944,
+  "nearest_obstacle_surface_sample_m": 0.9895005941139557,
+  "conservative_body_clearance_m": 0.5678980531139557,
+  "odom_sim_hz": 200.00000447107539,
+  "odom_max_sim_gap_s": 0.005000000000002558,
+  "odom_max_wall_gap_s": 0.04314179199991486,
+  "odom_samples": 9180,
+  "reference_peak_speed_mps": 5.5019408015034905,
+  "reference_peak_acc_mps2": 2.00759298529205,
+  "reference_peak_jerk_mps3": 8.070105391604583,
+  "tracking_error_rms_m": 0.47908912562136247,
+  "tracking_error_max_m": 0.6110067596599765,
+  "flight_lio_rms_m": 0.16440480908322724,
+  "flight_lio_max_m": 0.35082309808917944,
+  "final_physical_body_position_m": [
+    -0.017169915139675154,
+    -49.810428619384766,
+    0.0950000137090683
+  ],
+  "rate_only_during_tracking": true,
+  "accepted": true,
+  "boundary": {
+    "max_vel": 5.5,
+    "max_acc": 2.0,
+    "max_jerk": 8.0,
+    "max_omg": 1.2,
+    "max_acc_thr": 20,
+    "min_acc_thr": 6.0,
+    "penna_margin": 0.05
+  },
+  "controller": {
+    "step_T": 0.05,
+    "Q_pos_xy": 300.0,
+    "Q_velocity": 60.0,
+    "R_pitchroll": 8.0,
+    "R_yaw": 3.0,
+    "max_bodyrate_xy": 1.5,
+    "max_bodyrate_z": 0.8
+  },
+  "physical_motion": {
+    "v": {
+      "value": 5.640060580912468,
+      "stamp": 46.35999907100057,
+      "unit": "m/s",
+      "elapsed_s": 45.34999909300057
+    },
+    "a": {
+      "value": 7.590752479372625,
+      "stamp": 38.30999923200047,
+      "unit": "m/s\u00b2",
+      "elapsed_s": 37.29999925400047
+    },
+    "j": {
+      "value": 64.5930402685668,
+      "stamp": 38.45999922900047,
+      "unit": "m/s\u00b3",
+      "elapsed_s": 37.44999925100047
+    }
+  },
+  "actual_peak_mps": 5.640060580912468,
+  "actual_p95_mps": 5.566218197604496,
+  "peak_speed_attainment": 1.0254655601659033,
+  "p95_speed_attainment": 1.0120396722917266,
+  "time_fraction_above_90pct_cap": 0.6648531011969532,
+  "gui_verified": true,
+  "controller_feedback_steps_ms": [
+    45.0,
+    45.0,
+    50.0,
+    45.0,
+    60.0,
+    40.0,
+    40.0,
+    40.0,
+    50.0,
+    45.0,
+    70.0,
+    50.0
+  ],
+  "controller_solver_ms": [
+    0.63,
+    0.67,
+    0.66,
+    0.68,
+    0.65,
+    0.71,
+    0.65,
+    0.65,
+    0.68,
+    0.65,
+    0.68,
+    0.67
+  ],
+  "optimizer_failure_lines": 119,
+  "controller_phases": [
+    "UNKNOWN",
+    "WAITING_FOR_LIO_AND_PX4",
+    "TAKEOFF",
+    "READY",
+    "TRACKING",
+    "LANDING",
+    "LANDED"
+  ],
+  "uninterrupted_mission": true,
+  "healthy_complete": true,
+  "speed_matches_setting": true,
+  "eligible": true,
+  "ranking_time_sim_s": 45.894998974,
+  "accuracy_within_previous_threshold": true,
+  "strict_eligible": true,
+  "selection_policy": "user_completion_clearance_priority_20261113",
+  "minimum_body_height_m": 0.7765907049179077,
+  "floor_clearance_bound_m": 0.4465907049179077,
+  "termination": "landed"
+}

@@ -143,3 +143,6 @@ class ZAV_v1(Multirotor):
             init_orientation=init_orientation,
             config=config,
         )
+        from .zav_collision import configure_zav_collision
+        collision_count = configure_zav_collision(self._world.stage, self._stage_prefix)
+        carb.log_info(f"[ZAV] Configured {collision_count} compact CAD collision meshes")

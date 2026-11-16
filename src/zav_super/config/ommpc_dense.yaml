@@ -1,0 +1,8 @@
+zav_ommpc_px4:
+  ros__parameters:
+    Q_pos_xy: 200.0
+    Q_velocity: 60.0
+    R_pitchroll: 12.0
+    R_yaw: 4.0
+    max_bodyrate_xy: 1.0
+    max_bodyrate_z: 0.6

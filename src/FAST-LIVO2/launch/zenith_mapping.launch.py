@@ -38,7 +38,8 @@ def generate_launch_description():
         parameters=[
             livo_params_file,
             camera_params_file,
-            {'common.img_en': img_en_param}
+            {'common.img_en': img_en_param},
+            {'use_sim_time': True},
         ],
         output="screen"
     )
@@ -49,6 +50,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz2',
+        parameters=[{'use_sim_time': True}],
         arguments=['-d', rviz_config_file],
         output="screen"
     )

@@ -1,0 +1,27 @@
+{
+  "requested_nominal_inflation_m": 0.2,
+  "inflation_resolution_m": 0.1,
+  "inflation_step": 2,
+  "robot_radius_m": 0.43,
+  "collider_mode": "hull",
+  "controller": "ommpc",
+  "route_memory_enabled": false,
+  "infeasible_seed_rejections": 97,
+  "rejected_min_distance_range_m": [
+    0.412310562561766,
+    0.412310562561766
+  ],
+  "last_rejected_seed_distance_m": 0.412310562561766,
+  "initial_height_goal_reached": true,
+  "outbound_goal_reached": false,
+  "manual_stop_reason": "Stopped after repeated CIRI rejection while holding at start, rather than extending an unproductive trial to its full goal timeout.",
+  "last_landing_event": {
+    "event": "FINAL_LANDING",
+    "elapsed": 132.56235070000184,
+    "sim": 127.25999715600001,
+    "armed": false,
+    "landed": true
+  },
+  "delay_guard_disabled": false,
+  "user_context": "Prior footprint-trial input delay was user-induced collision-inspection rendering load and is excluded from algorithm-failure attribution."
+}

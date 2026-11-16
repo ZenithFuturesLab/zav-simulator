@@ -1,0 +1,157 @@
+fsm:
+  click_goal_en: true
+  click_goal_topic: /zav/goal_pose
+  click_height: 1.5
+  click_yaw_en: false
+  replan_rate: 1.0
+  cmd_topic: /zav_super/internal_unused_pos_cmd
+  mpc_cmd_topic: /zav_super/internal_unused_mpc_cmd
+  timer_en: false
+super_planner:
+  backup_traj_en: true
+  detailed_log_en: false
+  visualization_en: true
+  use_fov_cut: false
+  print_log: true
+  visual_process: false
+  frontend_in_known_free: false
+  goal_yaw_en: false
+  goal_vel_en: false
+  corridor_bound_dis: 3.0
+  corridor_line_max_length: 1.2
+  safe_corridor_line_max_length: 5.0
+  iris_iter_num: 2
+  obs_skip_num: 2
+  replan_forward_dt: 0.35
+  planning_horizon: 15.0
+  sensing_horizon: -1
+  receding_dis: 1.0
+  robot_r: 0.43
+  yaw_dot_max: 3.0
+  yaw_mode: 1
+  mpc_horizon: 15
+traj_opt:
+  switch:
+    save_log_en: false
+    print_optimizer_log: false
+  boundary:
+    max_vel: 1.0
+    max_acc: 1.0
+    max_jerk: 6.0
+    max_omg: 1.5
+    max_acc_thr: 20.0
+    min_acc_thr: 6.0
+    penna_margin: 0.05
+  exp_traj:
+    pos_constraint_type: 1
+    energy_cost_type: 4
+    block_energy_cost: false
+    opt_accuracy: 5.0e-06
+    scale_factor: 1.0
+    integral_reso: 15
+    smooth_eps: 0.01
+    penna_t: 10000000.0
+    penna_pos: 5000000000.0
+    penna_vel: 500000000.0
+    penna_acc: 500000000.0
+    penna_jerk: -500000000.0
+    penna_attract: 500000000.0
+    penna_omg: -1
+    penna_thr: -1
+  backup_traj:
+    uniform_time_en: true
+    pos_constraint_type: 1
+    piece_num: 2
+    energy_cost_type: 4
+    block_energy_cost: true
+    opt_accuracy: 1.0e-06
+    scale_factor: 1.0
+    integral_reso: 12
+    smooth_eps: 0.01
+    penna_t: 1200.0
+    penna_ts: 1000.0
+    penna_pos: 1000000.0
+    penna_vel: 100000.0
+    penna_acc: 100000.0
+    penna_jerk: -100000.0
+    penna_omg: 100000.0
+    penna_thr: 100000.0
+  flatness:
+    mass: 1.99
+    dh: 0.35
+    dv: 0.35
+    cp: 0.001
+    v_eps: 0.0001
+    grav: 9.81
+astar:
+  map_voxel_num:
+  - 400
+  - 320
+  - 80
+  visual_process: false
+  allow_diag: true
+  heu_type: 2
+  debug_visualization_en: false
+rog_map:
+  resolution: 0.1
+  inflation_resolution: 0.2
+  inflation_step: 3
+  unk_inflation_en: false
+  unk_inflation_step: 1
+  map_size:
+  - 110
+  - 13
+  - 6
+  fix_map_origin:
+  - 50
+  - 0
+  - 1.25
+  frontier_extraction_en: false
+  virtual_ceil_height: 4.0
+  virtual_ground_height: -0.8
+  load_pcd_en: false
+  map_sliding:
+    enable: false
+    threshold: 0.3
+  esdf:
+    enable: false
+    resolution: 0.1
+    local_update_box:
+    - 5
+    - 5
+    - 3
+  ros_callback:
+    enable: true
+    cloud_topic: /cloud_registered_full
+    odom_topic: /LIVO2/imu_propagate
+    odom_timeout: 2.0
+  visualization:
+    enable: true
+    use_dynamic_reconfigure: false
+    time_rate: 2
+    frame_rate: 0
+    range:
+    - 10
+    - 10
+    - 3
+    frame_id: camera_init
+    pub_unknown_map_en: true
+  intensity_thresh: -10
+  point_filt_num: 1
+  raycasting:
+    enable: false
+    batch_update_size: 1
+    local_update_box:
+    - 100
+    - 100
+    - 5
+    ray_range:
+    - 0.5
+    - 100
+    p_min: 0.12
+    p_miss: 0.49
+    p_free: 0.499
+    p_occ: 0.85
+    p_hit: 0.9
+    p_max: 0.98
+    unk_thresh: 1.0

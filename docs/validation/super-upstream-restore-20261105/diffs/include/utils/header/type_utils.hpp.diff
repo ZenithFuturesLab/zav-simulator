@@ -1,0 +1,25 @@
+--- official/include/utils/header/type_utils.hpp
++++ zav/include/utils/header/type_utils.hpp
+@@ -27,6 +27,7 @@
+ // comment or uncomment the following line to enable or disable the utils
+ #include <super_utils/color_text.hpp>
+ #include <super_utils/eigen_alias.hpp>
++#include <super_utils/robot_state.hpp>
+ #include <super_utils/color_msg_utils.hpp>
+ #include <utils/header/backward.hpp>
+ 
+@@ -96,13 +97,7 @@
+         return out;
+     }
+ 
+-    struct RobotState {
+-        Vec3f p, v, a, j;
+-        double yaw;
+-        double rcv_time;
+-        bool rcv{false};
+-        Quatf q;
+-    };
++
+ 
+ 
+ 

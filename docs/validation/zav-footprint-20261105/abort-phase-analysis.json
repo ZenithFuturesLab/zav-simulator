@@ -1,0 +1,14 @@
+{
+  "land_request": {
+    "event": "LAND_REQUEST",
+    "elapsed": 183.11296693300028,
+    "sim": 172.809996137,
+    "reason": "tracking_or_safety_latched",
+    "failed": true
+  },
+  "pre_landing_reported_forest_contacts": 0,
+  "pre_landing_tree_surface_clearance_lower_bound_m": 0.4590043138237293,
+  "body_sphere_radius_m": 0.261,
+  "outbound_max_world_y_before_landing_m": -25.200672149658203,
+  "outbound_y_progress_before_landing_m": 24.799327850341797
+}

@@ -1,0 +1,10 @@
+{
+  "three_final_flights_passed": true,
+  "profile_diff_only_max_vel_4_to_5_5": true,
+  "installed_profile_matches_source": true,
+  "installed_launch_matches_source": true,
+  "other_backend_install_restored_exactly": true,
+  "initial_input_files_unchanged": true,
+  "final_landed_disarmed": true,
+  "final_rate_control_only": true
+}

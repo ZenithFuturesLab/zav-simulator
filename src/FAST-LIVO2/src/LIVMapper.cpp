@@ -11,6 +11,7 @@ which is included as part of this source code package.
 */
 
 #include "LIVMapper.h"
+#include "imu_propagation_buffer.hpp"
 
 LIVMapper::LIVMapper(rclcpp::Node::SharedPtr &nh)
     : nh_(nh), extT(0, 0, 0),
@@ -239,6 +240,7 @@ void LIVMapper::initializeSubscribersAndPublishers(rclcpp::Node::SharedPtr &nh, 
   sub_img = nh->create_subscription<sensor_msgs::msg::Image>(img_topic, img_qos, std::bind(&LIVMapper::img_cbk, this, std::placeholders::_1));
 
   pubLaserCloudFullRes = nh->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 100);
+  pubPlanningCloud = nh->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_full", rclcpp::SensorDataQoS());
   pubNormal = nh->create_publisher<visualization_msgs::msg::MarkerArray>("visualization_marker", 100);
   pubSubVisualMap = nh->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_visual_sub_map_before", 100);
   pubLaserCloudEffect = nh->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_effected", 100);
@@ -639,36 +641,29 @@ void LIVMapper::imu_prop_callback()
   new_imu = false; // 控制propagate频率和IMU频率一致
   if (imu_prop_enable && !prop_imu_buffer.empty())
   {
-    static double last_t_from_lidar_end_time = 0;
+    static double last_propagated_time = 0;
     if (state_update_flg)
     {
       imu_propagate = latest_ekf_state;
-      // drop all useless imu pkg
-      while ((!prop_imu_buffer.empty() && rclcpp::Time(prop_imu_buffer.front().header.stamp).seconds() < latest_ekf_time))
-      {
+      while (!prop_imu_buffer.empty() &&
+             rclcpp::Time(prop_imu_buffer.front().header.stamp).seconds() < latest_ekf_time)
         prop_imu_buffer.pop_front();
-      }
-      last_t_from_lidar_end_time = 0;
-      for (int i = 0; i < prop_imu_buffer.size(); i++)
-      {
-        double t_from_lidar_end_time = rclcpp::Time(prop_imu_buffer[i].header.stamp).seconds() - latest_ekf_time;
-        double dt = t_from_lidar_end_time - last_t_from_lidar_end_time;
-        // cout << "prop dt" << dt << ", " << t_from_lidar_end_time << ", " << last_t_from_lidar_end_time << endl;
-        V3D acc_imu(prop_imu_buffer[i].linear_acceleration.x, prop_imu_buffer[i].linear_acceleration.y, prop_imu_buffer[i].linear_acceleration.z);
-        V3D omg_imu(prop_imu_buffer[i].angular_velocity.x, prop_imu_buffer[i].angular_velocity.y, prop_imu_buffer[i].angular_velocity.z);
-        prop_imu_once(imu_propagate, dt, acc_imu, omg_imu);
-        last_t_from_lidar_end_time = t_from_lidar_end_time;
-      }
+      last_propagated_time = latest_ekf_time;
       state_update_flg = false;
     }
-    else
+    const bool advanced = fast_livo::integrate_buffered_imu(
+      prop_imu_buffer, last_propagated_time,
+      [](const auto &sample) { return rclcpp::Time(sample.header.stamp).seconds(); },
+      [this](const auto &sample, double dt) {
+        V3D acc(sample.linear_acceleration.x, sample.linear_acceleration.y, sample.linear_acceleration.z);
+        V3D omg(sample.angular_velocity.x, sample.angular_velocity.y, sample.angular_velocity.z);
+        prop_imu_once(imu_propagate, dt, acc, omg);
+      });
+    // Do not stamp a state newer than the newest integrated measurement.
+    if (!advanced)
     {
-      V3D acc_imu(newest_imu.linear_acceleration.x, newest_imu.linear_acceleration.y, newest_imu.linear_acceleration.z);
-      V3D omg_imu(newest_imu.angular_velocity.x, newest_imu.angular_velocity.y, newest_imu.angular_velocity.z);
-      double t_from_lidar_end_time = rclcpp::Time(newest_imu.header.stamp).seconds() - latest_ekf_time;
-      double dt = t_from_lidar_end_time - last_t_from_lidar_end_time;
-      prop_imu_once(imu_propagate, dt, acc_imu, omg_imu);
-      last_t_from_lidar_end_time = t_from_lidar_end_time;
+      mtx_buffer_imu_prop.unlock();
+      return;
     }
 
     V3D posi, vel_i;
@@ -1256,6 +1251,17 @@ void LIVMapper::publish_frame_world(const rclcpp::Publisher<sensor_msgs::msg::Po
 {
   if (pcl_w_wait_pub->empty())
     return;
+  // Planning must see the complete deskewed LiDAR scan. The RGB cloud below
+  // intentionally drops points outside the camera FOV and is visualization-only.
+  // Publish at the actual LIO measurement epoch, independent of image coloring.
+  if (pubPlanningCloud->get_subscription_count() > 0) {
+    sensor_msgs::msg::PointCloud2 planning_cloud;
+    pcl::toROSMsg(*pcl_w_wait_pub, planning_cloud);
+    planning_cloud.header.frame_id = "camera_init";
+    planning_cloud.header.stamp = rclcpp::Time(
+      static_cast<int64_t>(std::llround(LidarMeasures.last_lio_update_time * 1e9)));
+    pubPlanningCloud->publish(planning_cloud);
+  }
   PointCloudXYZRGB::Ptr laserCloudWorldRGB(new PointCloudXYZRGB());
   if (img_en)
   {

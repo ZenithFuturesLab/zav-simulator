@@ -1,0 +1,127 @@
+{
+  "log": "docs/validation/zav-forest-20261105/high-07.jsonl.gz",
+  "profile": "high_speed",
+  "pipeline": "Isaac ZAV + PX4 SITL + FAST-LIVO + zav_super + real flight_manager",
+  "simulator_scene": {
+    "profile": "high_speed",
+    "upstream_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+    "pcd": "random_map_24_6635.pcd",
+    "pcd_sha256": "e469aa2150ed33ef8f8f3359bfb924a0283dc7e9d640cd83a98ad1723d3a34c4",
+    "finite_points": 186905,
+    "obstacle_points": 19388,
+    "voxels": 10658,
+    "surface_quads": 26706,
+    "voxel_resolution_m": 0.1,
+    "point_to_voxel_extent_bound_m": 0.17320508075688773,
+    "ground": "flat z=0; original ground points z<=0.2 excluded",
+    "start_body_world": [
+      0.0,
+      -50.0,
+      0.1
+    ],
+    "start_yaw_rad": 1.5741,
+    "mission_body_world": [
+      [
+        0.0,
+        -50.0,
+        1.5
+      ],
+      [
+        0.0,
+        50.0,
+        1.5
+      ],
+      [
+        0.0,
+        -50.0,
+        1.5
+      ]
+    ],
+    "contact_report_rigid_bodies": 5,
+    "sim_time": 24.00999946333468,
+    "forest_contact_reports": 0,
+    "total_contact_reports": 4800,
+    "imu_body_position": [
+      0.038876665301744696,
+      0.02329,
+      0.15181667913591163
+    ],
+    "imu_body_quaternion_xyzw": [
+      0.0,
+      0.1908089953765449,
+      0.0,
+      0.981627183447664
+    ]
+  },
+  "mission_exact_original_world_goals": true,
+  "goals_sent": [
+    [
+      0.0,
+      -50.0,
+      1.5
+    ],
+    [
+      0.0,
+      50.0,
+      1.5
+    ],
+    [
+      0.0,
+      -50.0,
+      1.5
+    ]
+  ],
+  "goals_reached": [
+    {
+      "event": "GOAL_REACHED",
+      "elapsed": 19.23159606199988,
+      "sim": 40.2599991,
+      "index": 0,
+      "error": 0.042114647739674826,
+      "body_world_error": 0.044421706637586926
+    },
+    {
+      "event": "GOAL_REACHED",
+      "elapsed": 99.2358723519992,
+      "sim": 116.75999739000001,
+      "index": 1,
+      "error": 0.08862711920001853,
+      "body_world_error": 0.7950213309105532
+    },
+    {
+      "event": "GOAL_REACHED",
+      "elapsed": 177.99162003799938,
+      "sim": 192.159995705,
+      "index": 2,
+      "error": 0.04010333352813205,
+      "body_world_error": 0.02993049337909345
+    }
+  ],
+  "flight_manager_passed": true,
+  "command_receive_hz": 49.98453950069611,
+  "max_command_receive_gap_s": 0.02107878599963442,
+  "body_truth_samples": 3518,
+  "body_truth_max_gap_s": 0.049999999000021944,
+  "body_path_length_m": 229.01419715273295,
+  "max_measured_body_speed_m_s": 2.138840582282685,
+  "min_tree_voxel_center_distance_m": 0.6690806489373845,
+  "tree_surface_clearance_lower_bound_m": 0.5724781085589407,
+  "inside_original_forest_xy_bounds": true,
+  "clearance_check_body_sphere_radius_m": 0.3,
+  "forest_contact_reports": 0,
+  "max_tracking_error_aligned_m": 0.42142450303535467,
+  "body_world_min": [
+    -4.9446611404418945,
+    -50.41850280761719,
+    0.09499998390674591
+  ],
+  "body_world_max": [
+    7.309223175048828,
+    50.37950134277344,
+    3.47000789642334
+  ],
+  "final_armed": false,
+  "final_landed": true,
+  "final_state_source": "explicit driver result/disarm gate",
+  "passed": true
+}

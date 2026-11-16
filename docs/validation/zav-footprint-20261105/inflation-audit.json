@@ -1,0 +1,72 @@
+{
+  "mode": "offline original point-cloud diagnostic; never fed to navigation",
+  "connectivity": "six face-neighbors, not a flight or A* diagonal-path certificate",
+  "runs": [
+    {
+      "diagnostic": "single",
+      "profile": "legacy",
+      "single_obstacle_sampled_min_free_center_distance_m": 0.509902,
+      "prob_virtual_floor": -0.1,
+      "prob_virtual_ceiling": 3.3
+    },
+    {
+      "diagnostic": "dense",
+      "profile": "legacy",
+      "source_obstacle_points": 227875,
+      "query_cells": 2407387,
+      "nonoccupied_cells": 862942,
+      "start_connected_cells": 204482,
+      "goals_connected_in_common_band": false,
+      "common_z_band_m": [
+        0.8,
+        2.4
+      ],
+      "prob_virtual_floor": -0.1,
+      "prob_virtual_ceiling": 3.3
+    },
+    {
+      "diagnostic": "single",
+      "profile": "fine05",
+      "single_obstacle_sampled_min_free_center_distance_m": 0.509902,
+      "prob_virtual_floor": -0.3,
+      "prob_virtual_ceiling": 3.4
+    },
+    {
+      "diagnostic": "dense",
+      "profile": "fine05",
+      "source_obstacle_points": 227875,
+      "query_cells": 2407387,
+      "nonoccupied_cells": 1246589,
+      "start_connected_cells": 1245968,
+      "goals_connected_in_common_band": true,
+      "common_z_band_m": [
+        0.8,
+        2.4
+      ],
+      "prob_virtual_floor": -0.3,
+      "prob_virtual_ceiling": 3.4
+    },
+    {
+      "diagnostic": "single",
+      "profile": "fine04",
+      "single_obstacle_sampled_min_free_center_distance_m": 0.412311,
+      "prob_virtual_floor": -0.4,
+      "prob_virtual_ceiling": 3.5
+    },
+    {
+      "diagnostic": "dense",
+      "profile": "fine04",
+      "source_obstacle_points": 227875,
+      "query_cells": 2407387,
+      "nonoccupied_cells": 1547730,
+      "start_connected_cells": 1547500,
+      "goals_connected_in_common_band": true,
+      "common_z_band_m": [
+        0.8,
+        2.4
+      ],
+      "prob_virtual_floor": -0.4,
+      "prob_virtual_ceiling": 3.5
+    }
+  ]
+}

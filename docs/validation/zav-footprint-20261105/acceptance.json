@@ -1,0 +1,27 @@
+{
+  "user_dimensions_m": [
+    0.408,
+    0.408,
+    0.2455
+  ],
+  "usd_dimensions_m": [
+    0.4079783831764615,
+    0.40797838317646146,
+    0.24463631240881087
+  ],
+  "measured_proxy_contains_all_model_vertices": true,
+  "measured_proxy_vertices": 64,
+  "planning_radius_m": 0.43,
+  "experimental_inflation_resolution_m": 0.1,
+  "experimental_inflation_steps": 5,
+  "legacy_comparison_settings_preserved": true,
+  "full_dense_mission_passed": false,
+  "pre_landing_forest_contact_reports": 0,
+  "pre_landing_clearance_lower_bound_m": 0.4590043138237293,
+  "landing_forest_contact_reports": 1258,
+  "trial_failure": "LIO/PX4 freshness watchdog; forest contact during abort landing; corridor failures also remained",
+  "route_memory_enabled_in_this_trial": false,
+  "final_armed": false,
+  "final_landed": true,
+  "user_reported_delay_cause": "Collision inspection display enabled by user caused computational load; exclude this delay from algorithm-performance attribution."
+}

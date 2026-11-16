@@ -1,0 +1,33 @@
+--- official/src/traj_opt/exp_traj_optimizer_s4.cpp
++++ zav/src/traj_opt/exp_traj_optimizer_s4.cpp
+@@ -1,3 +1,4 @@
++#include <traj_opt/polynomial_limits.hpp>
+ /**
+ * This file is part of SUPER
+ *
+@@ -185,7 +186,7 @@
+                     totalGradAcc{0.0, 0.0, 0.0}, totalGradJer{0.0, 0.0, 0.0};
+ 
+             /* 2.6  For omg amd thr cost  */
+-            if (weightOmg > 0 && weightAccThr > 0) {
++            if (weightOmg > 0 || weightAccThr > 0) {
+                 double thr;
+                 Vec4f quat;
+                 Vec3f omg;
+@@ -750,6 +751,16 @@
+ //        opt_vars.minco.setConditions(opt_vars.headPVAJ, opt_vars.tailPVAJ, opt_vars.temporalDim);
+         opt_vars.minco.setParameters(opt_vars.points, opt_vars.times);
+         opt_vars.minco.getTrajectory(traj);
++        // The upstream velocity acceptance check is disabled above. A penalty
++        // at quadrature nodes cannot guarantee the full polynomial's bounds.
++        if (!polynomialMagnitudeLimits(traj,
++                cfg_.penna_vel > 0 ? 1.2 * cfg_.max_vel : INFINITY,
++                cfg_.penna_acc > 0 ? 1.2 * cfg_.max_acc : INFINITY)) {
++            ros_ptr_->warn(" -- [ExpOpt] Polynomial magnitude rejected: velocity={}, acceleration={}",
++                           traj.getMaxVelRate(), traj.getMaxAccRate());
++            traj.clear();
++            return INFINITY;
++        }
+     } else {
+         traj.clear();
+         minCostFunctional = INFINITY;

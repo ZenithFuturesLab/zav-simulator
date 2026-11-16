@@ -1,0 +1,19 @@
+--- official/src/utils/geometry_utils.cpp
++++ zav/src/utils/geometry_utils.cpp
+@@ -21,6 +21,7 @@
+ * along with SUPER. If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
++#include <cmath>
+ #include <cfloat>
+ #include <set>
+ 
+@@ -268,7 +269,7 @@
+ 
+ void geometry_utils::normalizeNextYaw(const double& last_yaw, double& yaw) {
+     double diff = last_yaw - yaw;
+-    if (isnan(yaw)) {
++    if (std::isnan(yaw)) {
+         yaw = last_yaw;
+         return;
+     }

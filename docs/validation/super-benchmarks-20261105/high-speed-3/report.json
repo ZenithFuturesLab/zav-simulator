@@ -1,0 +1,63 @@
+{
+  "profile": "high_speed",
+  "simulator": "upstream perfect_drone_sim (ideal position tracking; no PX4)",
+  "map": "random_map_24_6635.pcd",
+  "robot_radius_m": 0.2,
+  "segment_sample_spacing_m": 0.02,
+  "initial_position": [
+    0.0,
+    -50.0,
+    1.5
+  ],
+  "max_odometry_gap_s": 0.020882377000816632,
+  "samples": 1700,
+  "goals": [
+    {
+      "t": 3.4372047329998168,
+      "position": [
+        0.0,
+        50.0,
+        1.5
+      ]
+    },
+    {
+      "t": 9.27512965599999,
+      "position": [
+        0.0,
+        -50.0,
+        1.5
+      ]
+    }
+  ],
+  "reached": [
+    {
+      "goal": [
+        0.0,
+        50.0,
+        1.5
+      ],
+      "time": 9.272115784999187,
+      "distance": 0.9772522278716624
+    },
+    {
+      "goal": [
+        0.0,
+        -50.0,
+        1.5
+      ],
+      "time": 15.761161177999384,
+      "distance": 0.9756923549380547
+    }
+  ],
+  "exact_mission_goals": true,
+  "path_length_m": 203.29503994698763,
+  "max_speed_m_s": 25.001970881866374,
+  "min_distance_to_pcd_m": 0.9541135225110466,
+  "piecewise_linear_clearance_lower_bound_m": 0.9441135225110466,
+  "pcd_radius_violations": 0,
+  "rviz_requested": true,
+  "fpv_requested": false,
+  "runtime_child_errors": [],
+  "failure": null,
+  "passed": true
+}

@@ -100,6 +100,9 @@ ament_auto_add_executable(fastlivo_mapping src/main.cpp)
 target_link_libraries(fastlivo_mapping vio lio pre imu_proc laser_mapping)
 
 if(BUILD_TESTING)
+  enable_testing()
+  add_executable(test_imu_propagation_buffer test/test_imu_propagation_buffer.cpp)
+  add_test(NAME imu_propagation_buffer COMMAND test_imu_propagation_buffer)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files

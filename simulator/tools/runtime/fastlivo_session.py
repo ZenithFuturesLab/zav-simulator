@@ -140,7 +140,8 @@ def check_existing_nodes(workspace):
     """The old shell's lock may be gone even though its ROS nodes survived."""
     executables = {str(workspace / 'install/fast_livo/lib/fast_livo/fastlivo_mapping'),
                    str(workspace / 'install/zav_control/lib/zav_control/lio_px4_bridge'),
-                   str(workspace / 'install/super_lio/lib/super_lio/super_lio_node')}
+                   str(workspace / 'install/super_lio/lib/super_lio/super_lio_node'),
+                   str(workspace / 'install/fast_lio/lib/fast_lio/fastlio_mapping')}
     stale = []
     for proc in Path('/proc').iterdir():
         if not proc.name.isdigit():
@@ -161,7 +162,7 @@ def check_existing_nodes(workspace):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rviz-dir', required=True, type=Path)
-    parser.add_argument('--backend', choices=('fastlivo', 'super_lio'), default='fastlivo')
+    parser.add_argument('--backend', choices=('fastlivo', 'fastlio', 'super_lio'), default='fastlivo')
     args, launch_args = parser.parse_known_args()
     directory = args.rviz_dir.resolve()
     relay_env = dict(os.environ)

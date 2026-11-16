@@ -1,0 +1,475 @@
+{
+  "alignment": "Interpolation of actual command epochs at each measured LIO epoch; <=0.12s command bracket only. Moving: reference speed >0.2m/s.",
+  "runs": [
+    {
+      "log": "docs/validation/frontend-route-memory-20261105/off-01.jsonl.gz",
+      "profile": "dense",
+      "pipeline": "Isaac ZAV + PX4 SITL + FAST-LIVO + zav_super + real flight_manager",
+      "simulator_scene": {
+        "profile": "dense",
+        "upstream_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+        "pcd": "random_map_2_26609.pcd",
+        "pcd_sha256": "ff7602a077d1d04b1b14f96304d9f1fc5770bf7c7912b94fa70be64590e392b1",
+        "finite_points": 412021,
+        "obstacle_points": 227875,
+        "voxels": 214197,
+        "surface_quads": 1068806,
+        "voxel_resolution_m": 0.05,
+        "point_to_voxel_extent_bound_m": 0.08660254037844387,
+        "ground": "flat z=0; original ground points z<=0.2 excluded",
+        "start_body_world": [
+          0.0,
+          -50.0,
+          0.1
+        ],
+        "start_yaw_rad": 1.5741,
+        "mission_body_world": [
+          [
+            0.0,
+            -50.0,
+            1.5
+          ],
+          [
+            0.0,
+            50.0,
+            1.5
+          ],
+          [
+            0.0,
+            -50.0,
+            1.5
+          ]
+        ],
+        "lidar_mode": "mid360",
+        "body_proxy": "cylinder radius=0.27m height=0.25m center_z=0.025m",
+        "body_envelope_radius_m": 0.32,
+        "body_and_tree_contact_offset_m": 0.005,
+        "imu_reference_proxy_radius_m": 0.4035316139356332,
+        "measured_visual_imu_radius_m": 0.35101815144300086,
+        "planning_reference": "mounted IMU; planner radius remains 0.43m",
+        "measured_visual_radius_m": 0.24932232932372417,
+        "validated_visual_meshes": 593,
+        "body_proxy_mass_inertia": "existing explicit mass/inertia preserved",
+        "contact_report_rigid_bodies": 5,
+        "sim_time": 2.009999955072999,
+        "forest_contact_reports": 0,
+        "total_contact_reports": 800,
+        "imu_body_position": [
+          0.038876665301744696,
+          0.02329,
+          0.15181667913591163
+        ],
+        "imu_body_quaternion_xyzw": [
+          0.0,
+          0.1908089953765449,
+          0.0,
+          0.981627183447664
+        ]
+      },
+      "mission_exact_original_world_goals": false,
+      "goals_sent": [
+        [
+          0.0,
+          -50.0,
+          1.5
+        ],
+        [
+          0.0,
+          50.0,
+          1.5
+        ]
+      ],
+      "goals_reached": [
+        {
+          "event": "GOAL_REACHED",
+          "elapsed": 22.441576744000486,
+          "sim": 18.509999586000003,
+          "index": 0,
+          "error": 0.05233920688486321,
+          "body_world_error": 0.059870750952157284
+        }
+      ],
+      "flight_manager_passed": false,
+      "command_receive_hz": 50.00064102267515,
+      "max_command_receive_gap_s": 0.03317806300037773,
+      "body_truth_samples": 3918,
+      "body_truth_max_gap_s": 0.049999999000021944,
+      "body_path_length_m": 104.9472995974349,
+      "max_measured_body_speed_m_s": 1.220071152286961,
+      "min_tree_voxel_center_distance_m": 0.4731538977874017,
+      "tree_surface_clearance_lower_bound_m": 0.41985262759817976,
+      "inside_original_forest_xy_bounds": true,
+      "clearance_check_body_sphere_radius_m": 0.32,
+      "forest_contact_reports": 0,
+      "max_tracking_error_aligned_m": 0.11330365245655871,
+      "body_world_min": [
+        -0.27952173352241516,
+        -50.04783630371094,
+        0.09999984502792358
+      ],
+      "body_world_max": [
+        5.118841648101807,
+        -46.354248046875,
+        2.7829506397247314
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "final_state_source": "explicit driver result/disarm gate",
+      "passed": false,
+      "controller": "ommpc",
+      "planner_profile_sha256": "8c4beff9d5426203056a17df3837dc4a7c650a0e9b4a08c2d326c8ba510d2faa",
+      "planned_speed_m_s": 1.0,
+      "offline_epoch_aligned_tracking": {
+        "samples": 3599,
+        "rms_m": 0.057129584951309556,
+        "p95_m": 0.09346192089432605,
+        "max_m": 0.14389615344150103
+      },
+      "offline_epoch_aligned_moving_tracking": {
+        "samples": 3098,
+        "rms_m": 0.05758041332365769,
+        "p95_m": 0.09511478797328013,
+        "max_m": 0.14389615344150103
+      },
+      "moving_ommpc_authority_fraction": 1.0,
+      "ommpc_max_solve_ms": 3.18897,
+      "ommpc_hover_calibration": 0.407905,
+      "forwarded_rates_count": 9160,
+      "actual_body_yaw_rate_max_rad_s": 1.1019150773330542,
+      "actual_body_yaw_rate_p95_rad_s": 1.047462160615153,
+      "ommpc_yaw_rate_limit_rad_s": 1,
+      "normalized_thrust_range": [
+        0.307540625333786,
+        0.48450157046318054
+      ],
+      "driver_outcomes": [
+        {
+          "event": "FAIL",
+          "elapsed": 208.588940155998,
+          "sim": 195.909995621,
+          "reason": "goal_timeout",
+          "goals_reached": 1,
+          "armed": false,
+          "landed": true,
+          "scene": {
+            "profile": "dense",
+            "upstream_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+            "pcd": "random_map_2_26609.pcd",
+            "pcd_sha256": "ff7602a077d1d04b1b14f96304d9f1fc5770bf7c7912b94fa70be64590e392b1",
+            "finite_points": 412021,
+            "obstacle_points": 227875,
+            "voxels": 214197,
+            "surface_quads": 1068806,
+            "voxel_resolution_m": 0.05,
+            "point_to_voxel_extent_bound_m": 0.08660254037844387,
+            "ground": "flat z=0; original ground points z<=0.2 excluded",
+            "start_body_world": [
+              0.0,
+              -50.0,
+              0.1
+            ],
+            "start_yaw_rad": 1.5741,
+            "mission_body_world": [
+              [
+                0.0,
+                -50.0,
+                1.5
+              ],
+              [
+                0.0,
+                50.0,
+                1.5
+              ],
+              [
+                0.0,
+                -50.0,
+                1.5
+              ]
+            ],
+            "lidar_mode": "mid360",
+            "body_proxy": "cylinder radius=0.27m height=0.25m center_z=0.025m",
+            "body_envelope_radius_m": 0.32,
+            "body_and_tree_contact_offset_m": 0.005,
+            "imu_reference_proxy_radius_m": 0.4035316139356332,
+            "measured_visual_imu_radius_m": 0.35101815144300086,
+            "planning_reference": "mounted IMU; planner radius remains 0.43m",
+            "measured_visual_radius_m": 0.24932232932372417,
+            "validated_visual_meshes": 593,
+            "body_proxy_mass_inertia": "existing explicit mass/inertia preserved",
+            "contact_report_rigid_bodies": 5,
+            "sim_time": 195.00999564118683,
+            "forest_contact_reports": 0,
+            "total_contact_reports": 3543,
+            "imu_body_position": [
+              0.038876665301744696,
+              0.02329,
+              0.15181667913591163
+            ],
+            "imu_body_quaternion_xyzw": [
+              0.0,
+              0.1908089953765449,
+              0.0,
+              0.981627183447664
+            ]
+          }
+        }
+      ],
+      "trial_elapsed_s": 208.588940155998,
+      "outbound_progress_after_up_to_160s": {
+        "sample_age_s": 159.9766387949967,
+        "body_world": [
+          0.3140738606452942,
+          -48.869354248046875,
+          2.226440191268921
+        ],
+        "remaining_distance_m": 98.87252180038303
+      }
+    },
+    {
+      "log": "docs/validation/zav-footprint-20261105/dense-fine05-01.jsonl.gz",
+      "profile": "dense",
+      "pipeline": "Isaac ZAV + PX4 SITL + FAST-LIVO + zav_super + real flight_manager",
+      "simulator_scene": {
+        "profile": "dense",
+        "upstream_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+        "pcd": "random_map_2_26609.pcd",
+        "pcd_sha256": "ff7602a077d1d04b1b14f96304d9f1fc5770bf7c7912b94fa70be64590e392b1",
+        "finite_points": 412021,
+        "obstacle_points": 227875,
+        "voxels": 214197,
+        "surface_quads": 1068806,
+        "voxel_resolution_m": 0.05,
+        "point_to_voxel_extent_bound_m": 0.08660254037844387,
+        "ground": "flat z=0; original ground points z<=0.2 excluded",
+        "start_body_world": [
+          0.0,
+          -50.0,
+          0.1
+        ],
+        "start_yaw_rad": 1.5741,
+        "mission_body_world": [
+          [
+            0.0,
+            -50.0,
+            1.5
+          ],
+          [
+            0.0,
+            50.0,
+            1.5
+          ],
+          [
+            0.0,
+            -50.0,
+            1.5
+          ]
+        ],
+        "lidar_mode": "mid360",
+        "body_proxy": "measured outer convex hull, 34 support planes, <=64 vertices",
+        "collider_mode": "hull",
+        "body_envelope_radius_m": 0.261,
+        "body_and_tree_contact_offset_m": 0.005,
+        "imu_reference_proxy_radius_m": 0.35532240410711696,
+        "measured_visual_imu_radius_m": 0.35101815144300086,
+        "measured_visual_radius_m": 0.24932232932372417,
+        "validated_visual_meshes": 593,
+        "body_proxy_mass_inertia": "existing explicit mass/inertia preserved",
+        "proxy_dimensions_m": [
+          0.4079785831764615,
+          0.4079785831764615,
+          0.24463651240881087
+        ],
+        "user_dimensions_m": [
+          0.408,
+          0.408,
+          0.2455
+        ],
+        "planning_reference": "mounted IMU; planner radius remains 0.43m",
+        "contact_report_rigid_bodies": 5,
+        "sim_time": 2.009999955072999,
+        "forest_contact_reports": 0,
+        "total_contact_reports": 800,
+        "imu_body_position": [
+          0.038876665301744696,
+          0.02329,
+          0.15181667913591163
+        ],
+        "imu_body_quaternion_xyzw": [
+          0.0,
+          0.1908089953765449,
+          0.0,
+          0.981627183447664
+        ]
+      },
+      "mission_exact_original_world_goals": false,
+      "goals_sent": [
+        [
+          0.0,
+          -50.0,
+          1.5
+        ],
+        [
+          0.0,
+          50.0,
+          1.5
+        ]
+      ],
+      "goals_reached": [
+        {
+          "event": "GOAL_REACHED",
+          "elapsed": 20.704250324000895,
+          "sim": 18.109999595,
+          "index": 0,
+          "error": 0.016495052332935013,
+          "body_world_error": 0.012687808906218756
+        }
+      ],
+      "flight_manager_passed": false,
+      "command_receive_hz": 49.99729731703914,
+      "max_command_receive_gap_s": 0.04890357799740741,
+      "body_truth_samples": 3598,
+      "body_truth_max_gap_s": 0.049999999000021944,
+      "body_path_length_m": 42.81386834881823,
+      "max_measured_body_speed_m_s": 1.168558017241179,
+      "min_tree_voxel_center_distance_m": 0.15632581182293917,
+      "tree_surface_clearance_lower_bound_m": 0.10302454163371724,
+      "inside_original_forest_xy_bounds": true,
+      "clearance_check_body_sphere_radius_m": 0.261,
+      "forest_contact_reports": 1258,
+      "max_tracking_error_aligned_m": 0.09574959573030387,
+      "body_world_min": [
+        -2.057673692703247,
+        -50.003604888916016,
+        0.09500005096197128
+      ],
+      "body_world_max": [
+        0.4897365868091583,
+        -25.075273513793945,
+        2.9030115604400635
+      ],
+      "final_armed": false,
+      "final_landed": true,
+      "final_state_source": "explicit driver result/disarm gate",
+      "passed": false,
+      "controller": "ommpc",
+      "planner_profile_sha256": "2f19e44338fb64ea9898745bcca50f2d8eb4da83b18bfa02f2730e9ed64e4c53",
+      "planned_speed_m_s": 1.0,
+      "offline_epoch_aligned_tracking": {
+        "samples": 3241,
+        "rms_m": 0.029431530081361068,
+        "p95_m": 0.05634300522684735,
+        "max_m": 0.09574959573030387
+      },
+      "offline_epoch_aligned_moving_tracking": {
+        "samples": 851,
+        "rms_m": 0.03388707176792268,
+        "p95_m": 0.062033242451190504,
+        "max_m": 0.09574959573030387
+      },
+      "moving_ommpc_authority_fraction": 1.0,
+      "ommpc_max_solve_ms": 2.35669,
+      "ommpc_hover_calibration": 0.407477,
+      "forwarded_rates_count": 8257,
+      "actual_body_yaw_rate_max_rad_s": 1.0751995231247162,
+      "actual_body_yaw_rate_p95_rad_s": 0.7889336568803464,
+      "ommpc_yaw_rate_limit_rad_s": 1,
+      "normalized_thrust_range": [
+        0.26921117305755615,
+        0.49255257844924927
+      ],
+      "driver_outcomes": [
+        {
+          "event": "FAIL",
+          "elapsed": 199.213574409001,
+          "sim": 179.909995979,
+          "reason": "tracking_or_safety_latched",
+          "goals_reached": 1,
+          "armed": false,
+          "landed": true,
+          "scene": {
+            "profile": "dense",
+            "upstream_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+            "pcd": "random_map_2_26609.pcd",
+            "pcd_sha256": "ff7602a077d1d04b1b14f96304d9f1fc5770bf7c7912b94fa70be64590e392b1",
+            "finite_points": 412021,
+            "obstacle_points": 227875,
+            "voxels": 214197,
+            "surface_quads": 1068806,
+            "voxel_resolution_m": 0.05,
+            "point_to_voxel_extent_bound_m": 0.08660254037844387,
+            "ground": "flat z=0; original ground points z<=0.2 excluded",
+            "start_body_world": [
+              0.0,
+              -50.0,
+              0.1
+            ],
+            "start_yaw_rad": 1.5741,
+            "mission_body_world": [
+              [
+                0.0,
+                -50.0,
+                1.5
+              ],
+              [
+                0.0,
+                50.0,
+                1.5
+              ],
+              [
+                0.0,
+                -50.0,
+                1.5
+              ]
+            ],
+            "lidar_mode": "mid360",
+            "body_proxy": "measured outer convex hull, 34 support planes, <=64 vertices",
+            "collider_mode": "hull",
+            "body_envelope_radius_m": 0.261,
+            "body_and_tree_contact_offset_m": 0.005,
+            "imu_reference_proxy_radius_m": 0.35532240410711696,
+            "measured_visual_imu_radius_m": 0.35101815144300086,
+            "measured_visual_radius_m": 0.24932232932372417,
+            "validated_visual_meshes": 593,
+            "body_proxy_mass_inertia": "existing explicit mass/inertia preserved",
+            "proxy_dimensions_m": [
+              0.4079785831764615,
+              0.4079785831764615,
+              0.24463651240881087
+            ],
+            "user_dimensions_m": [
+              0.408,
+              0.408,
+              0.2455
+            ],
+            "planning_reference": "mounted IMU; planner radius remains 0.43m",
+            "contact_report_rigid_bodies": 5,
+            "sim_time": 179.0099959988147,
+            "forest_contact_reports": 1258,
+            "total_contact_reports": 3594,
+            "imu_body_position": [
+              0.038876665301744696,
+              0.02329,
+              0.15181667913591163
+            ],
+            "imu_body_quaternion_xyzw": [
+              0.0,
+              0.1908089953765449,
+              0.0,
+              0.981627183447664
+            ]
+          }
+        }
+      ],
+      "trial_elapsed_s": 199.213574409001,
+      "outbound_progress_after_up_to_160s": {
+        "sample_age_s": 159.99120944499737,
+        "body_world": [
+          -0.8413421511650085,
+          -25.238988876342773,
+          1.747591495513916
+        ],
+        "remaining_distance_m": 75.24410013614629
+      }
+    }
+  ]
+}

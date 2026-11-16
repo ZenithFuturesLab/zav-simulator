@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-12",
+  "timezone": "Asia/Seoul",
+  "gui_required": true,
+  "scenario": "high_speed",
+  "backend": "super_lio",
+  "git_head": "facc1488346214dc4d0f67c6697635692b02ef7b",
+  "display": ":1",
+  "gpu": "NVIDIA GeForce RTX 5060 Ti, 580.178.04",
+  "sha256": {
+    "src/zav_super/config/high_speed.yaml": "8689937995df0bba4f39d8fd9bf8379000d9fab149512dedda879527b641de1e",
+    "src/zav_super/config/ommpc_high_speed.yaml": "f339c9e35ca893b3062038ddce81dc99d79c350b18cdfaa75ed67fac3d9a40f0",
+    "src/Super-LIO/super_lio/config/zenith_sim.yaml": "a2a9df5ed308c5c3e5849ecc9874a5de18f25a9a0e499745ba43f194614fe51b",
+    "src/zav_super/src/ommpc_px4.cpp": "e3ef2c17e4cdebafb88b22cc888743d14939639c87fe832eed34b50f9601cd9a",
+    "simulator/zav_sim.py": "973c0fa112ab5bc319ddefa0dcd4ae3fa731bfbe67db0d8d10398807b5828513"
+  },
+  "acceptance": {
+    "lio_max_m": 0.5,
+    "lio_rms_m": 0.25,
+    "conservative_body_clearance_min_m": 0.1,
+    "goal_radius_m": 0.8,
+    "odom_max_sim_gap_s": 0.05,
+    "odom_max_wall_gap_s": 0.2,
+    "completed_and_landed": true,
+    "scope": "LIO accuracy covers takeoff through landing; rate/clearance metrics cover tracking."
+  },
+  "clearance_method": "Truth IMU pose converted to body origin; physical path segments sampled <=1cm; distance to obstacle PCD minus 0.086602541m scene voxel reconstruction bound, 0.005m half-sample interval, 0.33m body sphere. Floor excluded from obstacle KDTree. This bounds sampled-position path, not unobserved intersample acceleration."
+}

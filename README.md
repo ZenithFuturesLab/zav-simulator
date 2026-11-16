@@ -79,6 +79,36 @@ LiDAR·IMU만 사용하는 Super-LIO로 교체하려면 FAST-LIVO를 종료하�
 
 FAST-LIVO는 실행한 터미널에서 Ctrl+C로 종료합니다. `[LIO] All owned processes stopped`가 출력된 뒤 재실행하세요. 실행기가 만든 mapper·LIO bridge·relay를 정리한 후 재실행 잠금을 해제합니다. RViz가 먼저 실행해 소유한 공유 relay는 유지합니다. 잠금 파일을 직접 삭제하지 마세요. 이전 mapper가 남아 있으면 새 실행을 거부하고 PID를 표시합니다.
 
+## SUPER 공식 숲 벤치마크
+
+기존 **zav_sim + FAST-LIVO + PX4**로 공식 숲을 비행하려면 `./scripts/run_zav_forest.sh dense` 또는 `high_speed`를 사용합니다. 플래너·자동 왕복 임무 실행은 [ZAV/PX4 숲 비행 안내](docs/zav-forest-benchmarks.md)를 참고하세요.
+
+공개 OMMPC를 PX4 각속도 제어에 연결한 비교 구성은 [OMMPC 숲 비교 안내](docs/ommpc-forest-comparison.md)를 참고하세요. 기존 PX4 제어기는 기본값으로 유지합니다.
+
+기체 408×408×245.5mm 기준 충돌체·지도 팽창 점검과 실측형상 실험 옵션은 [ZAV footprint 점검](docs/zav-footprint-audit.md)에 정리했습니다.
+
+원본 지도·목표·속도 설정으로 dense와 high-speed 예제를 실행하려면 `./scripts/run_super_benchmark.sh dense` 또는 `./scripts/run_super_benchmark.sh high_speed`를 사용합니다. 공식 `perfect_drone_sim`을 사용하는 독립 실험이며, 실행 절차와 PX4 추종과의 차이는 [SUPER 공식 벤치마크 안내](docs/super-official-benchmarks.md)에 정리했습니다.
+
+개방→밀집→개방 혼합 맵은 동일한 SUPER/Super-LIO 공통 파라미터로 왕복합니다.
+
+터미널 1에서 Isaac Sim GUI를 실행합니다.
+
+```bash
+cd ~/zenith_ws
+./run_super_sim.sh mixed
+```
+
+`[Ready] mixed` 출력 후 터미널 2에서 RViz2와 자동 왕복 임무를 실행합니다.
+
+```bash
+cd ~/zenith_ws
+./run_super.sh --scenario mixed --backend super_lio --profile common --execute
+```
+
+공통 설정은 `src/zav_super/config/common_super_lio.yaml`입니다. 현재 파라미터는
+튜닝 진행 중입니다. 맵 구성·GUI 검증·성공 및 실패 주행 결과는
+[혼합 맵 안내](docs/super-mixed-map.md)에 정리했습니다.
+
 ## LIO 이상 감시와 착륙
 
 `./run_fastlivo.sh`는 짧은 측정 간격에서 위치·자세가 갑자기 튀는 운동 연속성만 감시합니다.

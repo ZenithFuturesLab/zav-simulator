@@ -1,0 +1,1 @@
+{"motion_goals_reached":4,"motion_raw_error_max_m":0.4514921190168407,"motion_aligned_error_max_m":0.30088360853291984,"normal_landing_had_lio_jump_latch":true,"stable_acceptance":false,"note":"Original harness returned PASS after normal disarm; stricter acceptance now treats the landing LIO latch as failure."}

@@ -1,0 +1,61 @@
+{
+  "profile": "high_speed",
+  "upstream_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+  "pcd": "random_map_24_6635.pcd",
+  "pcd_sha256": "e469aa2150ed33ef8f8f3359bfb924a0283dc7e9d640cd83a98ad1723d3a34c4",
+  "finite_points": 186905,
+  "obstacle_points": 19388,
+  "voxels": 10658,
+  "surface_quads": 26706,
+  "voxel_resolution_m": 0.1,
+  "point_to_voxel_extent_bound_m": 0.17320508075688773,
+  "ground": "flat z=0; original ground points z<=0.2 excluded",
+  "start_body_world": [
+    0.0,
+    -50.0,
+    0.1
+  ],
+  "start_yaw_rad": 1.5741,
+  "mission_body_world": [
+    [
+      0.0,
+      -50.0,
+      1.5
+    ],
+    [
+      0.0,
+      50.0,
+      1.5
+    ],
+    [
+      0.0,
+      -50.0,
+      1.5
+    ]
+  ],
+  "lidar_mode": "mid360",
+  "body_proxy": "cylinder radius=0.27m height=0.25m center_z=0.025m",
+  "body_envelope_radius_m": 0.32,
+  "body_and_tree_contact_offset_m": 0.005,
+  "imu_reference_proxy_radius_m": 0.4035316139356332,
+  "measured_visual_imu_radius_m": 0.35101815144300086,
+  "planning_reference": "mounted IMU; planner radius remains 0.43m",
+  "measured_visual_radius_m": 0.24932232932372417,
+  "validated_visual_meshes": 593,
+  "body_proxy_mass_inertia": "existing explicit mass/inertia preserved",
+  "contact_report_rigid_bodies": 5,
+  "sim_time": 10.009999776259065,
+  "forest_contact_reports": 0,
+  "total_contact_reports": 4000,
+  "imu_body_position": [
+    0.038876665301744696,
+    0.02329,
+    0.15181667913591163
+  ],
+  "imu_body_quaternion_xyzw": [
+    0.0,
+    0.1908089953765449,
+    0.0,
+    0.981627183447664
+  ]
+}

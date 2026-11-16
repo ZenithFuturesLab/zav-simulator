@@ -1,0 +1,7 @@
+{
+  "policy": "completion_clearance_priority",
+  "chosen_by_user": "정상 완주·충돌 여유를 우선하고 위치 오차는 함께 보고",
+  "accuracy_is_reported_not_a_gate": true,
+  "removed_diagnostic_abort": "truth/LIO distance >2m alone",
+  "retained": "All onboard protection unchanged; physical envelope and independent goal/clearance/rate checks remain."
+}

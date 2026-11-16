@@ -21,3 +21,6 @@ __pycache__/
 src/FAST-LIVO2/Log/**
 !src/FAST-LIVO2/Log/**/
 !src/FAST-LIVO2/Log/**/.gitkeep
+src/SUPER/super_planner/log/**
+!src/SUPER/super_planner/log/**/
+!src/SUPER/super_planner/log/**/.gitkeep

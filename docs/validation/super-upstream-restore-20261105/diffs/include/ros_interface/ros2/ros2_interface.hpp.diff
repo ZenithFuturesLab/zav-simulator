@@ -1,0 +1,20 @@
+--- official/include/ros_interface/ros2/ros2_interface.hpp
++++ zav/include/ros_interface/ros2/ros2_interface.hpp
+@@ -40,7 +40,6 @@
+                                           .best_effort()
+                                           .keep_last(100)
+                                           .durability_volatile());
+-            clock_pub_ = nh_->create_publisher<rosgraph_msgs::msg::Clock>("/clock", 1);
+ 
+             /*=============================FOR Planner========================================*/
+             goal_pub_ = nh_->create_publisher<visualization_msgs::msg::MarkerArray>("visualization/goal", qos);
+@@ -105,7 +104,8 @@
+             auto msg = rosgraph_msgs::msg::Clock();
+             msg.clock.sec = static_cast<int32_t>(seconds);
+             msg.clock.nanosec = static_cast<uint32_t>((seconds - msg.clock.sec) * 1e9);
+-            clock_pub_->publish(msg);
++            // No /clock publisher: Isaac Sim owns the simulation clock.
++            (void)msg;
+         }
+ 
+         /*=============================FOR Planner========================================*/

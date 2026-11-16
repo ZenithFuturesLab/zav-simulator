@@ -1,0 +1,12 @@
+{
+  "public_ommpc_commit": "29cf38acf6a9a6fb9627c189d6e66afbcc605244",
+  "osqp_commit": "0dd00a578cf1c2691c5c379965d504c75bf6cfad",
+  "high_speed_original_200m_passes": 2,
+  "latest_epoch_aligned_high_run": "high-02",
+  "latest_high_moving_rms_m": 0.04538532283636828,
+  "dense_original_200m_passed": false,
+  "original_8_or_25_m_s_verified": false,
+  "all_profiles_stable": false,
+  "final_armed": false,
+  "final_landed": true
+}

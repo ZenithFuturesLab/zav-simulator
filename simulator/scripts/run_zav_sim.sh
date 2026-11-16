@@ -17,6 +17,10 @@ source "$ZAV_WS_DIR/install/local_setup.bash" || exit 1
 TASKKILL_BIN="/mnt/c/Windows/System32/taskkill.exe"
 CLIP_BIN="/mnt/c/Windows/System32/clip.exe"
 
+# tmux needs terminal capabilities even in IDE/automation PTYs exporting dumb.
+if [ -z "${TERM:-}" ] || [ "$TERM" = dumb ]; then
+    export TERM=xterm-256color
+fi
 SESSION_NAME="zav_sim"
 # One launcher owns the PX4/Kit lifecycle. Re-running attaches to it.
 exec 8>"/tmp/zav-sim-runner-$UID.lock"
@@ -39,6 +43,7 @@ sleep 0.5
 
 # 2. 세션 종료 시 전체 프로세스 강제 회수(Trap) 및 비정상 종료 에러 출력
 cleanup() {
+    python3 "$ZAV_WS_DIR/simulator/tools/runtime/sim_session.py" clear --pid "$$"
     if [ -n "${PX4_GATEWAY_PID:-}" ]; then
         kill -TERM "$PX4_GATEWAY_PID" 2>/dev/null || true
         for _gateway_wait in {1..30}; do
@@ -72,6 +77,11 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' SIGINT SIGTERM
 
+# Record the domain before starting children. Navigation in another terminal
+# joins this session instead of silently waiting on a different ROS domain.
+python3 "$ZAV_WS_DIR/simulator/tools/runtime/sim_session.py" write --pid "$$"
+echo " [ROS] domain=$ROS_DOMAIN_ID scene=${ZAV_SUPER_SCENE:-warehouse}"
+
 # 3. Micro-XRCE-DDS Agent 백그라운드 기동
 echo " [1/3] Micro-XRCE-DDS Agent 기동 [UDP 8888]..."
 MicroXRCEAgent udp4 -p 8888 > /tmp/micro_xrce_agent.log 2>&1 8>&- &
@@ -83,13 +93,19 @@ if [ "$ZAV_ROS_TRANSPORT" = cyclone_tcp ]; then
 fi
 sleep 1
 
-# 4. tmux 세션 생성 (마우스 휠 스크롤 + 자동 클립보드 복사 바인딩)
-echo " [2/3] tmux 분할 대시보드 생성 중..."
-tmux new-session -d -s $SESSION_NAME -n "ZAV_SITL"
-# [ZAV 변경] 이미 떠 있는 tmux server도 이번 실행의 경로/센서 옵션을 새 Isaac pane에 전달합니다.
-for _name in PATH LD_LIBRARY_PATH ZAV_ENV_FILE ZAV_DIAGNOSTIC_STATE ROS_DOMAIN_ID ZAV_WS_DIR PX4_DIR ISAAC_PYTHON ISAAC_SIM_PATH ISAAC_WINDOWS_PYTHON_BAT ZAV_SIM_PLATFORM PEGASUS_FASTLIVO_CONFIG_DIR PEGASUS_SLAM_SCENE PEGASUS_BIND_HOST PX4_SIM_HOSTNAME; do
-    tmux set-environment -t "$SESSION_NAME" "$_name" "${!_name:-}"
+# Spawn the pane commands directly. An interactive shell would re-source
+# ~/.bashrc and can overwrite ROS_DOMAIN_ID, DISPLAY, or transport settings.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+_pane_env=(env)
+for _name in ZAV_SUPER_SCENE ZAV_HEADLESS PATH LD_LIBRARY_PATH ZAV_ENV_FILE ZAV_DIAGNOSTIC_STATE ZAV_CONTACT_REPORT_PATH ROS_DOMAIN_ID ROS_LOCALHOST_ONLY RMW_IMPLEMENTATION ZAV_ROS_TRANSPORT ZAV_WS_DIR PX4_DIR ISAAC_PYTHON ISAAC_SIM_PATH ISAAC_WINDOWS_PYTHON_BAT ZAV_SIM_PLATFORM PEGASUS_FASTLIVO_CONFIG_DIR PEGASUS_SLAM_SCENE PEGASUS_BIND_HOST PX4_SIM_HOSTNAME DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR; do
+    if [[ -v $_name ]]; then
+        _pane_env+=("$_name=${!_name}")
+    fi
 done
+printf -v _px4_command '%q ' "${_pane_env[@]}" bash "$SCRIPT_DIR/run_px4_sim.sh"
+printf -v _isaac_command '%q ' "${_pane_env[@]}" bash "$SCRIPT_DIR/run_isaac_sim.sh"
+echo " [2/3] tmux 분할 대시보드 생성 중..."
+tmux new-session -d -s "$SESSION_NAME" -n "ZAV_SITL" "$_px4_command"
 tmux set -t $SESSION_NAME -g mouse on
 tmux set -t $SESSION_NAME -g pane-border-status top
 tmux set -t $SESSION_NAME -g pane-border-format " #{pane_title} "
@@ -100,24 +116,11 @@ if [ "$ZAV_WINDOWS_HOST" = 1 ] && [ -f "$CLIP_BIN" ]; then
     tmux bind-key -t $SESSION_NAME -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "$CLIP_BIN" 2>/dev/null || true
 fi
 
-# 5. 상단 팬 (Pane 0): PX4 SITL 실행 (Ctrl+C 시 trap으로 tmux 세션 즉시 폭파)
-tmux select-pane -t $SESSION_NAME:0.0 -T "🔴 [상단] PX4 비행 콘솔 (종료: Ctrl+C)"
-_px4_runner="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/run_px4_sim.sh"
-tmux send-keys -t "$SESSION_NAME:0.0" "bash $(printf '%q' "$_px4_runner")" C-m
-
-# 6. 하단 팬 (Pane 1): 40% 크기로 분할 후 Isaac Sim 기동
+# Both panes own real PTYs, including PX4's interactive console.
+tmux select-pane -t "$SESSION_NAME:0.0" -T "🔴 PX4 비행 콘솔 (종료: Ctrl+C)"
 echo " [3/3] Pegasus / Isaac Sim 3D 뷰어 연결 중..."
-tmux split-window -v -p 40 -t $SESSION_NAME:0.0
-tmux select-pane -t $SESSION_NAME:0.1 -T "🟢 [하단] Pegasus / Isaac Sim 파이썬 로그 (종료: Ctrl+C)"
-
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    RUNNER_SCRIPT="$SCRIPT_DIR/run_isaac_sim.sh"
-    if [ ! -f "$RUNNER_SCRIPT" ]; then
-        RUNNER_SCRIPT="$HOME/zenith_ws/simulator/scripts/run_isaac_sim.sh"
-    fi
-    chmod +x "$RUNNER_SCRIPT"
-    tmux send-keys -t "$SESSION_NAME:0.1" \
-"$(printf '%q' "$RUNNER_SCRIPT"); printf '\n[ISAAC EXIT] code=%s\n' \"\$?\"" C-m
+tmux split-window -v -p 40 -t "$SESSION_NAME:0.0" "$_isaac_command"
+tmux select-pane -t "$SESSION_NAME:0.1" -T "🟢 Pegasus / Isaac Sim (종료: Ctrl+C)"
 
 # 7. 상단 콘솔로 포커스 맞추고 대시보드 화면으로 전환
 tmux select-pane -t $SESSION_NAME:0.0

@@ -23,6 +23,12 @@ required_packages={
     'rpg_vikit/vikit_common':'vikit_common',
     'rpg_vikit/vikit_ros':'vikit_ros',
     'zav_control':'zav_control',
+    'zav_super':'zav_super',
+    'SUPER/super_planner':'super_planner',
+    'SUPER/rog_map':'rog_map',
+    'SUPER/mars_quadrotor_msgs':'mars_quadrotor_msgs',
+    'ommpc_core':'ommpc_core',
+    'FAST-LIO2':'fast_lio',
 }
 for directory, name in required_packages.items():
     manifest=ROOT/'src'/directory/'package.xml'
@@ -31,7 +37,7 @@ for directory, name in required_packages.items():
 airframe=(ROOT/'simulator/px4/10020_isaac_zav').read_text()
 values={}
 for line in airframe.splitlines():
-    if line.startswith('param set-default '):
+    if line.startswith(('param set-default ', 'param set ')):
         _,_,name,value=line.split();values[name]=float(value)
 for name,value in {'MPC_XY_VEL_MAX':12,'MPC_VEL_MANUAL':12,'MPC_XY_CRUISE':1.5,'MPC_MAN_Y_MAX':30,'EKF2_MAG_TYPE':5,'EKF2_GPS_CTRL':0,'EKF2_EV_CTRL':15}.items(): assert values[name]==value,(name,values[name])
 for line in (ROOT/'simulator/current_ekf_mpc.params').read_text().splitlines():

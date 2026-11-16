@@ -1,0 +1,62 @@
+{
+  "profile": "high_speed",
+  "simulator": "upstream perfect_drone_sim (ideal position tracking; no PX4)",
+  "map": "random_map_24_6635.pcd",
+  "robot_radius_m": 0.2,
+  "segment_sample_spacing_m": 0.02,
+  "initial_position": [
+    0.0,
+    -50.0,
+    1.5
+  ],
+  "max_odometry_gap_s": 0.01837898700068763,
+  "samples": 1744,
+  "goals": [
+    {
+      "t": 3.446173418999024,
+      "position": [
+        0.0,
+        50.0,
+        1.5
+      ]
+    },
+    {
+      "t": 9.955860766000114,
+      "position": [
+        0.0,
+        -50.0,
+        1.5
+      ]
+    }
+  ],
+  "reached": [
+    {
+      "goal": [
+        0.0,
+        50.0,
+        1.5
+      ],
+      "time": 9.954739007998796,
+      "distance": 0.9587960121572913
+    },
+    {
+      "goal": [
+        0.0,
+        -50.0,
+        1.5
+      ],
+      "time": 16.17450887999985,
+      "distance": 0.977780012776875
+    }
+  ],
+  "exact_mission_goals": true,
+  "path_length_m": 202.9789678099587,
+  "max_speed_m_s": 24.998431961119532,
+  "min_distance_to_pcd_m": 1.0305593777447368,
+  "piecewise_linear_clearance_lower_bound_m": 1.0205593777447368,
+  "pcd_radius_violations": 0,
+  "failure": "RViz startup failed from inherited Snap GTK/GIO environment; fixed in subsequent run",
+  "passed": false,
+  "rviz_requested": true,
+  "gui_passed": false
+}

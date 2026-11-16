@@ -1,0 +1,40 @@
+{
+  "trial": "verify-baseline-positive-3",
+  "completed": true,
+  "landed": true,
+  "faults": [],
+  "physical_goal_min_distance_m": [
+    0.05386412431148972,
+    0.20561128543376664
+  ],
+  "tracking_sim_s": 45.894998974,
+  "tracking_wall_s": 47.88338883899996,
+  "physical_peak_speed_mps": 5.639133632946092,
+  "physical_p95_speed_mps": 5.564099666123081,
+  "minimum_body_height_m": 0.7765907049179077,
+  "floor_clearance_bound_m": 0.4465907049179077,
+  "path_length_m": 202.78840274926804,
+  "lio_rms_m": 0.19170803607784279,
+  "lio_p95_m": 0.31741565536343286,
+  "lio_max_m": 0.35082309808917944,
+  "nearest_obstacle_surface_sample_m": 0.9895005941139557,
+  "conservative_body_clearance_m": 0.5678980531139557,
+  "odom_sim_hz": 200.00000447107539,
+  "odom_max_sim_gap_s": 0.005000000000002558,
+  "odom_max_wall_gap_s": 0.04314179199991486,
+  "odom_samples": 9180,
+  "reference_peak_speed_mps": 5.5019408015034905,
+  "reference_peak_acc_mps2": 2.00759298529205,
+  "reference_peak_jerk_mps3": 8.070105391604583,
+  "tracking_error_rms_m": 0.47908912562136247,
+  "tracking_error_max_m": 0.6110067596599765,
+  "flight_lio_rms_m": 0.16440480908322724,
+  "flight_lio_max_m": 0.35082309808917944,
+  "final_physical_body_position_m": [
+    -0.017169915139675154,
+    -49.810428619384766,
+    0.0950000137090683
+  ],
+  "rate_only_during_tracking": true,
+  "accepted": true
+}

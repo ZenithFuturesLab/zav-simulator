@@ -1,0 +1,25 @@
+{
+  "source": "read-only /rog_map/occ snapshot; approximate nearest obstacle diagnostic",
+  "frame": "camera_init",
+  "cloud_stamp_s": 251.509994378,
+  "points": 12449,
+  "seed_a": [
+    19.650000000000002,
+    1.45,
+    2.75
+  ],
+  "seed_b": [
+    19.65010682210214,
+    1.350047073798126,
+    2.749989387138031
+  ],
+  "closest_occupied_voxel": [
+    20.450000762939453,
+    1.75,
+    1.4500000476837158
+  ],
+  "closest_seed_distance_m": 1.5556352711114663,
+  "configured_robot_r_m": 0.43,
+  "valid_for_seed_clearance": false,
+  "reason": "Snapshot was taken after landing; local visualization coverage does not cover the elevated seed. Do not use its minimum as a collision-clearance estimate."
+}

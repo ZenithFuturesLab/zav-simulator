@@ -1,0 +1,15 @@
+--- official/include/super_core/log_utils.hpp
++++ zav/include/super_core/log_utils.hpp
+@@ -95,6 +95,12 @@
+ 
+         int getRetCode() const {
+             return ret_code;
++        }
++
++        // Stage 4 ROS2 visualization: expose a copy of the actual SUPER backup
++        // position trajectory; no estimator or controller is added here.
++        Trajectory getBackupPositionTrajectory() const {
++            return backup_traj;
+         }
+ 
+         Vec3f getRobotP() const {

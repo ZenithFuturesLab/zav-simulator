@@ -1,0 +1,13 @@
+<package format="3">
+  <name>zav_super</name><version>0.1.0</version>
+  <description>SUPER navigation with ZAV Isaac sensors and OMMPC PX4 body-rate control</description>
+  <maintainer email="zenith@example.com">ZAV</maintainer><license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend><depend>rclpy</depend><depend>ommpc_core</depend>
+  <depend>nav_msgs</depend><depend>sensor_msgs</depend><depend>geometry_msgs</depend>
+  <depend>std_srvs</depend><depend>std_msgs</depend><depend>rosgraph_msgs</depend><depend>visualization_msgs</depend>
+  <depend>px4_msgs</depend><depend>mars_quadrotor_msgs</depend><depend>tf2_ros</depend>
+  <exec_depend>super_planner</exec_depend><exec_depend>super_lio</exec_depend><exec_depend>fast_lio</exec_depend><exec_depend>fast_livo</exec_depend><exec_depend>zav_control</exec_depend>
+  <exec_depend>launch_ros</exec_depend><exec_depend>python3-numpy</exec_depend><exec_depend>python3-scipy</exec_depend><exec_depend>python3-yaml</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

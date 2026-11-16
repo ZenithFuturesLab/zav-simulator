@@ -48,7 +48,7 @@ if sys.platform == "win32":
 from isaacsim import SimulationApp
 
 # 정상 작동하던 기존 설정으로 복원
-simulation_app = SimulationApp({"headless": False, "sync_loads": False})
+simulation_app = SimulationApp({"headless": os.environ.get("ZAV_HEADLESS", "0") == "1", "sync_loads": False})
 
 # 초기화 중 확장 모듈 로딩 충돌 여부 확인
 for _ in range(5):
@@ -179,35 +179,43 @@ class ZAVPlaneApp:
         #     restitution=0.0
         # )
 
-        # Full Warehouse 환경 로드
-        warehouse_path = SIMULATION_ENVIRONMENTS["Full Warehouse"]
-        print(f"[Terrain] Loading Full Warehouse: {warehouse_path}", flush=True)
-        self.pg.load_asset(warehouse_path, "/World/layout")
+        scenario = os.environ.get("ZAV_SUPER_SCENE", "warehouse")
+        if scenario in ("high_speed", "dense", "mixed"):
+            from tools.super.pcd_scene import add_super_scene
+            add_super_scene(self.world, scenario)
+        elif scenario == "warehouse":
+            # Full Warehouse 환경 로드
+            warehouse_path = SIMULATION_ENVIRONMENTS["Full Warehouse"]
+            print(f"[Terrain] Loading Full Warehouse: {warehouse_path}", flush=True)
+            self.pg.load_asset(warehouse_path, "/World/layout")
 
-        # Pump Kit before creating sensors/resetting physics so referenced assets
-        # and textures can finish loading while the window remains responsive.
-        import time
-        loading_started = time.monotonic()
-        next_report = loading_started
-        for _ in range(10):
-            simulation_app.update()
-        while omni.usd.get_context().get_stage_loading_status()[2] > 0:
-            simulation_app.update()
-            now = time.monotonic()
-            if now >= next_report:
-                print(f"[Terrain] Loading assets: {omni.usd.get_context().get_stage_loading_status()}", flush=True)
-                next_report = now + 5.0
-            if now - loading_started > 300:
-                raise RuntimeError(f"Full Warehouse asset loading timed out: {warehouse_path}")
-        from pxr import Usd, UsdGeom
-        layout = self.world.stage.GetPrimAtPath("/World/layout")
-        mesh_count = sum(
-            1 for prim in Usd.PrimRange(layout)
-            if prim.IsA(UsdGeom.Mesh)
-        )
-        if mesh_count == 0:
-            raise RuntimeError(f"Full Warehouse contains no meshes: {warehouse_path}")
-        print(f"[Terrain] Full Warehouse loaded ({mesh_count} meshes)", flush=True)
+            # Pump Kit before creating sensors/resetting physics so referenced assets
+            # and textures can finish loading while the window remains responsive.
+            import time
+            loading_started = time.monotonic()
+            next_report = loading_started
+            for _ in range(10):
+                simulation_app.update()
+            while omni.usd.get_context().get_stage_loading_status()[2] > 0:
+                simulation_app.update()
+                now = time.monotonic()
+                if now >= next_report:
+                    print(f"[Terrain] Loading assets: {omni.usd.get_context().get_stage_loading_status()}", flush=True)
+                    next_report = now + 5.0
+                if now - loading_started > 300:
+                    raise RuntimeError(f"Full Warehouse asset loading timed out: {warehouse_path}")
+            from pxr import Usd, UsdGeom
+            layout = self.world.stage.GetPrimAtPath("/World/layout")
+            mesh_count = sum(
+                1 for prim in Usd.PrimRange(layout)
+                if prim.IsA(UsdGeom.Mesh)
+            )
+            if mesh_count == 0:
+                raise RuntimeError(f"Full Warehouse contains no meshes: {warehouse_path}")
+            print(f"[Terrain] Full Warehouse loaded ({mesh_count} meshes)", flush=True)
+
+        else:
+            raise ValueError(f"Unknown ZAV_SUPER_SCENE: {scenario}")
 
         # 시각적 가시성을 위한 직사광(Distant Light) 생성
         stage = self.world.stage
@@ -236,7 +244,7 @@ class ZAVPlaneApp:
         self.drone = ZAV_v1(
             stage_prefix="/World/quadrotor",
             vehicle_id=0,
-            init_pos=[0.0, 0.0, 0.10],
+            init_pos=[0.0, -50.0, 0.10] if scenario in ("high_speed", "dense", "mixed") else [0.0, 0.0, 0.10],
             lidar_config=MID360_CONFIG,
             camera_config=FRONT_CAMERA_CONFIG,
             imu_config=MID360_IMU_CONFIG,
@@ -245,13 +253,27 @@ class ZAVPlaneApp:
 
         # True mounted-IMU pose, in the same simulation clock as FAST-LIVO input.
         from nav_msgs.msg import Odometry
+        from std_msgs.msg import String
+        self._scenario_type = String
+        self._scenario_name = scenario
         self._truth_type = Odometry
         self._truth_node = rclpy.create_node("zav_ground_truth")
+        self._scenario_pub = self._truth_node.create_publisher(String, "/zav/sim/scenario", 1)
         self._truth_pub = self._truth_node.create_publisher(
             Odometry, "/drone0/ground_truth/odometry", 100)
         self._imu_offset = np.asarray(MID360_IMU_CONFIG["position"])
         self._imu_rotation = Rotation.from_euler(
             "ZYX", MID360_IMU_CONFIG["orientation"], degrees=True)
+
+        # Optional observation only: no collision shape, controller or rate change.
+        self._contact_diagnostics = None
+        contact_path = os.environ.get("ZAV_CONTACT_REPORT_PATH")
+        if contact_path:
+            from tools.super.contact_diagnostics import ContactDiagnostics
+            self._contact_diagnostics = ContactDiagnostics(
+                self.world.stage, self.drone._stage_prefix,
+                lambda: self.world.current_time, contact_path)
+            print(f"[Contacts] Buffered PhysX reports: {contact_path}", flush=True)
 
 
         # 5. 3인칭 추적 카메라(Chase Camera) 및 마우스 스크롤 줌(Zoom) 설정
@@ -276,7 +298,7 @@ class ZAVPlaneApp:
         print("[INIT] Resetting world...", flush=True)
         self.world.reset()
         print("=" * 60)
-        print("[Ready] Full Warehouse 시뮬레이션 및 3인칭 줌 추적 카메라 준비 완료!")
+        print(f"[Ready] {scenario} 시뮬레이션 및 3인칭 줌 추적 카메라 준비 완료!")
         print("=" * 60)
 
     def _on_mouse_event(self, event, *args, **kwargs):
@@ -356,17 +378,23 @@ class ZAVPlaneApp:
         for axis, value in zip(("x", "y", "z"), self._imu_rotation.inv().apply(state.angular_velocity)):
             setattr(msg.twist.twist.angular, axis, float(value))
         self._truth_pub.publish(msg)
+        self._scenario_pub.publish(self._scenario_type(data=self._scenario_name))
 
     def run(self):
         """시뮬레이션 메인 루프 (물리 스텝 및 렌더링 갱신)"""
         self.timeline.play()
-        while simulation_app.is_running():
-            self.world.step(render=True)
-            self.publish_ground_truth()
-            self.update_chase_camera()
-        
-        self.timeline.stop()
-        simulation_app.close()
+        try:
+            while simulation_app.is_running():
+                self.world.step(render=True)
+                self.publish_ground_truth()
+                self.update_chase_camera()
+                if self._contact_diagnostics is not None:
+                    self._contact_diagnostics.flush()
+        finally:
+            if self._contact_diagnostics is not None:
+                self._contact_diagnostics.close()
+            self.timeline.stop()
+            simulation_app.close()
 
 if __name__ == '__main__':
     app = ZAVPlaneApp()

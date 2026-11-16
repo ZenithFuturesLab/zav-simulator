@@ -195,7 +195,9 @@ class LioSafetyROS:
                 and not stale_status and not landing_mode):
             if now - self.last_command >= 1.0 and self.args.publish:
                 self.send_land(now)
-        result.update(landing_mode_confirmed=landing_mode,
+        result.update(baro_parameter_age_s=(now-self.baro_parameter_rx if self.baro_parameter_rx is not None else None),
+                      baro_aid_age_s=(now-self.baro_aid_rx if self.baro_aid_rx is not None else None),
+                      landing_mode_confirmed=landing_mode,
                       baro_phase=('ACTIVE' if self.baro_transition_confirmed else
                                   'ACTIVATION_TIMEOUT' if self.baro_transition_timed_out else
                                   'ACTIVATING' if result['latched'] else

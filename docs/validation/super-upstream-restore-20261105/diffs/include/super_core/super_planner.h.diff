@@ -1,0 +1,28 @@
+--- official/include/super_core/super_planner.h
++++ zav/include/super_core/super_planner.h
+@@ -29,7 +29,6 @@
+ 
+ 
+ #include <super_core/config.hpp>
+-#include <ros_interface/ros1/ros1_interface.hpp>
+ #include <data_structure/base/trajectory.h>
+ 
+ #include <data_structure/base/polytope.h>
+@@ -115,6 +114,9 @@
+             cmd_traj_info_.unlock();
+         }
+ 
++        // Caller holds the committed trajectory lock for a consistent snapshot.
++        bool committedTimeOnBackup(double t) const { return cmd_traj_info_.isTTOnBackupTraj(t); }
++
+         bool goalValid() const {
+             return gi_.goal_valid;
+         }
+@@ -153,6 +155,7 @@
+         RET_CODE generateBackupTrajectory(ExpTraj &ref_exp_traj, BackupTraj &back_traj_info);
+ 
+         int getNearestFurtherGoalPoint(const vec_E<Vec3f> &goals, const Vec3f &start_pt);
++
+ 
+         bool PathSearch(const Vec3f &start_pt, const Vec3f &goal,
+                         const double &searching_horizon,

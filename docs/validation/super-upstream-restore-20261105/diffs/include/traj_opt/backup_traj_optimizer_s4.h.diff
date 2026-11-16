@@ -1,0 +1,10 @@
+--- official/include/traj_opt/backup_traj_optimizer_s4.h
++++ zav/include/traj_opt/backup_traj_optimizer_s4.h
+@@ -49,6 +49,7 @@
+     using namespace optimization_utils;
+ 
+     class BackupTrajOpt {
++        friend class BackupConstraintRegression;
+     private:
+         traj_opt::Config cfg_;
+         ros_interface::RosInterface::Ptr ros_ptr_;

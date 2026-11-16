@@ -1,0 +1,36 @@
+{
+  "profile": "high_speed",
+  "upstream_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+  "pcd": "random_map_24_6635.pcd",
+  "pcd_sha256": "e469aa2150ed33ef8f8f3359bfb924a0283dc7e9d640cd83a98ad1723d3a34c4",
+  "finite_points": 186905,
+  "obstacle_points": 19388,
+  "voxels": 10658,
+  "surface_quads": 26706,
+  "voxel_resolution_m": 0.1,
+  "point_to_voxel_extent_bound_m": 0.17320508075688773,
+  "ground": "flat z=0; original ground points z<=0.2 excluded",
+  "start_body_world": [
+    0.0,
+    -50.0,
+    0.1
+  ],
+  "start_yaw_rad": 1.5741,
+  "mission_body_world": [
+    [
+      0.0,
+      -50.0,
+      1.5
+    ],
+    [
+      0.0,
+      50.0,
+      1.5
+    ],
+    [
+      0.0,
+      -50.0,
+      1.5
+    ]
+  ]
+}

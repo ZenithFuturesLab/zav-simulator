@@ -1,0 +1,116 @@
+{
+  "last_controller_state": "FAULT: SUPER trajectory heartbeat expired",
+  "completion": "interrupted",
+  "controller_states": [
+    "UNKNOWN",
+    "TAKEOFF",
+    "READY",
+    "TRACKING",
+    "FAULT: SUPER trajectory heartbeat expired"
+  ],
+  "primary_source": "truth",
+  "primary_scope": "TRACKING",
+  "time_origin_stamp": 1.1599999740000013,
+  "time_base": "simulation seconds",
+  "velocity_frame": "world ENU, physical body origin",
+  "derivatives": "Savitzky-Golay polynomial degree 3 on uniformly resampled velocity vectors; acceleration=dv/dt; jerk=d²v/dt²; gravity excluded",
+  "requested_window_s": 0.21,
+  "edge_policy": "half-window trimmed at each segment end; gaps >0.1s/resets/invalid samples split segments",
+  "malformed_lines_dropped": 0,
+  "sources": {
+    "truth": {
+      "samples": 1333,
+      "segments": 1,
+      "effective_windows_s": [
+        0.1999999960000025
+      ],
+      "tracking": {
+        "v": {
+          "value": 6.940910065434483,
+          "stamp": 46.009999077000565,
+          "unit": "m/s",
+          "elapsed_s": 44.84999910300056
+        },
+        "a": {
+          "value": 7.883713855142837,
+          "stamp": 44.80999910100055,
+          "unit": "m/s²",
+          "elapsed_s": 43.64999912700055
+        },
+        "j": {
+          "value": 50.98795935747561,
+          "stamp": 44.70999910300055,
+          "unit": "m/s³",
+          "elapsed_s": 43.54999912900055
+        }
+      },
+      "full_record": {
+        "v": {
+          "value": 6.940910065434483,
+          "stamp": 46.009999077000565,
+          "unit": "m/s",
+          "elapsed_s": 44.84999910300056
+        },
+        "a": {
+          "value": 7.883713855142837,
+          "stamp": 44.80999910100055,
+          "unit": "m/s²",
+          "elapsed_s": 43.64999912700055
+        },
+        "j": {
+          "value": 60.0231678732742,
+          "stamp": 56.409998869000695,
+          "unit": "m/s³",
+          "elapsed_s": 55.249998895000694
+        }
+      }
+    },
+    "lio": {
+      "samples": 12739,
+      "segments": 1,
+      "effective_windows_s": [
+        0.20999999999995822
+      ],
+      "tracking": {
+        "v": {
+          "value": 7.363066692908823,
+          "stamp": 46.02499993699141,
+          "unit": "m/s",
+          "elapsed_s": 44.864999962991405
+        },
+        "a": {
+          "value": 7.928510876696912,
+          "stamp": 44.79999993699165,
+          "unit": "m/s²",
+          "elapsed_s": 43.639999962991645
+        },
+        "j": {
+          "value": 58.69495863400252,
+          "stamp": 44.69999993699167,
+          "unit": "m/s³",
+          "elapsed_s": 43.539999962991665
+        }
+      },
+      "full_record": {
+        "v": {
+          "value": 7.363066692908823,
+          "stamp": 46.02499993699141,
+          "unit": "m/s",
+          "elapsed_s": 44.864999962991405
+        },
+        "a": {
+          "value": 8.156726902922452,
+          "stamp": 56.47499993698933,
+          "unit": "m/s²",
+          "elapsed_s": 55.314999962989326
+        },
+        "j": {
+          "value": 70.64143381198146,
+          "stamp": 56.41499993698934,
+          "unit": "m/s³",
+          "elapsed_s": 55.25499996298934
+        }
+      }
+    }
+  }
+}

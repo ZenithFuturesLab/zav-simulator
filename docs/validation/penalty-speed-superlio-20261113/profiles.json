@@ -1,0 +1,66 @@
+{
+  "original": {},
+  "relaxed_jerk": {
+    "exp_traj": {
+      "penna_jerk": 50000000000.0,
+      "penna_attract": 1000000.0
+    },
+    "backup_traj": {
+      "penna_jerk": 1000000000.0
+    }
+  },
+  "smooth_constraints": {
+    "exp_traj": {
+      "penna_jerk": 5000000000000.0,
+      "penna_acc": 2000000000.0,
+      "penna_vel": 1000000000.0,
+      "penna_attract": 1000000.0
+    },
+    "backup_traj": {
+      "penna_jerk": 10000000000.0,
+      "penna_acc": 500000000.0,
+      "penna_vel": 500000000.0
+    }
+  },
+  "time_pressure": {
+    "exp_traj": {
+      "penna_t": 300000000.0,
+      "penna_vel": 1000000000.0,
+      "penna_acc": 1000000000.0,
+      "penna_attract": 1000000.0
+    },
+    "backup_traj": {
+      "penna_t": 3000000.0,
+      "penna_ts": 30000000.0,
+      "penna_acc": 300000000.0,
+      "penna_vel": 300000000.0,
+      "penna_jerk": 1000000000.0
+    }
+  },
+  "balanced_smooth": {
+    "exp_traj": {
+      "penna_t": 30000000.0,
+      "penna_jerk": 10000000000.0,
+      "penna_attract": 100000.0,
+      "penna_pos": 1000000000.0
+    },
+    "backup_traj": {
+      "penna_t": 300000.0,
+      "penna_ts": 3000000.0,
+      "penna_jerk": 10000000000.0,
+      "penna_acc": 500000000.0,
+      "penna_vel": 500000000.0
+    }
+  },
+  "route_fidelity": {
+    "exp_traj": {
+      "penna_attract": 100000000.0
+    }
+  },
+  "backup_smooth": {
+    "backup_traj": {
+      "penna_jerk": 10000000000.0,
+      "penna_ts": 1000000.0
+    }
+  }
+}

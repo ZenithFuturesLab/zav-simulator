@@ -1,0 +1,62 @@
+--- official/src/super_core/super_planner.cpp
++++ zav/src/super_core/super_planner.cpp
+@@ -22,6 +22,7 @@
+ */
+ 
+ #include <super_core/super_planner.h>
++#include <cmath>
+ #include <memory>
+ #include <super_utils/scope_timer.hpp>
+ #include <fmt/color.h>
+@@ -61,7 +62,8 @@
+                                                     -35.0,
+                                                     35.0);
+ 
+-        const int neighbor_step = floor(cfg_.robot_r / cfg_.resolution);
++        // Round outward: flooring can search inside the configured vehicle sphere.
++        const int neighbor_step = static_cast<int>(std::ceil(cfg_.robot_r / cfg_.resolution));
+         astar_ptr_->setFineInfNeighbors(neighbor_step);
+     }
+ 
+@@ -347,13 +349,13 @@
+         yaw = cmd_traj_info_.getYaw((eval_t))[0];
+         yaw_dot = cmd_traj_info_.getYawRate((eval_t))[0];
+ 
+-        if (isnan(yaw)) {
++        if (std::isnan(yaw)) {
+             yaw = last_yaw;
+             yaw_dot = 0;
+         } else {
+             last_yaw = yaw;
+         }
+-        if (isnan(yaw_dot)) {
++        if (std::isnan(yaw_dot)) {
+             yaw_dot = 0;
+         }
+ 
+@@ -791,7 +793,7 @@
+ 
+ 
+         bool free_end{true};
+-        if (cfg_.goal_yaw_en && !isnan(gi_.goal_yaw) && connected_goal) {
++        if (cfg_.goal_yaw_en && !std::isnan(gi_.goal_yaw) && connected_goal) {
+             free_end = false;
+             fina_yaw[0] = gi_.goal_yaw;
+         }
+@@ -816,6 +818,7 @@
+             on_backup_start_TT = cmd_traj_info_.getBackupTrajStartTT() - replan_process_start_TT;
+             on_backup_end_TT = replan_state_TT - replan_process_start_TT;
+         }
++        // Only retain a branch after its corridors and executable trajectory solve.
+         out_exp_traj_info.setTrajectory(new_traj_WT, temp_exp_traj, temp_yaw_traj, on_backup_start_TT,
+                                         on_backup_end_TT);
+ 
+@@ -1044,7 +1047,7 @@
+             Vec4f yaw_goal{0, 0, 0, 0};
+             bool free_end{true};
+             if (cfg_.goal_yaw_en) {
+-                if (!isnan(gi_.goal_yaw)) {
++                if (!std::isnan(gi_.goal_yaw)) {
+                     free_end = false;
+                     yaw_goal[0] = gi_.goal_yaw;
+                 }

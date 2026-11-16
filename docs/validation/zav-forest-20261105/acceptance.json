@@ -1,0 +1,56 @@
+{
+  "pipeline": "Isaac ZAV + MID360/RGB/IMU + FAST-LIVO2 + zav_super + real flight_manager + PX4 SITL",
+  "official_revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+  "body_world_goals": [
+    [
+      0,
+      -50,
+      1.5
+    ],
+    [
+      0,
+      50,
+      1.5
+    ],
+    [
+      0,
+      -50,
+      1.5
+    ]
+  ],
+  "all_profiles_stable": false,
+  "high_speed": {
+    "verified_original_200m_mission": true,
+    "consecutive_latest_passes": 2,
+    "planned_speed_m_s": 2,
+    "latest_reports": [
+      "high-08-report.json",
+      "high-09-report.json"
+    ],
+    "original_25m_s_verified": false
+  },
+  "dense": {
+    "verified_original_200m_mission": false,
+    "latest_reports": [
+      "dense-08-report.json",
+      "dense-09-report.json"
+    ],
+    "remaining_problem": "Local path cycling with boundary clearance; full out-and-back mission unpassed. Earlier 15m-wide run reached about 91m then exceeded boundary and command speed guard.",
+    "original_8m_s_verified": false
+  },
+  "functional_cpp_tests_passed": 5,
+  "runtime_polynomial_rejection_observed": {
+    "run": "high-09",
+    "candidate_speed_m_s": 2.901409077598099,
+    "planned_speed_m_s": 2,
+    "result": "Rejected before command publication; prior committed trajectory retained and mission completed"
+  },
+  "final_armed": false,
+  "final_landed": true,
+  "limitations": [
+    "Original PCD converted to exposed surface voxel meshes: dense 0.05m, high_speed 0.1m.",
+    "Original ground points z<=0.2 replaced by flat z=0 landing plane.",
+    "MID360 and ZAV physical dynamics differ from upstream ideal simulator.",
+    "Two successful repeated missions are limited trial evidence, not a general safety guarantee."
+  ]
+}

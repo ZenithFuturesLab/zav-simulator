@@ -1,0 +1,62 @@
+[
+  {
+    "field": "/traj_opt/exp_traj/penna_jerk",
+    "before": 500000000000.0,
+    "after": 10000000000.0
+  },
+  {
+    "field": "/traj_opt/exp_traj/penna_pos",
+    "before": 500000000.0,
+    "after": 1000000000.0
+  },
+  {
+    "field": "/traj_opt/exp_traj/penna_t",
+    "before": 100000000.0,
+    "after": 30000000.0
+  },
+  {
+    "field": "/traj_opt/exp_traj/penna_attract",
+    "before": 10000000.0,
+    "after": 100000.0
+  },
+  {
+    "field": "/traj_opt/boundary/max_vel",
+    "before": 5.5,
+    "after": 6.5
+  },
+  {
+    "field": "/traj_opt/boundary/max_acc",
+    "before": 2.0,
+    "after": 2.5
+  },
+  {
+    "field": "/traj_opt/boundary/max_jerk",
+    "before": 8.0,
+    "after": 10.0
+  },
+  {
+    "field": "/traj_opt/backup_traj/penna_jerk",
+    "before": 100000000.0,
+    "after": 10000000000.0
+  },
+  {
+    "field": "/traj_opt/backup_traj/penna_acc",
+    "before": 100000000.0,
+    "after": 500000000.0
+  },
+  {
+    "field": "/traj_opt/backup_traj/penna_vel",
+    "before": 100000000.0,
+    "after": 500000000.0
+  },
+  {
+    "field": "/traj_opt/backup_traj/penna_ts",
+    "before": 10000000.0,
+    "after": 3000000.0
+  },
+  {
+    "field": "/traj_opt/backup_traj/penna_t",
+    "before": 1000000.0,
+    "after": 300000.0
+  }
+]

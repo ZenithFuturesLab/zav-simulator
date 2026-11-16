@@ -1,0 +1,33 @@
+{
+  "safety": {
+    "state": "READY",
+    "ready": true,
+    "latched": false,
+    "armed": false,
+    "reasons": [],
+    "comparison": "continuous",
+    "metrics": {
+      "measurement_dt_s": 0.074999998000294,
+      "position_residual_m": 1.8893865830578424e-05,
+      "position_limit_m": 0.5787499964005293,
+      "angle_residual_deg": 7.532587041275296e-05,
+      "angle_limit_deg": 37.188733395625846
+    },
+    "baro_parameter_age_s": 0.07538482000018121,
+    "baro_aid_age_s": 0.0489010959990992,
+    "landing_mode_confirmed": false,
+    "baro_phase": "OFF_CONFIRMED",
+    "baro_parameter_value": 0,
+    "baro_fusion_enabled": false,
+    "baro_transition_confirmed": false,
+    "baro_transition_timed_out": false,
+    "baro_activation_seconds": null,
+    "nav_state": 14,
+    "land_ack": null,
+    "land_command_count": 0,
+    "landing_complete": true
+  },
+  "armed": false,
+  "nav_state": 14,
+  "landed": true
+}

@@ -1,0 +1,108 @@
+
+xwininfo: Window id: 0x204 (the root window) (has no name)
+
+  Root window id: 0x204 (the root window) (has no name)
+  Parent window id: 0x0 (none)
+     67 children:
+     0x40000a "gnome-shell": ("gnome-shell" "Gnome-shell")  1x1+-200+-200  +-200+-200
+        1 child:
+        0x40000b (has no name): ()  1x1+-1+-1  +-201+-201
+     0x4007fd (has no name): ()  1269x1071+661+19  +661+19
+        1 child:
+        0x4a00106 "/home/goat/zenith_ws/install/zav_super/share/zav_super/rviz/super.rviz - RViz": ("rviz2" "rviz2")  1249x1016+10+45  +671+64
+           2 children:
+           0x4a00109 "Qt NET_WM User Time Window": ()  1x1+-1+-1  +670+63
+           0x4a00013 "rviz2": ("rviz2" "rviz2")  1199x908+25+70  +696+134
+              2 children:
+              0x4a00108 "Qt NET_WM User Time Window": ()  1x1+-1+-1  +695+133
+              0x5000004 (has no name): ()  1199x908+0+0  +696+134
+     0x4e00001 (has no name): ()  1x1+0+0  +0+0
+        1 child:
+        0x5000002 (has no name): ()  1x1+0+0  +0+0
+     0x4a00008 "rviz2": ()  1x1+0+0  +0+0
+     0x4c00001 "rviz2": ("rviz2" "Rviz2")  10x10+10+10  +10+10
+     0x4a00004 "Qt Selection Owner for rviz2": ()  3x3+0+0  +0+0
+     0x4007e0 (has no name): ()  1460x955+155+114  +155+114
+        1 child:
+        0x440000b "Isaac Sim Python 5.1.0": ("Isaac Sim Python 5.1.0" "Isaac Sim Python 5.1.0")  1440x900+10+45  +165+159
+     0x1600012 (has no name): ()  1x1+0+0  +0+0
+     0x4400007 (has no name): ()  1x1+0+0  +0+0
+     0x4400001 (has no name): ()  1x1+0+0  +0+0
+     0x1600011 (has no name): ()  1x1+0+0  +0+0
+     0x1600010 (has no name): ()  1x1+0+0  +0+0
+     0x160000f (has no name): ()  1x1+0+0  +0+0
+     0x160000e (has no name): ()  1x1+0+0  +0+0
+     0x160000d (has no name): ()  1x1+0+0  +0+0
+     0x160000c (has no name): ()  1x1+0+0  +0+0
+     0x160000b (has no name): ()  1x1+0+0  +0+0
+     0x160000a (has no name): ()  1x1+0+0  +0+0
+     0x1600009 (has no name): ()  1x1+0+0  +0+0
+     0x1600008 (has no name): ()  1x1+0+0  +0+0
+     0x1600007 (has no name): ()  1x1+0+0  +0+0
+     0x4200131 "gedit": ()  10x10+-100+-100  +-100+-100
+     0x2600004 "high_speed_super_lio.yaml - Untitled (Workspace) - Visual Studio Code": ("code" "code")  1850x1053+70+27  +70+27
+        1 child:
+        0x2e00004 (has no name): ()  1850x1053+0+0  +70+27
+     0x600004 "gpt 6.1 sol light vs medium vs high - Google 검색 - Google Chrome": ("google-chrome" "Google-chrome")  1850x1053+70+27  +70+27
+     0x42000f8 "*Untitled Document 1 - gedit": ("gedit" "Gedit")  952x799+858+92  +858+92
+        1 child:
+        0x42000f9 (has no name): ()  1x1+-1+-1  +857+91
+     0x42000f4 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x4200001 "gedit": ("gedit" "Gedit")  10x10+10+10  +10+10
+     0x400169 (has no name): ()  754x506+110+69  +110+69
+        1 child:
+        0x3e00007 "goat@goat-desktop: ~/zenith_ws": ("x-terminal-emulator" "X-terminal-emulator")  734x451+10+45  +120+114
+           1 child:
+           0x3e00008 (has no name): ()  1x1+-1+-1  +119+113
+     0x3e00003 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x3e00001 "x-terminal-emulator": ("x-terminal-emulator" "")  10x10+10+10  +10+10
+     0x2800003 "code": ("code" "Code")  200x200+0+0  +0+0
+        1 child:
+        0x2800004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x3200003 "google-chrome-stable": ("google-chrome-stable" "Google-chrome-stable")  200x200+0+0  +0+0
+        1 child:
+        0x3200004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x600006 (has no name): ()  1x1+0+0  +0+0
+     0x3200001 "google-chrome-stable": ("google-chrome-stable" "Google-chrome-stable")  10x10+10+10  +10+10
+     0x600000 "Chromium clipboard": ()  10x10+-100+-100  +-100+-100
+     0x2200001 "update-notifier": ("update-notifier" "Update-notifier")  10x10+10+10  +10+10
+     0x260000a (has no name): ()  1x1+0+0  +0+0
+     0x2800001 "code": ("code" "Code")  10x10+10+10  +10+10
+     0x2600000 "Chromium clipboard": ()  10x10+-100+-100  +-100+-100
+     0x2400002 "snapd-desktop-integration": ("snapd-desktop-integration" "snapd-desktop-integration")  1x1+0+0  +0+0
+        1 child:
+        0x2400003 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1c00008 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1c00003 "@!0,0;BDHF": ("gjs" "Gjs")  1920x1080+0+0  +0+0
+        1 child:
+        0x1c00004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1c00001 "gjs": ("gjs" "Gjs")  10x10+10+10  +10+10
+     0x1a00001 "evolution-alarm-notify": ("evolution-alarm-notify" "Evolution-alarm-notify")  10x10+10+10  +10+10
+     0x1600003 "ibus-xim": ()  1x1+0+0  +0+0
+        1 child:
+        0x1600004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x2000001 "ibus-extension-gtk3": ("ibus-extension-gtk3" "Ibus-extension-gtk3")  10x10+10+10  +10+10
+     0x1400002 (has no name): ()  10x10+0+0  +0+0
+     0x1600001 "ibus-x11": ("ibus-x11" "Ibus-x11")  10x10+10+10  +10+10
+     0x1e00001 "xdg-desktop-portal-gtk": ("xdg-desktop-portal-gtk" "Xdg-desktop-portal-gtk")  10x10+10+10  +10+10
+     0x1400001 "gsd-xsettings": ("gsd-xsettings" "Gsd-xsettings")  10x10+10+10  +10+10
+     0x1800001 "gsd-wacom": ("gsd-wacom" "Gsd-wacom")  10x10+10+10  +10+10
+     0x1000001 "gsd-media-keys": ("gsd-media-keys" "Gsd-media-keys")  10x10+10+10  +10+10
+     0x1200001 "gsd-power": ("gsd-power" "Gsd-power")  10x10+10+10  +10+10
+     0xe00001 "gsd-color": ("gsd-color" "Gsd-color")  10x10+10+10  +10+10
+     0xc00001 "gsd-keyboard": ("gsd-keyboard" "Gsd-keyboard")  10x10+10+10  +10+10
+     0x400038 (has no name): ()  1x1+-1+-1  +-1+-1
+     0xa00002 (has no name): ("" "")  1x1+-100+-100  +-100+-100
+        1 child:
+        0xa00003 (has no name): ()  1x1+-1+-1  +-101+-101
+     0x400031 "gnome-shell": ()  10x10+-100+-100  +-100+-100
+     0x400011 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x40000f (has no name): ()  1x1+-100+-100  +-100+-100
+     0x40000e (has no name): ()  1x1+-1+-1  +-1+-1
+     0x400008 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x400007 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x400006 "GNOME Shell": ()  1x1+-100+-100  +-100+-100
+     0x400001 "gnome-shell": ("gnome-shell" "Gnome-shell")  10x10+10+10  +10+10
+     0x200007 (has no name): ()  1x1+-100+-100  +-100+-100
+     0x400010 "mutter guard window": ()  1920x1080+0+0  +0+0
+

@@ -1,0 +1,19 @@
+{
+  "source_sha256": "e469aa2150ed33ef8f8f3359bfb924a0283dc7e9d640cd83a98ad1723d3a34c4",
+  "resolution_m": 0.05,
+  "format_version": 2,
+  "points": 186905,
+  "occupied_voxels": 19594,
+  "chunks": 51,
+  "bounds_min": [
+    -7.5,
+    -55.0,
+    -0.0924384668469429
+  ],
+  "bounds_max": [
+    7.5,
+    54.900001525878906,
+    3.9351415634155273
+  ],
+  "max_surface_error_m": 0.08660254037844387
+}

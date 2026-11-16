@@ -4,7 +4,7 @@ import yaml
 from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction, LogInfo
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
@@ -25,16 +25,43 @@ def generate_launch_description():
     ]), value_type=int)
 
     def mapper(context):
+        navigation = LaunchConfiguration('navigation_profile').perform(context).lower() in ('true', '1')
+        lio_overrides = ({'lio.sensor.filter_rate': 1,
+                          'lio.sensor.voxel_fliter_size': 0.15,
+                          'lio.hash_map.vox_resolution': 0.3,
+                          'lio.sensor.imu_ng': 0.01, 'lio.sensor.imu_na': 0.03,
+                          'lio.kf.kf_max_iterations': 6,
+                          'lio.output.dense': True} if navigation else {})
+        if LaunchConfiguration('backend').perform(context) == 'fastlio':
+            fast_share = Path(get_package_share_directory('fast_lio'))
+            config_dir = Path(os.environ.get('PEGASUS_FASTLIVO_CONFIG_DIR', str(
+                directory.parents[2] / 'src/FAST-LIVO2/config')))
+            calibration = yaml.safe_load((config_dir / 'zenith.yaml').read_text())
+            extrinsic = calibration['/laserMapping']['ros__parameters']['extrin_calib']
+            return [Node(package='fast_lio', executable='fastlio_mapping', name='laserMapping',
+                         parameters=[str(fast_share / 'config/zenith_sim.yaml'), {
+                             'mapping.extrinsic_T': [float(v) for v in extrinsic['extrinsic_T']],
+                             'mapping.extrinsic_R': [float(v) for v in extrinsic['extrinsic_R']]}],
+                         remappings=[('/Odometry', '/aft_mapped_to_init')],
+                         additional_env=mapper_env, output='screen')]
         if LaunchConfiguration('backend').perform(context) == 'super_lio':
             super_share = Path(get_package_share_directory('super_lio'))
+            common_path = LaunchConfiguration('navigation_config').perform(context)
+            common_overrides = {}
+            if common_path:
+                common = yaml.safe_load(Path(common_path).read_text())
+                common_overrides = common.get('super_lio', {}).get('ros__parameters', {})
+                if not isinstance(common_overrides, dict):
+                    raise RuntimeError('super_lio.ros__parameters must be a mapping')
             # Use the same calibration that determines the simulator's mounts.
             config_dir = Path(os.environ.get('PEGASUS_FASTLIVO_CONFIG_DIR', str(
                 directory.parents[2] / 'src/FAST-LIVO2/config')))
             calibration = yaml.safe_load((config_dir / 'zenith.yaml').read_text())
             extrinsic = calibration['/laserMapping']['ros__parameters']['extrin_calib']
-            return [Node(package='super_lio', executable='super_lio_node', name='super_lio',
+            return [LogInfo(msg=f'Super-LIO common overrides: {common_overrides}'),
+                    Node(package='super_lio', executable='super_lio_node', name='super_lio',
                          parameters=[str(super_share / 'config/zenith_sim.yaml'), {
-                             'lio.extrinsic.lidar_imu': [float(v) for v in
+                             **lio_overrides, **common_overrides, 'lio.extrinsic.lidar_imu': [float(v) for v in
                                  extrinsic['extrinsic_T'] + extrinsic['extrinsic_R']]}],
                          remappings=[('/lio/odom', '/aft_mapped_to_init'),
                                      ('/lio/imu/odom', '/LIVO2/imu_propagate'),
@@ -43,7 +70,7 @@ def generate_launch_description():
                          additional_env=mapper_env, output='screen')]
         return [Node(package="fast_livo", executable="fastlivo_mapping", name="laserMapping",
                      parameters=[str(share / "config/zenith.yaml"), str(share / "config/zenith_camera_pinhole.yaml"),
-                                 {"uav.imu_rate_odom": True, "common.img_en": image_enabled,
+                                 {"uav.imu_rate_odom": True, "common.img_en": (0 if LaunchConfiguration('backend').perform(context) == 'fastlio' else image_enabled),
                                   "common.img_topic": "/drone0/front_camera/color/image_raw",
                                   "common.imu_topic": "/drone0/mid360/imu",
                                   "common.lid_topic": "/drone0/mid360/lidar"}],
@@ -64,8 +91,11 @@ def generate_launch_description():
                      arguments=arguments, additional_env=bridge_env, output='screen')]
 
     return LaunchDescription([
+        DeclareLaunchArgument('navigation_profile', default_value='false'),
+        DeclareLaunchArgument('navigation_config', default_value='',
+                              description='Optional shared YAML with super_lio ROS overrides'),
         DeclareLaunchArgument('backend', default_value='fastlivo',
-                              choices=['fastlivo', 'super_lio']),
+                              choices=['fastlivo', 'fastlio', 'super_lio']),
         DeclareLaunchArgument("rviz", default_value="True"),
         DeclareLaunchArgument("camera", default_value="True"),
         DeclareLaunchArgument("px4_bridge", default_value="True",

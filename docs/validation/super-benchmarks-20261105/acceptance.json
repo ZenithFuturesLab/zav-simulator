@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "simulator": "official perfect_drone_sim, no PX4",
+  "revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+  "runs": [
+    {
+      "run": "dense-2",
+      "profile": "dense",
+      "path_length_m": 215.32181700384757,
+      "max_speed_m_s": 8.000031922273754,
+      "min_distance_to_pcd_m": 0.3795367867718241,
+      "return_reached_s": 42.90766497899858,
+      "passed": true
+    },
+    {
+      "run": "dense-4",
+      "profile": "dense",
+      "path_length_m": 217.50106268784657,
+      "max_speed_m_s": 8.000711007293834,
+      "min_distance_to_pcd_m": 0.311722702308229,
+      "return_reached_s": 45.22952747099953,
+      "passed": true
+    },
+    {
+      "run": "high-speed-1",
+      "profile": "high_speed",
+      "path_length_m": 204.56880750859955,
+      "max_speed_m_s": 25.000116884288342,
+      "min_distance_to_pcd_m": 0.9304013539252461,
+      "return_reached_s": 16.652756219000366,
+      "passed": true
+    },
+    {
+      "run": "high-speed-3",
+      "profile": "high_speed",
+      "path_length_m": 203.29503994698763,
+      "max_speed_m_s": 25.001970881866374,
+      "min_distance_to_pcd_m": 0.9541135225110466,
+      "return_reached_s": 15.761161177999384,
+      "passed": true
+    }
+  ]
+}

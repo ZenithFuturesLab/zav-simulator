@@ -40,7 +40,7 @@ def harness(monkeypatch):
         '/fmu/out/vehicle_local_position', '/aft_mapped_to_init',
         '/LIVO2/imu_propagate', '/zav/lio_safety/status',
         '/zav/lio_safety/ready', '/zav/lio_safety/land_requested',
-        '/zav/goal_pose', '/zav/cmd_vel',
+        '/zav/goal_pose', '/zav/cmd_vel', '/zav_super/execution_enabled',
         '/zav/lio_safety/baro_enable', '/zav/lio_safety/baro_parameter',
         '/fmu/out/estimator_aid_src_baro_hgt',
         *(f'/zav/lio_safety/test/{name}' for name in (

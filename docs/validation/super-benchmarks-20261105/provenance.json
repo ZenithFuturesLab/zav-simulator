@@ -1,0 +1,23 @@
+{
+  "upstream": "https://github.com/hku-mars/SUPER",
+  "revision": "2ad3419c127a617c6d7df6925e81a14175a9c096",
+  "preserved_sha256": {
+    "mission_planner/data/benchmark.txt": "f297ea240ccbc9abc170d3dbf19a747c252a3554d27c984bf434a50a005cfa2b",
+    "mission_planner/config/waypoint.yaml": "48a6d7d439c27f1b019d9bfb993aba4eb9bf0fb036c51ed32058d45557017be8",
+    "super_planner/config/static_dense.yaml": "be84ea89135215ca8f20fc02ca1892cb90b8935d044a13ddcea8e3f657a01ae9",
+    "mars_uav_sim/perfect_drone_sim/config/dense.yaml": "a624d8794807358e42d870affa8f3b0b7e9c7a08c44f9bda51ebf201baa5fc2f",
+    "mars_uav_sim/perfect_drone_sim/pcd/random_map_2_26609.pcd": "ff7602a077d1d04b1b14f96304d9f1fc5770bf7c7912b94fa70be64590e392b1",
+    "super_planner/config/static_high_speed.yaml": "aa93256729d3a12ffa51bf06c24c92e60e07f205d39e8ef060e408a96371d733",
+    "mars_uav_sim/perfect_drone_sim/config/high_speed.yaml": "54e2280bb43a59d02d4ed56ebc2bfa6c8e8b8d5d549be71d225ee47fdc83a8dc",
+    "mars_uav_sim/perfect_drone_sim/pcd/random_map_24_6635.pcd": "e469aa2150ed33ef8f8f3359bfb924a0283dc7e9d640cd83a98ad1723d3a34c4"
+  },
+  "compatibility_changes": [
+    "Select upstream ROS2 package templates",
+    "Remove hardcoded CLion CMAKE_PREFIX_PATH",
+    "Keep warnings without blanket -Werror in renderer",
+    "Declare missing perfect_drone_sim pcl_conversions dependency",
+    "Declare missing super_planner message/TF dependencies",
+    "Qualify std::isnan for GCC11 C++17",
+    "Humble launch adapters with distinct profile arguments and RViz toggles"
+  ]
+}

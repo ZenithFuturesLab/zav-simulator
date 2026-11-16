@@ -1,0 +1,9 @@
+{
+  "default_prim": "/vehicle",
+  "colliders": [
+    {
+      "path": "/vehicle/body/collision_base",
+      "type": "Cylinder"
+    }
+  ]
+}

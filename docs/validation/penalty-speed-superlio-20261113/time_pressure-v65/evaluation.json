@@ -1,0 +1,94 @@
+{
+  "trial": "time_pressure-v65",
+  "completed": false,
+  "landed": false,
+  "faults": [
+    "FAULT: SUPER trajectory heartbeat expired"
+  ],
+  "physical_goal_min_distance_m": [
+    0.05432584777989949,
+    100.15468917418411
+  ],
+  "tracking_sim_s": 20.499999541999998,
+  "tracking_wall_s": 21.419174381000175,
+  "physical_peak_speed_mps": 6.663746326391695,
+  "physical_p95_speed_mps": 6.606575907413925,
+  "path_length_m": 100.93619556046498,
+  "lio_rms_m": 0.276923525099493,
+  "lio_p95_m": 0.4153154886790086,
+  "lio_max_m": 0.4351865027590146,
+  "nearest_obstacle_surface_sample_m": 0.7174716774771498,
+  "conservative_body_clearance_m": 0.2958691364771498,
+  "odom_sim_hz": 200.00000446829281,
+  "odom_max_sim_gap_s": 0.005000000000002558,
+  "odom_max_wall_gap_s": 0.042452898999954414,
+  "odom_samples": 4101,
+  "reference_peak_speed_mps": 6.503096406866908,
+  "reference_peak_acc_mps2": 2.503607858361959,
+  "reference_peak_jerk_mps3": 10.043462347237952,
+  "tracking_error_rms_m": 0.5714427164907975,
+  "tracking_error_max_m": 0.7553151911851801,
+  "flight_lio_rms_m": 0.2431569314371009,
+  "flight_lio_max_m": 0.4351865027590146,
+  "final_physical_body_position_m": [
+    0.0781271904706955,
+    50.18955993652344,
+    0.0949999988079071
+  ],
+  "rate_only_during_tracking": true,
+  "accepted": false,
+  "boundary": {
+    "max_vel": 6.5,
+    "max_acc": 2.5,
+    "max_jerk": 10.0,
+    "max_omg": 1.2,
+    "max_acc_thr": 20,
+    "min_acc_thr": 6.0,
+    "penna_margin": 0.05
+  },
+  "physical_motion": {
+    "v": {
+      "value": 6.676463086966663,
+      "stamp": 18.309999631000217,
+      "unit": "m/s",
+      "elapsed_s": 17.199999656000216
+    },
+    "a": {
+      "value": 3.6975496979342117,
+      "stamp": 14.809999701000173,
+      "unit": "m/s\u00b2",
+      "elapsed_s": 13.699999726000172
+    },
+    "j": {
+      "value": 25.88698265364186,
+      "stamp": 14.909999699000174,
+      "unit": "m/s\u00b3",
+      "elapsed_s": 13.799999724000173
+    }
+  },
+  "actual_peak_mps": 6.676463086966663,
+  "actual_p95_mps": 6.6068186617101405,
+  "peak_speed_attainment": 1.0271481672256404,
+  "p95_speed_attainment": 1.0164336402630985,
+  "time_fraction_above_90pct_cap": 0.6319612590799032,
+  "gui_verified": true,
+  "optimizer_failure_lines": 76,
+  "healthy_complete": false,
+  "speed_matches_setting": true,
+  "eligible": false,
+  "ranking_time_sim_s": null,
+  "controller_phases": [
+    "UNKNOWN",
+    "TAKEOFF",
+    "READY",
+    "TRACKING",
+    "FAULT: SUPER trajectory heartbeat expired"
+  ],
+  "uninterrupted_mission": false,
+  "accuracy_within_previous_threshold": true,
+  "strict_eligible": false,
+  "selection_policy": "user_completion_clearance_priority_20261113",
+  "minimum_body_height_m": 1.3715612888336182,
+  "floor_clearance_bound_m": 1.041561288833618,
+  "termination": "FAULT: SUPER trajectory heartbeat expired"
+}

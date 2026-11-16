@@ -1,0 +1,99 @@
+--- official/src/traj_opt/backup_traj_optimizer_s4.cpp
++++ zav/src/traj_opt/backup_traj_optimizer_s4.cpp
+@@ -1,3 +1,4 @@
++#include <traj_opt/polynomial_limits.hpp>
+ /**
+ * This file is part of SUPER
+ *
+@@ -131,6 +132,8 @@
+ 
+             const auto K = hPoly.rows();
+ 
++            violaOmg = 0.0;
++            violaThrust = 0.0;
+             violaVel = vel.squaredNorm() - vmaxSqr;
+             violaAcc = acc.squaredNorm() - amaxSqr;
+             violaJer = jer.squaredNorm() - jmaxSqr;
+@@ -147,6 +150,7 @@
+                 for (int k = 0; k < K; k++) {
+                     outerNormal = hPoly.block<1, 3>(k, 0);
+                     violaPos = outerNormal.dot(pos) + hPoly(k, 3);
++                    max_pos_viola_log = std::max(max_pos_viola_log, violaPos);
+                     if (gcopter::smoothedL1(violaPos, smoothFactor, violaPosPena, violaPosPenaD)) {
+                         gradPos += weightPos * violaPosPenaD * outerNormal;
+                         pena += weightPos * violaPosPena;
+@@ -173,18 +177,18 @@
+                 jer_penna_log += weightJer * violaJerPena;
+             }
+ 
+-            if (weightOmg > 0 && weightAccThr > 0) {
++            if (weightOmg > 0 || weightAccThr > 0) {
+                 flatMap.forward(vel, acc, jer, 0.0, 0.0, thr, quat, omg);
+                 violaOmg = omg.squaredNorm() - omgmaxSqr;
+                 violaThrust = (thr - thrustMean) * (thr - thrustMean) - thrustSqrRadi;
+ 
+-                if (gcopter::smoothedL1(violaOmg, smoothFactor, violaOmgPena, violaOmgPenaD)) {
++                if (weightOmg > 0 && gcopter::smoothedL1(violaOmg, smoothFactor, violaOmgPena, violaOmgPenaD)) {
+                     gradOmg += weightOmg * violaOmgPenaD * 2.0 * omg;
+                     pena += weightOmg * violaOmgPena;
+                     omg_penna_log += weightOmg * violaOmgPena;
+                 }
+ 
+-                if (gcopter::smoothedL1(violaThrust, smoothFactor, violaThrustPena, violaThrustPenaD)) {
++                if (weightAccThr > 0 && gcopter::smoothedL1(violaThrust, smoothFactor, violaThrustPena, violaThrustPenaD)) {
+                     gradThr += weightAccThr * violaThrustPenaD * 2.0 * (thr - thrustMean);
+                     pena += weightAccThr * violaThrustPena;
+                     thr_penna_log += weightAccThr * violaThrustPena;
+@@ -528,11 +532,13 @@
+         cout << "\tThr: " << opt_vars.penalty_log(7) << endl;
+         cout << "\tTs: " << opt_vars.ts << endl;
+     }
++    bool constraint_rejected = false;
+     if ((cfg_.penna_pos > 0 && opt_vars.penalty_log(1) > 0.2) ||
+         (cfg_.penna_vel > 0 && opt_vars.penalty_log(2) > cfg_.max_vel * cfg_.penna_margin) ||
+         (cfg_.penna_acc > 0 && opt_vars.penalty_log(3) > cfg_.max_acc * cfg_.penna_margin) ||
+         (cfg_.penna_omg > 0 && opt_vars.penalty_log(6) > cfg_.max_omg * cfg_.penna_margin) ||
+         (cfg_.penna_thr > 0 && opt_vars.penalty_log(7) > cfg_.max_acc * cfg_.penna_margin)) {
++        constraint_rejected = true;
+         ret = -1;
+         if (cfg_.print_optimizer_log) {
+             cout << " -- [BaclOpt] Opt finish, with iter num: " << opt_vars.iter_num << "\n";
+@@ -546,7 +552,15 @@
+             cout << "\tThr: " << opt_vars.penalty_log(7) << endl;
+             cout << "\tTs: " << opt_vars.ts << endl;
+         }
+-        ros_ptr_->warn(" -- [BackOpt] Opt failed, Omg or thr or Pos violation.");
++        ros_ptr_->warn(
++            " -- [BackOpt] constraint violation: pos={:.6g}/0.2, vel_sq={:.6g}/{:.6g}, "
++            "acc_sq={:.6g}/{:.6g}, omg_sq={:.6g}/{:.6g}, thrust_residual={:.6g}/{:.6g}; "
++            "weights(pos,vel,acc,omg,thr)=({},{},{},{},{})",
++            opt_vars.penalty_log(1), opt_vars.penalty_log(2), cfg_.max_vel * cfg_.penna_margin,
++            opt_vars.penalty_log(3), cfg_.max_acc * cfg_.penna_margin,
++            opt_vars.penalty_log(6), cfg_.max_omg * cfg_.penna_margin,
++            opt_vars.penalty_log(7), cfg_.max_acc * cfg_.penna_margin,
++            cfg_.penna_pos, cfg_.penna_vel, cfg_.penna_acc, cfg_.penna_omg, cfg_.penna_thr);
+     }
+ 
+     if (ret >= 0) {
+@@ -578,7 +592,7 @@
+     } else {
+         traj.clear();
+         minCostFunctional = INFINITY;
+-        std::cout << YELLOW << " -- [MINCO] TrajOpt failed, " << lbfgs::lbfgs_strerror(ret) << RESET << std::endl;
++        std::cout << YELLOW << " -- [MINCO] TrajOpt failed, " << (constraint_rejected ? "constraint violation (see BackOpt diagnostics)" : lbfgs::lbfgs_strerror(ret)) << RESET << std::endl;
+     }
+     return minCostFunctional;
+ }
+@@ -615,6 +629,12 @@
+ }
+ 
+ bool BackupTrajOpt::checkTrajMagnitudeBound(Trajectory &out_traj) {
++    if (!polynomialMagnitudeLimits(out_traj,
++            cfg_.penna_vel > 0 ? 1.2 * cfg_.max_vel : INFINITY,
++            cfg_.penna_acc > 0 ? 1.2 * cfg_.max_acc : INFINITY)) {
++        ros_ptr_->warn(" -- [BackOpt] Polynomial magnitude rejected");
++        return false;
++    }
+     if (cfg_.penna_vel > 0 && out_traj.getMaxVelRate() > 1.2 * cfg_.max_vel) {
+         std::cout << YELLOW << " -- [TrajOpt] Minco backup opt failed." << RESET << std::endl;
+         std::cout << YELLOW << "\t\tBackend Max vel:\t" << out_traj.getMaxVelRate() << " m/s" << RESET
