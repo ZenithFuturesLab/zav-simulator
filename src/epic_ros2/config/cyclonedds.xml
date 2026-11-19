@@ -1,0 +1,20 @@
+<CycloneDDS>
+  <Domain Id="any">
+    <General>
+      <Interfaces><NetworkInterface name="lo"/></Interfaces>
+      <AllowMulticast>false</AllowMulticast>
+      <Transport>udp</Transport>
+      <MaxMessageSize>1400B</MaxMessageSize>
+      <FragmentSize>1024B</FragmentSize>
+    </General>
+    <Discovery>
+      <!-- Keep the EPIC graph separate from PX4's Fast DDS domain 0. -->
+      <ExternalDomainId>87</ExternalDomainId>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>30</MaxAutoParticipantIndex>
+      <SPDPInterval>1s</SPDPInterval>
+      <Peers><Peer Address="127.0.0.1"/></Peers>
+    </Discovery>
+    <Internal><SocketReceiveBufferSize min="1MB" max="4MB"/></Internal>
+  </Domain>
+</CycloneDDS>

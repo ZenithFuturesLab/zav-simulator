@@ -1,0 +1,251 @@
+Panels:
+- Class: rviz_common/Displays
+  Help Height: 70
+  Name: Displays
+  Property Tree Widget:
+    Expanded:
+    - /Global Tour + Order1
+    Splitter Ratio: 0.5
+  Tree Height: 650
+- Class: rviz_common/Views
+  Expanded:
+  - /Current View1
+  Name: Views
+  Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ''
+  Displays:
+  - Alpha: 0.25
+    Cell Size: 1
+    Class: rviz_default_plugins/Grid
+    Color: 75; 85; 100
+    Enabled: true
+    Line Style:
+      Line Width: 0.029999999329447746
+      Value: Lines
+    Name: Ground Grid
+    Normal Cell Count: 0
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Plane: XY
+    Plane Cell Count: 80
+    Reference Frame: <Fixed Frame>
+    Value: true
+  - Alpha: 0.3
+    Autocompute Intensity Bounds: true
+    Autocompute Value Bounds:
+      Max Value: 8.775016784667969
+      Min Value: -0.24912989139556885
+      Value: true
+    Axis: Z
+    Channel Name: intensity
+    Class: rviz_default_plugins/PointCloud2
+    Color: 180; 195; 210
+    Color Transformer: FlatColor
+    Decay Time: 20
+    Enabled: true
+    Invert Rainbow: false
+    Max Color: 255; 255; 255
+    Max Intensity: 4096
+    Min Color: 0; 0; 0
+    Min Intensity: 0
+    Name: Recent LiDAR
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 2
+    Size (m): 0.03
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /cloud_registered
+    Use Fixed Frame: true
+    Use rainbow: true
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Name: Global Tour + Order
+    Enabled: true
+    Value: true
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /global_tour
+    Namespaces:
+      global_path: true
+      global_path_order: true
+    Queue Size: 20
+  - Class: rviz_default_plugins/Marker
+    Name: MINCO Trajectory
+    Enabled: true
+    Value: true
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /visualizer/trajectory
+    Namespaces: {}
+    Queue Size: 20
+  - Class: rviz_default_plugins/MarkerArray
+    Name: LIO Flight History
+    Enabled: true
+    Value: true
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /planning/travel_traj
+    Namespaces:
+      traj_exp: false
+      traj_real: true
+    Queue Size: 20
+  - Angle Tolerance: 0.009999999776482582
+    Class: rviz_default_plugins/Odometry
+    Covariance:
+      Orientation:
+        Alpha: 0.5
+        Color: 255; 255; 127
+        Color Style: Unique
+        Frame: Local
+        Offset: 1
+        Scale: 1
+        Value: true
+      Position:
+        Alpha: 0.30000001192092896
+        Color: 204; 51; 204
+        Scale: 1
+        Value: true
+      Value: false
+    Enabled: true
+    Keep: 1
+    Name: Drone Pose
+    Position Tolerance: 0.009999999776482582
+    Shape:
+      Alpha: 1
+      Axes Length: 0.5
+      Axes Radius: 0.02500000037252903
+      Color: 255; 215; 65
+      Head Length: 0.3
+      Head Radius: 0.16
+      Shaft Length: 0.8
+      Shaft Radius: 0.07
+      Value: Arrow
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /epic/odom
+    Value: true
+  - Class: rviz_default_plugins/Marker
+    Name: Command Velocity
+    Enabled: true
+    Value: true
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /planning/position_cmd_vis
+    Namespaces: {}
+    Queue Size: 20
+  - Class: rviz_default_plugins/Marker
+    Name: Planner State
+    Enabled: true
+    Value: true
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /epic/state
+    Namespaces: {}
+    Queue Size: 20
+  - Class: rviz_default_plugins/Marker
+    Name: Safety Corridor
+    Enabled: false
+    Value: false
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /visualizer/mesh
+    Namespaces: {}
+    Queue Size: 20
+  - Class: rviz_default_plugins/Marker
+    Name: Corridor Edges
+    Enabled: false
+    Value: false
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Value: /visualizer/edge
+    Namespaces: {}
+    Queue Size: 20
+  Enabled: true
+  Global Options:
+    Background Color: 16; 21; 30
+    Fixed Frame: camera_init
+    Frame Rate: 20
+  Name: root
+  Tools:
+  - Class: rviz_default_plugins/Interact
+    Hide Inactive Objects: true
+  - Class: rviz_default_plugins/MoveCamera
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Angle: 0
+      Scale: 16
+      X: 4
+      Y: 10
+      Near Clip Distance: 0.01
+      Target Frame: <Fixed Frame>
+      Value: TopDownOrtho (rviz_default_plugins)
+    Saved:
+    - Class: rviz_default_plugins/Orbit
+      Distance: 65
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 10
+        Z: 2
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Warehouse 3D
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.85
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz_default_plugins)
+      Yaw: 0.7
+Window Geometry:
+  Height: 900
+  Width: 1400
+  Hide Left Dock: false
+  Hide Right Dock: false
+  X: 80
+  Y: 60
+  Displays:
+    collapsed: false
+  Views:
+    collapsed: false
