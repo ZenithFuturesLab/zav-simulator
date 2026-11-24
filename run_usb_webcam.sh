@@ -34,6 +34,14 @@ if [[ ${1:-} == /dev/* ]]; then
   video_device=$1
   shift
 fi
+width=640
+height=480
+pixel_format=yuyv
+case "${1:-}" in
+  --480p) width=640; height=480; pixel_format=yuyv; shift ;;
+  --720p) width=1280; height=720; pixel_format=mjpeg2rgb; shift ;;
+  --1080p) width=1920; height=1080; pixel_format=mjpeg2rgb; shift ;;
+esac
 if [[ ! -c "$video_device" ]]; then
   printf 'Camera device unavailable: %s\n' "$video_device" >&2
   exit 1
@@ -45,5 +53,5 @@ fi
 exec ros2 run usb_cam usb_cam_node_exe --ros-args \
   -r __node:=usb_webcam -r __ns:=/webcam \
   -p "video_device:=$video_device" -p camera_name:=usb_webcam \
-  -p frame_id:=webcam_optical_frame -p pixel_format:=yuyv \
-  -p image_width:=640 -p image_height:=480 -p framerate:=30.0 "$@"
+  -p frame_id:=webcam_optical_frame -p "pixel_format:=$pixel_format" \
+  -p "image_width:=$width" -p "image_height:=$height" -p framerate:=30.0 "$@"
