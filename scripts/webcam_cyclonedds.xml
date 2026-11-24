@@ -1,0 +1,13 @@
+<CycloneDDS>
+  <Domain Id="any">
+    <General>
+      <Interfaces><NetworkInterface name="lo"/></Interfaces>
+      <AllowMulticast>false</AllowMulticast>
+      <Transport>tcp</Transport>
+    </General>
+    <Discovery>
+      <Peers><Peer Address="127.0.0.1:17677"/></Peers>
+    </Discovery>
+    <TCP><Port>${WEBCAM_DDS_PORT:-0}</Port></TCP>
+  </Domain>
+</CycloneDDS>
