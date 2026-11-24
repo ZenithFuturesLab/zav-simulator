@@ -1,3 +1,4 @@
+#include <epic_ros2/planning_workers.hpp>
 #include "pointcloud_topo/graph.h"
 
 void TopoGraph::updateHistoricalOdoms() {
@@ -117,7 +118,7 @@ void TopoGraph::updateHistoricalOdoms() {
   };
   edge2check.flatten();
   edge2insert.flatten();
-  omp_set_num_threads(6);
+  omp_set_num_threads(epic_ros::planningWorkerCount());
   // clang-format off
   #pragma omp parallel for
   // clang-format on
@@ -264,7 +265,7 @@ void TopoGraph::updateHistoricalOdoms() {
   odomedge2insert.flatten();
   if (odomedge2insert.flatten_data.empty())
     return;
-  omp_set_num_threads(4);
+  omp_set_num_threads(epic_ros::planningWorkerCount());
   // clang-format off
   #pragma omp parallel for
   // clang-format on

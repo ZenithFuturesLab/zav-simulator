@@ -163,7 +163,7 @@ public:
       global_path_order_marker.type = Marker::TEXT_VIEW_FACING;
       this->SetMarker(color, ns + "_path", 0.1f, 1.0f, global_path_marker,
                       1.0f);
-      this->SetMarker(VizColor::WHITE, ns + "_path_order", 0.7f, 1.0f,
+      this->SetMarker(VizColor::WHITE, ns + "_path_order", 1.4f, 1.0f,
                       global_path_order_marker, 1.0f);
       geometry_msgs::msg::Point p1, p2;
       for (int i = 0; i < path.size() - 1; i++) {

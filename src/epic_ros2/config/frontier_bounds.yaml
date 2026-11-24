@@ -1,0 +1,5 @@
+# World-frame exploration envelope enclosing the reconstructed Frontier building.
+/**:
+  ros__parameters:
+    box_0.down: [-40.0, -40.0, -4.0]
+    box_0.up: [40.0, 55.0, 30.0]

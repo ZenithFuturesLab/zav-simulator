@@ -1,3 +1,6 @@
+#include <epic_planner/input_freshness.h>
+#include <rosgraph_msgs/msg/clock.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 /***
  * @Author: ning-zelin && zl.ning@qq.com
  * @Date: 2023-12-21 21:31:51
@@ -64,13 +67,27 @@ private:
   land_pub_;
   double total_time_;
   bool external_local_planner_ = false;
-  epic_ros::Publisher external_path_pub_;
-  epic_ros::Subscriber external_odom_sub_;
+  epic_ros::Publisher external_path_pub_, external_return_pub_, external_complete_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr decision_pub_;
+  void visualizeDecision(bool issued, const char *status = nullptr);
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr return_home_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr st10_manual_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr external_odom_sub_;
   bool external_state_received_ = false;
+  rclcpp::Subscription<rosgraph_msgs::msg::Clock>::SharedPtr external_clock_sub_;
+  double external_clock_stamp_=-1.;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr external_reference_imu_sub_;
+  double external_reference_imu_stamp_=-1.;
+  InputFreshness external_input_freshness_;
+  double external_replan_period_ = 0.;
+  double last_external_plan_ = -1.;
+  bool external_motion_started_=false;
+  bool external_exploration_complete_=false;
+  double external_handoff_quiet_duration_=3.;
+  double external_handoff_quiet_until_=-1.;
+  bool externalInputsReady(bool settle);
+  void refreshExternalOdom();
   double external_odom_stamp_ = -1.0;
-  double external_route_progress_ = 0.;
-  double external_progress_watch_ = 0., external_progress_watch_stamp_ = -1.;
-  Eigen::Vector3f external_previous_position_ = Eigen::Vector3f::Zero();
 
   /*cloud odom callback*/
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::PointCloud2, nav_msgs::msg::Odometry> SyncPolicyCloudOdom;
@@ -91,7 +108,7 @@ private:
   void updateTopoAndGlobalPath();
   void globalPathUpdateCallback(const epic_ros::TimerEvent &e);
   void triggerCallback(const nav_msgs::msg::Path::ConstSharedPtr &msg);
-  void odometryCallback(const nav_msgs::msg::Odometry::ConstSharedPtr &msg);
+  void odometryCallback(const nav_msgs::msg::Odometry &msg);
   void stopTraj();
   void landRequestedCallback(const std_msgs::msg::Bool::ConstSharedPtr &msg);
 

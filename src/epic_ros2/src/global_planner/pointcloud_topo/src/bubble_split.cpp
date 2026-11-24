@@ -11,7 +11,6 @@ void TopoGraph::generateBubble(const Eigen::Vector3f &low_bd,
                                const Eigen::Vector3f &high_bd,
                                vector<BubbleNode::Ptr> &bubble_node_vec,
                                vector<bool> &check_flags) {
-  epic_ros::Time start = epic_ros::Time::now();
   Eigen::Vector3f center = (low_bd + high_bd) / 2.0;
   Eigen::Vector3f bd_size = high_bd - low_bd;
   if (!lidar_map_interface_->IsInBox(center))

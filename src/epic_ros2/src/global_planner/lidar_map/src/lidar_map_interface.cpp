@@ -15,6 +15,10 @@ void LIOInterface::init(epic_ros::NodeHandle &nh) {
   ikd_Tree_map.Set_balance_criterion_param(0.6);
   string odom_topic, cloud_topic;
   nh.param("lidar_perception/odom_twist_in_world", lp_->odom_twist_in_world_, false);
+  std::vector<double> sensor_offset;
+  nh.param("lidar_perception/sensor_offset_body",sensor_offset,std::vector<double>{});
+  if (sensor_offset.size()==3)
+    lp_->sensor_offset_body_={float(sensor_offset[0]),float(sensor_offset[1]),float(sensor_offset[2])};
   nh.getParam("odometry_topic", odom_topic);
   nh.getParam("cloud_topic", cloud_topic);
   nh.getParam("box_num", lp_->box_num_);

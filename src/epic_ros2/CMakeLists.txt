@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-set(ROS_DEPS rclcpp std_msgs sensor_msgs nav_msgs geometry_msgs visualization_msgs
+set(ROS_DEPS rclcpp rosgraph_msgs std_msgs sensor_msgs nav_msgs geometry_msgs visualization_msgs
   builtin_interfaces message_filters pcl_conversions tf2 tf2_geometry_msgs cv_bridge)
 foreach(dep ${ROS_DEPS})
   find_package(${dep} REQUIRED)
@@ -42,6 +42,7 @@ add_library(epic_core STATIC
   ${G}/pointcloud_topo/src/topo_skeleton_graph.cpp ${G}/pointcloud_topo/src/historical_odom_graph.cpp
   ${G}/pointcloud_topo/src/bubble_split.cpp ${G}/pointcloud_topo/src/parallel_bubble_astar.cpp
   ${G}/frontier_manager/src/frontier_manager.cpp ${G}/frontier_manager/src/global_planning.cpp
+  ${G}/frontier_manager/src/perimeter_survey.cpp
   ${G}/frontier_manager/src/raycast.cpp ${G}/frontier_manager/src/frontier_viszer.cpp
   ${L}/path_searching/src/bubble_astar.cpp ${L}/Utils/poly_traj/src/polynomial_traj.cpp
   ${L}/Utils/traj_utils/src/planning_visualization.cpp
@@ -61,7 +62,7 @@ set_target_properties(exploration_node traj_server PROPERTIES INSTALL_RPATH "$OR
 
 install(TARGETS epic_lkh LIBRARY DESTINATION lib)
 install(TARGETS exploration_node traj_server DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch config docs DESTINATION share/${PROJECT_NAME})
 install(FILES LICENSE README.md DESTINATION share/${PROJECT_NAME})
 install(FILES scripts/epic_frames.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/isaac_adapter.py DESTINATION lib/${PROJECT_NAME})

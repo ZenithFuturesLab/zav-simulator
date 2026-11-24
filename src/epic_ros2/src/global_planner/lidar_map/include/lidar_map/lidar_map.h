@@ -5,6 +5,8 @@
 #include <Eigen/Eigen>
 #include <Eigen/StdVector>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <atomic>
+#include <mutex>
 #include <memory>
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
@@ -30,6 +32,7 @@ template <typename PointType> class KD_TREE;
 namespace fast_planner {
 struct LIOInterfaceParam;
 struct LIOInterfaceData;
+struct HitContradictions;
 
 class LocalSphere {
 public:
@@ -74,6 +77,7 @@ private:
   SynchronizerCloudOdom sync_cloud_odom_;
   epic_ros::Publisher update_trigger_puber_;
 
+  void reconcileHits(const Eigen::Vector3f &sensor, const pcl::PointCloud<PointType>::ConstPtr &scan);
   KD_TREE<PointType> ikd_Tree_map;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -95,6 +99,8 @@ struct LIOInterfaceParam {
   double max_ray_length_;
   double fov_up, fov_down;
   double fov_vp_up, fov_vp_down;
+  double persistent_hit_range_ = 0.;
+  Eigen::Vector3f sensor_offset_body_=Eigen::Vector3f::Zero();
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
@@ -107,6 +113,10 @@ struct LIOInterfaceData {
   Eigen::Quaternionf lidar_q_;
   Eigen::Vector3f lidar_vel_;
   pcl::PointCloud<pcl::PointXYZ> lidar_cloud_;
+  std::shared_ptr<HitContradictions> contradicted_hits_;
+  std::mutex scan_writer;
+  // Zero disables memoization while the obstacle tree is being changed.
+  std::atomic<uint64_t> obstacle_revision{0};
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 

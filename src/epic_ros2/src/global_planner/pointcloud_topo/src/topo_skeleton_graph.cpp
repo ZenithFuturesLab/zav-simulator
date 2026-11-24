@@ -1,3 +1,4 @@
+#include <epic_ros2/planning_workers.hpp>
 /***
  * @Author: ning-zelin && zl.ning@qq.com
  * @Date: 2023-12-02 21:33:08
@@ -83,10 +84,8 @@ RegionNode::RegionNode(Eigen::Vector3i region_idx) {
 }
 
 RegionNode::Ptr TopoGraph::getRegionNode(const Eigen::Vector3i &region_idx_) {
-  if (reg_map_idx2ptr_.find(region_idx_) == reg_map_idx2ptr_.end()) {
-    return nullptr;
-  }
-  return reg_map_idx2ptr_[region_idx_];
+  const auto region = reg_map_idx2ptr_.find(region_idx_);
+  return region == reg_map_idx2ptr_.end() ? nullptr : region->second;
 }
 
 void TopoGraph::getIndex(const Eigen::Vector3f &point, Eigen::Vector3i &region_idx_) {
@@ -384,12 +383,10 @@ void TopoGraph::removeNodes(vector<TopoNode::Ptr> &nodes) {
     Eigen::Vector3i region_idx;
     getIndex(node->center_, region_idx);
     auto region_node = getRegionNode(region_idx);
-    ROS_ASSERT(region_node != nullptr);
-    // if (region_node == nullptr) {
-    //   continue;
-    //   debug_exit("TopoGraph::removeNodes :region_node == nullptr ");
-    // }
-    region_node->topo_nodes_.erase(node);
+    // A temporary observation in open air may only have a certified odometry
+    // edge. It has no region membership, but its reciprocal edge still expires.
+    ROS_ASSERT(region_node != nullptr || node->is_viewpoint_);
+    if (region_node) region_node->topo_nodes_.erase(node);
   }
 
   // nbrs
@@ -495,7 +492,7 @@ void TopoGraph::updateRemainedConnections(vector<TopoNode::Ptr> &nodes) {
   }
   edge2test.flatten();
   edge2check.flatten();
-  omp_set_num_threads(6);
+  omp_set_num_threads(epic_ros::planningWorkerCount());
   // clang-format off
   #pragma omp parallel for
   // clang-format on
@@ -667,7 +664,7 @@ void TopoGraph::insertNodes(vector<TopoNode::Ptr> &nodes, bool only_raycast) {
   path_vec.resize(pair_vector.size());
 
   // 并行A*搜索路径并写入结果
-  omp_set_num_threads(6);
+  omp_set_num_threads(epic_ros::planningWorkerCount());
   // clang-format off
   #pragma omp parallel for
   // clang-format on
@@ -787,14 +784,13 @@ void TopoGraph::updateSkeleton() {
   parallel_bubble_astar_->reset();
   vector<TopoNode::Ptr> nodes2insert, nodes_remained, nodes2remove, new_nodes, old_nodes;
   mutex new_nodes_mtx;
-  epic_ros::Time t0 = epic_ros::Time::now();
   for (auto &region : toponodes_update_region_arr_) {
     for (auto &node : region->topo_nodes_) {
       if (!node->is_viewpoint_)
         old_nodes.push_back(node);
     }
   }
-  omp_set_num_threads(6);
+  omp_set_num_threads(epic_ros::planningWorkerCount());
   // clang-format off
   #pragma omp parallel for
   // clang-format on
@@ -827,13 +823,9 @@ void TopoGraph::updateSkeleton() {
   setdiff(old_nodes, new_nodes, nodes2remove);
   setdiff(new_nodes, old_nodes, nodes2insert);
 
-  epic_ros::Time t1 = epic_ros::Time::now();
   removeNodes(nodes2remove);
-  epic_ros::Time t2 = epic_ros::Time::now();
   updateRemainedConnections(nodes_remained);
-  epic_ros::Time t3 = epic_ros::Time::now();
   insertNodes(nodes2insert);
-  epic_ros::Time t4 = epic_ros::Time::now();
   vector<TopoNode::Ptr> unreachable_nodes;
 
 
@@ -871,7 +863,7 @@ void TopoGraph::updateOdomNode(Eigen::Vector3f &odom_pos, float &yaw) {
       }
   std::unordered_map<std::pair<TopoNode::Ptr, TopoNode::Ptr>, vector<Eigen::Vector3f>, PairPtrHash> edge2insert;
   mutex edge2insert_mtx;
-  omp_set_num_threads(4);
+  omp_set_num_threads(epic_ros::planningWorkerCount());
   // clang-format off
   #pragma omp parallel for
   // clang-format on

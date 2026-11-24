@@ -131,13 +131,10 @@ public:
 
   class MANUAL_HEAP {
   public:
-    MANUAL_HEAP(int max_capacity = 100) {
-      cap = max_capacity;
-      heap = new PointType_CMP[max_capacity];
-      heap_size = 0;
-    }
+    explicit MANUAL_HEAP(int max_capacity = 100)
+        : cap(max_capacity), storage(new PointType_CMP[max_capacity]), heap(storage.get()) {}
 
-    ~MANUAL_HEAP() { delete[] heap; }
+    explicit MANUAL_HEAP(PointType_CMP &single_result) : cap(1), heap(&single_result) {}
 
     void pop() {
       if (heap_size == 0)
@@ -148,7 +145,7 @@ public:
       return;
     }
 
-    PointType_CMP top() { return heap[0]; }
+    const PointType_CMP &top() const { return heap[0]; }
 
     void push(PointType_CMP point) {
       if (heap_size >= cap)
@@ -166,6 +163,7 @@ public:
   private:
     int heap_size = 0;
     int cap = 0;
+    std::unique_ptr<PointType_CMP[]> storage;
     PointType_CMP *heap;
 
     void MoveDown(int heap_index) {
@@ -237,6 +235,7 @@ private:
   void Delete_by_point(KD_TREE_NODE **root, PointType point, bool allow_rebuild);
   void Add_by_point(KD_TREE_NODE **root, PointType point, bool allow_rebuild, int father_axis);
   void Add_by_range(KD_TREE_NODE **root, BoxPointType boxpoint, bool allow_rebuild);
+  void searchNearest(PointType point, int k, MANUAL_HEAP &result, double max_dist);
   void Search(KD_TREE_NODE *root, int k_nearest, PointType point, MANUAL_HEAP &q, double max_dist); // priority_queue<PointType_CMP>
   void Search_by_range(KD_TREE_NODE *root, BoxPointType boxpoint, PointVector &Storage);
   void Search_by_radius(KD_TREE_NODE *root, PointType point, float radius, PointVector &Storage);
@@ -275,6 +274,7 @@ public:
   int validnum();
   void root_alpha(float &alpha_bal, float &alpha_del);
   void Build(PointVector point_cloud);
+  float nearestSquaredDistance(PointType point, double max_dist);
   void Nearest_Search(PointType point, int k_nearest, PointVector &Nearest_Points, vector<float> &Point_Distance, double max_dist = INFINITY);
   void Box_Search(const BoxPointType &Box_of_Point, PointVector &Storage);
   void Radius_Search(PointType point, const float radius, PointVector &Storage);

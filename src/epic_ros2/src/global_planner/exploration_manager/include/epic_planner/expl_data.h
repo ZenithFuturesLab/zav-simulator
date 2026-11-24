@@ -45,6 +45,7 @@ struct ExplorationData {
   vector<double> yaws_;
   vector<TopoNode::Ptr> local_tour_;
   vector<Eigen::Vector3f> global_tour_;
+  vector<double> global_tour_yaws_;
   TopoNode::Ptr first_root_, second_root_;
 
   Eigen::Vector3f next_goal_;

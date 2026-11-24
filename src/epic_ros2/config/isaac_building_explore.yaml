@@ -1,4 +1,4 @@
-# Sensor-driven floor distance frontiers and native3D wall viewpoints; no map waypoint input.
+# Native EPIC frontier sampling and TSP with external SUPER planning.
 /**:
   ros__parameters:
     odometry_topic: /epic/odom
@@ -17,24 +17,30 @@
     bubble_topo.init_region_size_y: 2.4
     bubble_topo.init_region_size_z: 1.4
     bubble_topo.cube_discrete_size: 0.15
-    bubble_astar.safe_distance: 0.8
-    bubble_astar.endpoint_height_margin: -1.0
+    # Minimum centre-to-obstacle distance along a measured flight guide. Sparse graph nodes use the topology radius.
+    bubble_astar.safe_distance: 0.72
+    # Limited to a measured constriction between normally clear survey stances.
+    FrontierManager.measured_aperture_clearance: 0.62
+    bubble_astar.endpoint_height_margin: 0.4  # relative to each leg's endpoints, including stairs
     max_update_region_num: 100
     lidar_perception.fov_up: 52.0
     lidar_perception.fov_down: -7.0
     lidar_perception.lidar_pitch: 22.0
+    lidar_perception.sensor_offset_body: [0.01215, 0.0, 0.11503]
     lidar_perception.fov_viewpoint_up: 48.0
     lidar_perception.fov_viewpoint_down: -5.0
     lidar_perception.max_ray_length: 30
     parallel_astar.update_connection_timeout: 0.005
     parallel_astar.insert_node_timeout: 0.01
     parallel_astar.goal_connection_timeout: 0.02
+    FrontierManager.preferred_wall_clearance: 1.10
+    FrontierManager.preferred_ground_clearance: 1.7
     FrontierManager.cell_size: 0.4
     FrontierManager.noise_cell_range: 1
     FrontierManager.good_observation_direction_score: 0.4
-    FrontierManager.good_observation_force_trust_length: 5.0
-    FrontierManager.good_observation_trust_length: 8.0
-    FrontierManager.update_length: 12.0
+    FrontierManager.good_observation_force_trust_length: 2.5
+    FrontierManager.good_observation_trust_length: 4.5
+    FrontierManager.update_length: 15.0
     FrontierManager.cluster_max_size: 6.0
     FrontierManager.cluster_min_size: 0.6
     FrontierManager.cluster_min_radius: 0.6
@@ -42,24 +48,24 @@
     FrontierManager.cluster_minmum_point_num: 4
     ViewpointManager.sample_pillar_min_height: -1.8
     ViewpointManager.sample_pillar_max_height: 1.8
-    ViewpointManager.sample_pillar_height_layer_num: 5
+    ViewpointManager.sample_pillar_height_layer_num: 4
     ViewpointManager.sample_pillar_min_radius: 1.0
     ViewpointManager.sample_pillar_max_radius: 5.0
-    ViewpointManager.sample_pillar_radius_layer_num: 4
-    ViewpointManager.sample_pillar_circle_sample_num: 16
-    ViewpointManager.local_tsp_size: 24
+    ViewpointManager.sample_pillar_radius_layer_num: 3
+    ViewpointManager.sample_pillar_circle_sample_num: 8
+    ViewpointManager.local_tsp_size: 12
     FrontierManager.max_frontier_support_distance: 0.55
     FrontierManager.debug_viewpoint_rejections: true
     FrontierManager.measured_surface_visibility: true
     box_num: 1
     box_0.down:
-    - -40.0
-    - -40.0
-    - -2.0
+    - -60.0
+    - -60.0
+    - -4.0
     box_0.up:
-    - 40.0
-    - 40.0
-    - 24.0
+    - 60.0
+    - 60.0
+    - 30.0
     dead_area_num: 0
     max_traj_len: 6.0
     DilateRadiusSoft: 0.6
@@ -130,13 +136,11 @@
     FlightHeightPlanningMargin: 0.02
     StartCorridorRecoveryMargin: 0.05
     LengthPerPiece: 2.5
-    global_planning.use_velocity_direction_cost: false
+    global_planning.surface_continuity: true
+    global_planning.return_to_start: false
+    global_planning.use_velocity_direction_cost: true
     StraightSweepHorizon: 10.0
     exploration.tour_lookahead_distance: 30.0
-    global_planning.replan_period: 0.8
+    global_planning.replan_period: 0.35
     exploration.frontier_empty_confirmation: 3.0
     FrontierManager.trust_close_fov_edge: true
-    global_planning.directional_frontiers: true
-    FrontierManager.floor_range_frontiers: true
-    FrontierManager.ascending_floor_frontiers: true
-    FrontierManager.floor_viewpoint_clearance: 1.7

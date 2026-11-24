@@ -106,7 +106,8 @@ void FrontierManager::visfrtcluster() {
     }
     viewpoint_number.text = std::to_string(size);
 
-    if (sf_cluster->is_reachable_ && !sf_cluster->is_dormant_ && !sf_cluster->is_new_cluster_) {
+    if (sf_cluster->is_reachable_ && !sf_cluster->is_dormant_ && !sf_cluster->is_new_cluster_ &&
+        (!surface_continuity_ || (!visitedStance(sf_cluster->best_vp_) && !observedCluster(*sf_cluster)))) {
       best_viewpoint.scale.x = 0.2;
       best_viewpoint.scale.y = 0.5;
       best_viewpoint.scale.z = 0.5;

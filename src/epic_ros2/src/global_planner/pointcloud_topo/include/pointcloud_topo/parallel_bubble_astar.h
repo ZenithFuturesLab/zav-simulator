@@ -73,6 +73,10 @@ public:
   void posToIndex(const Eigen::Vector3f &pt, Eigen::Vector3i &idx);
   void IndexToPos(Eigen::Vector3f &pt, Eigen::Vector3i &idx);
   bool isNodeSafe(Node::Ptr node, const Eigen::Vector3f &bbox_min, const Eigen::Vector3f &bbox_max,
+                  unordered_set<Eigen::Vector3i, v3i_hash> &safe_set, unordered_set<Eigen::Vector3i, v3i_hash> &danger_set) {
+    return isPositionSafe(node->position, bbox_min, bbox_max, safe_set, danger_set);
+  }
+  bool isPositionSafe(const Eigen::Vector3f &position, const Eigen::Vector3f &bbox_min, const Eigen::Vector3f &bbox_max,
                   unordered_set<Eigen::Vector3i, v3i_hash> &safe_set, unordered_set<Eigen::Vector3i, v3i_hash> &danger_set);
 
   void init(epic_ros::NodeHandle &nh, const LIOInterface::Ptr &lidar_map);

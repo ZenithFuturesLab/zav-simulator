@@ -1,5 +1,3 @@
-#include <epic_planner/frontier_route.h>
-#include <rcl/time.h>
 #include <epic_planner/fast_exploration_manager.h>
 #include <epic_planner/expl_data.h>
 #include <plan_manage/planner_manager.h>
@@ -9,27 +7,170 @@
 #include <iostream>
 
 int main(int argc,char** argv) {
-  {
-    using namespace fast_planner;
-    const Eigen::Vector3f heading(0,1,0);
-    const FrontierRoute forward={{0,0,1.7},{0,8,1.7}},right={{0,0,1.7},{8,0,1.7}},
-        left={{0,0,1.7},{-8,0,1.7}},back={{0,0,1.7},{0,-8,1.7}};
-    assert(frontierContinuationCost(forward,heading)<frontierContinuationCost(right,heading));
-    assert(frontierContinuationCost(right,heading)<frontierContinuationCost(left,heading));
-    assert(frontierContinuationCost(left,heading)<frontierContinuationCost(back,heading));
-    FrontierRoute aisle={{0,0,1.7},{.8,3,1.7},{-.8,6,1.7},{.8,9,1.7},{0,12,1.7}};
-    const auto free=[](const auto&,const auto&){return true;};
-    assert(simplifyFrontierRoute(aisle,1.5f,free).size()==2);
-    assert(simplifyFrontierRoute(aisle,1.5f,[](const auto&,const auto&){return false;}).size()==aisle.size());
-    const FrontierRoute reversal={{0,0,1.7},{8,0,1.7},{0,0,1.7},{0,10,1.7}};
-    assert(simplifyFrontierRoute(reversal,1.5f,free).size()==reversal.size());
-    double progress=0.;auto suffix=remainingFrontierRoute(reversal,{1,0,1.7},{0,0,1.7},progress);
-    assert(!suffix.empty() && progress>.9 && progress<1.1);
-    suffix=remainingFrontierRoute(reversal,{.2,0,1.7},{1,0,1.7},progress);
-    assert(!suffix.empty() && progress>=1. && progress<4.);
-    std::cout<<"PASS: forward/right/left/reverse frontier priority, checked straight aisle shortcut, no crossing-progress jump\n";
-  }
   epic_ros::init(argc,argv,"goal_handoff_regression");
+  {
+    const Eigen::Vector3f wall(20.95f,5.10f,1.74f),body(14.30f,6.09f,1.7f),next(21.23f,12.18f,1.73f);
+    const vector<Eigen::Vector3f> preview{wall,{21.f,7.5f,1.74f},{21.f,9.5f,1.74f}};
+    assert(FastExplorationManager::skipsWallCorner(preview,{body,next},.85f));
+    assert(!FastExplorationManager::skipsWallCorner(preview,{body,wall,next},.85f));
+    assert(!FastExplorationManager::skipsWallCorner(preview,{wall,next},.85f));
+    assert(!FastExplorationManager::skipsWallCorner(preview,{body,{25.f,12.f,1.74f}},.85f));
+    assert(!FastExplorationManager::skipsWallCorner(preview,{body,{21.f,12.f,3.7f}},.85f));
+    const Eigen::Vector3f inside(9.8f,-6.5f,1.7f),door(9.51f,-2.77f,1.7f),sidewall(3.85f,-5.50f,1.7f);
+    const Eigen::Vector3f flying(0.f,-3.f,0.f),jamb(9.8f,-3.2f,1.7f);
+    const Eigen::Vector2f inward(0.f,-1.f);
+    assert(FastExplorationManager::retracesEntryToWall({inside,jamb,sidewall},flying,door,inward,.85f));
+    assert(!FastExplorationManager::retracesEntryToWall({inside,{7.f,-6.1f,1.7f},sidewall},flying,door,inward,.85f));
+    assert(!FastExplorationManager::retracesEntryToWall({inside,jamb,{10.f,-1.5f,1.7f}},flying,door,inward,.85f));
+    assert(!FastExplorationManager::retracesEntryToWall({inside,jamb,sidewall},-flying,door,inward,.85f));
+  }
+  {
+    const Eigen::Vector3f lip(9.8f,-2.87f,1.7f),goal(3.85f,-5.3f,1.7f);
+    const Eigen::Vector2f inward(0.f,-1.f);
+    const vector<Eigen::Vector3f> room{{10.1f,-2.8f,1.7f},{9.7f,-3.8f,1.7f},{4.f,-3.8f,1.7f},goal,{4.f,1.f,1.7f}};
+    assert(FastExplorationManager::reachesInteriorObservation(room,goal,lip,inward,.85f));
+    assert(!FastExplorationManager::reachesInteriorObservation({room.front(),{16.f,0.f,1.7f},{16.f,-5.3f,1.7f},goal},goal,lip,inward,.85f));
+    assert(!FastExplorationManager::reachesInteriorObservation({room.front(),room[1],{10.f,0.f,1.7f}},goal,lip,inward,.85f));
+    const Eigen::Vector3f door(39.82f,-2.87f,1.7f),body(40.5f,-3.9f,1.4f),wall(33.85f,-5.5f,1.7f);
+    const Eigen::Vector2f normal=Eigen::Vector2f(.237f,-.971f).normalized();
+    const vector<Eigen::Vector3f> exit{body,{40.2f,-2.f,1.7f},{41.f,-1.4f,1.7f},{43.3f,-.95f,1.7f}};
+    assert(FastExplorationManager::reachesInteriorObservation({body,wall},wall,door,normal,.85f));
+    assert(FastExplorationManager::exitsThroughEntry(exit,door,normal,.85f));
+    assert(!FastExplorationManager::exitsThroughEntry({body,wall,{33.85f,-10.f,1.7f}},door,normal,.85f));
+    const Eigen::Vector3f entry(19.822f,-2.874f,1.68f),approach(18.734f,-1.631f,1.534f);
+    const Eigen::Vector3f corridor(29.255f,-1.647f,1.68f),interior(18.82f,-10.53f,1.68f);
+    assert(FastExplorationManager::passesBesideEntry({approach,corridor},entry,normal,.85f));
+    assert(!FastExplorationManager::passesBesideEntry({approach,interior,corridor},entry,normal,.85f));
+    assert(!FastExplorationManager::passesBesideEntry({entry,interior},entry,normal,.85f));
+    assert(!FastExplorationManager::passesBesideEntry({approach,{19.f,-1.7f,1.6f}},entry,normal,.85f));
+    assert(!FastExplorationManager::passesBesideEntry({approach,corridor+3.f*Eigen::Vector3f::UnitZ()},entry,normal,.85f));
+    const Eigen::Vector3f earlier(9.40f,-2.30f,1.70f),second_entry(9.49f,-3.49f,1.72f);
+    assert(FastExplorationManager::passesBesideEntry({earlier,{17.10f,-1.15f,1.72f}},second_entry,inward,.85f));
+    assert(!FastExplorationManager::passesBesideEntry({earlier,{8.60f,-4.20f,1.0f}},second_entry,inward,.85f));
+    const vector<Eigen::Vector3f> skim{{8.727f,-1.630f,1.562f},{9.715f,-1.753f,1.70f},
+        {10.228f,-1.817f,1.706f},{11.157f,-1.446f,1.706f},{16.255f,-1.647f,1.706f}};
+    assert(FastExplorationManager::passesBesideEntry(skim,second_entry,inward,.85f));
+  }
+  {
+    const Eigen::Vector3f body(-8.456f,7.317f,5.721f),near(-9.157f,9.01f,5.869f);
+    const Eigen::Vector3f far(-8.2f,17.8f,5.8f),rear(-8.9f,2.f,5.7f);
+    assert(FastExplorationManager::shortOnForwardPass(body,near,{near,{-8.957f,7.99f,5.869f}},far,.85f,4.5f));
+    assert(FastExplorationManager::shortOnForwardPass(body,rear,{},far,.85f,4.5f));
+    assert(!FastExplorationManager::shortOnForwardPass(body,near,{near,far},far,.85f,4.5f));
+    assert(!FastExplorationManager::shortOnForwardPass(body,near,{near,{-5.f,10.f,5.8f}},far,.85f,4.5f));
+    assert(!FastExplorationManager::shortOnForwardPass(body,near,{},near,.85f,4.5f));
+  }
+  {
+    const Eigen::Vector3f b(-8.094f,11.435f,1.553f),g(-8.443f,11.61f,1.684f),tail(-8.643f,12.01f,1.684f);
+    const Eigen::Vector2f velocity(.59f,-3.92f);
+    assert(FastExplorationManager::reversesInCruise({b,g,tail},g,velocity,.85f));
+    assert(!FastExplorationManager::reversesInCruise({b,g,{-8.5f,7.f,1.7f}},g,velocity,.85f));
+    assert(!FastExplorationManager::reversesInCruise({b,g,tail},g,{0.f,-.15f},.85f));
+    const Eigen::Vector3f a(-8.499f,21.279f,9.091f),close(-8.485f,18.7f,9.387f);
+    const vector<Eigen::Vector3f> folded{a,{-8.289f,17.489f,9.387f},close,{-8.448f,19.973f,9.387f}};
+    assert(FastExplorationManager::reversesInCruise(folded,close,{0.f,-3.13f},.85f,4.f));
+    auto side=folded;side.back().x()+=2.5f;
+    assert(!FastExplorationManager::reversesInCruise(side,close,{0.f,-3.13f},.85f,4.f));
+    const Eigen::Vector3f passing(-8.993f,40.511f,5.615f),beside(-9.45f,40.5f,5.558f);
+    assert(FastExplorationManager::reversesInCruise({passing,beside},beside,{0.f,-2.2f},.85f,3.f));
+    assert(!FastExplorationManager::reversesInCruise({passing,beside,{-9.45f,35.f,5.558f}},
+        beside,{0.f,-2.2f},.85f,3.f));
+    // Already returning from the end at 1.03 m/s. A second trip back
+    // toward that end must not be sent just because the prior #1 is near.
+    const Eigen::Vector3f body(-9.057f,39.995f,1.396f),tip(-8.92f,44.037f,1.475f);
+    assert(FastExplorationManager::reversesInCruise({body,tip,{-8.938f,42.764f,1.475f}},
+        tip,{-.02f,-1.03f},.85f));
+  }
+  {
+    // A 7.38 m rear command lay on the actual travelled strip. The small
+    // lateral velocity alone put its far end outside the tangent tube.
+    const Eigen::Vector3f b(-8.883f,14.214f,5.003f),g(-8.157f,21.59f,5.636f);
+    const Eigen::Vector2f v(.47f,-4.785f);
+    const vector<Eigen::Vector3f> old{{-8.6f,26.f,5.4f},{-8.55f,14.f,5.33f},{-8.15f,4.f,5.31f}};
+    const vector<Eigen::Vector3f> back{b,g,{-8.016f,20.408f,5.636f}};
+    assert(FastExplorationManager::shortenedForwardPrefix(old,back,g,v,.85f,5.f).empty());
+    assert(!FastExplorationManager::shortenedForwardPrefix(old,back,g,v,.85f,5.f,true).empty());
+  }
+  {
+    // Second-floor return. The issued route continued along the aisle before
+    // bending to the stairs. Its distant endpoint was off the flight axis.
+    const Eigen::Vector3f body(-8.8f,25.9f,5.2f),rear(-8.72f,28.70f,5.43f);
+    const Eigen::Vector2f heading(0,-1);
+    const vector<Eigen::Vector3f> issued{{-9.f,26.7f,5.4f},{-8.2f,19.8f,5.4f},
+        {-8.6f,13.6f,4.9f},{-8.4f,7.f,5.4f},{-6.9f,.4f,5.4f},{1.f,.6f,4.6f}};
+    auto checked=FastExplorationManager::shortenedForwardPrefix(issued,
+        {body,{-8.9f,27.9f,5.3f},{-9.1f,29.9f,5.4f},rear,{-8.6f,27.9f,5.4f}},rear,heading,.85f,3.5f);
+    assert(checked.size()>=2 && checked.back().y()<23.5f);
+    const Eigen::Vector3f later(-8.2f,20.6f,5.4f),near(-8.2f,20.84f,5.4f);
+    checked=FastExplorationManager::shortenedForwardPrefix(issued,
+        {later,near,{-8.2f,21.3f,5.4f}},near,heading,.85f,3.5f);
+    assert(checked.size()>=2 && checked.back().y()<18.1f);
+    const Eigen::Vector3f turn(-5.f,24.f,5.2f);
+    assert(FastExplorationManager::shortenedForwardPrefix(issued,{body,turn},turn,heading,.85f,3.5f).empty());
+    assert(FastExplorationManager::shortenedForwardPrefix(issued,{body,{-8.5f,16.f,5.2f}},
+        {-8.5f,16.f,5.2f},heading,.85f,3.5f).empty());
+    // At a dead end there is no usable forward suffix; the return is necessary.
+    assert(FastExplorationManager::shortenedForwardPrefix({body,{-8.8f,24.9f,5.2f}},
+        {body,rear},rear,heading,.85f,3.5f).empty());
+  }
+  {
+    // The vehicle passed this observation during the global solve on the
+    // return leg. The short guide would send it back along the same strip.
+    const Eigen::Vector3f start(-8.26f,20.22f,5.21f),goal(-8.65f,18.90f,5.61f);
+    const Eigen::Vector3f now(-8.57f,17.26f,5.61f),tail(-8.64f,19.39f,5.61f);
+    assert(FastExplorationManager::passedDuringPlanning(start,goal,{now,goal,tail},.85f));
+    assert(!FastExplorationManager::passedDuringPlanning(start,goal,{now,goal,{-8.6f,13.f,5.6f}},.85f));
+    assert(!FastExplorationManager::passedDuringPlanning(start,goal,{now,goal,{-11.f,19.f,5.6f}},.85f));
+    assert(!FastExplorationManager::passedDuringPlanning(start,start,{now,start},.85f));
+    assert(!FastExplorationManager::passedDuringPlanning(now,goal,{now,goal},.85f));
+  }
+  {
+    // Measured fifth-floor return. The selected view was 0.27m ahead but
+    // its proposed preview ended 1.27m behind the moving vehicle.
+    const Eigen::Vector3f body(-7.845f,34.034f,17.274f),goal(-8.080f,33.763f,17.836f),v(0,-5,0);
+    const vector<Eigen::Vector3f> previous{{-7.576f,37.989f,17.594f},{-8.26f,21.1f,17.41f}};
+    vector<Eigen::Vector3f> guide{body,goal,{-7.885f,35.3f,17.836f}};
+    const auto through=FastExplorationManager::forwardThroughGoal(previous,guide,1,v,.85f,3.f);
+    assert(through.size()==3 && (through[1]-goal).norm()<1.e-5f && through.back().y()<body.y()-2.f);
+    guide.back()={-5.5f,34.6f,17.5f};
+    assert(FastExplorationManager::forwardThroughGoal(previous,guide,1,v,.85f,3.f).empty());
+    guide.back()={-8.f,30.f,17.5f};
+    assert(FastExplorationManager::forwardThroughGoal(previous,guide,1,v,.85f,3.f).empty());
+    assert(FastExplorationManager::forwardThroughGoal({body,goal},{body,goal,body},1,v,.85f,3.f).empty());
+  }
+  // Passing across the mouth of a new sweep must not release it. Release
+  // on entering the selected outgoing section, before reaching its endpoint.
+  {
+    const Eigen::Vector3f entry(0.f,2.f,1.5f),goal(0.f,6.f,1.5f);
+    const Eigen::Vector3f body_before(8.38f,-1.36f,1.7f),turn(9.82f,-2.87f,1.7f),forward(3.f,0.f,0.f);
+    assert(FastExplorationManager::bypassesRightTurn(body_before,forward,turn,
+        {body_before,turn,{10.7f,-1.9f,1.7f}},.85f));
+    assert(!FastExplorationManager::bypassesRightTurn(body_before,forward,turn,
+        {body_before,turn,{9.4f,-4.1f,1.7f}},.85f));
+    assert(!FastExplorationManager::enteredSweep({0.f,-1.f,1.5f},entry,goal,.85f));
+    assert(!FastExplorationManager::enteredSweep({3.f,3.f,1.5f},entry,goal,.85f));
+    assert(FastExplorationManager::enteredSweep({.1f,3.f,1.5f},entry,goal,.85f));
+  }
+  {
+    const Eigen::Vector3f body(-17.3f,13.3f,2.f),chosen(-16.8f,18.9f,2.f),near(-16.8f,14.7f,2.f);
+    assert(FastExplorationManager::retractsStraightGoal({body,chosen},{body,near},{},.85f));
+    assert(!FastExplorationManager::retractsStraightGoal({body,chosen},{body,near},{near,near+Eigen::Vector3f(2.f,0,0)},.85f));
+    assert(!FastExplorationManager::retractsStraightGoal({body,chosen},{body,near},{near,chosen},.85f));
+    const Eigen::Vector3f passed(-16.95f,11.5f,2.f);
+    assert(FastExplorationManager::retractsStraightGoal({body,chosen},{body,passed},{},.85f));
+    assert(!FastExplorationManager::retractsStraightGoal({body,chosen},{body,passed},
+        {passed,passed+Eigen::Vector3f(2.f,0,0)},.85f));
+  }
+  // This certified recovery route descended in a narrow corridor before
+  // rising at its distant observation. Each local handoff keeps its envelope.
+  {
+    const vector<Eigen::Vector3f> path{{-8.3f,17.5f,1.55f},{-8.6f,15.f,1.f},
+        {-8.4f,11.8f,1.f},{-8.2f,9.8f,1.6f},{-.9f,2.7f,2.9f}};
+    assert(FastExplorationManager::heightBoundedPrefix(path,.4)==3);
+    const vector<Eigen::Vector3f> onward(path.begin()+2,path.end());
+    assert(FastExplorationManager::heightBoundedPrefix(onward,.4)==onward.size());
+    assert(FastExplorationManager::heightBoundedPrefix(path,-1.)==path.size());
+  }
   epic_ros::NodeHandle nh;
   auto lio=std::make_shared<LIOInterface>();lio->init(nh);
   lio->lp_->global_map_min_boundary_=Eigen::Vector3f(-20,-20,-5);
@@ -63,6 +204,65 @@ int main(int argc,char** argv) {
   FastExplorationManager manager;manager.ed_=std::make_shared<ExplorationData>();
   manager.planner_manager_=std::make_shared<FastPlannerManager>();manager.planner_manager_->topo_graph_=graph;
   manager.planner_manager_->lidar_map_interface_=lio;
+  {
+    FastExplorationManager turn;
+    turn.planner_manager_=manager.planner_manager_;
+    turn.frontier_manager_ptr_=std::make_shared<FrontierManager>();
+    turn.frontier_manager_ptr_->init(nh,lio,graph);
+    vector<Eigen::Vector3f> guide{{15.f,0,2},{19.49f,-1.51f,2},{19.82f,-2.87f,2},
+        {20.5f,-2.1f,2},{20.7f,-1.3f,2},{27.7f,-.95f,2}};
+    const Eigen::Vector3f inward=guide[2],velocity(3.f,0.f,0.f);
+    // With no new free-air evidence the local guide ends at the inward
+    // observation. A later tour edge cannot undo it before arrival.
+    assert(turn.extendMeasuredTurn(guide,2,velocity));
+    assert(guide.size()==3 && (guide.back()-inward).norm()<1.e-5f);
+    guide.push_back({19.9f,-4.5f,2});
+    assert(!turn.extendMeasuredTurn(guide,2,velocity));
+    assert(guide.size()==4);
+    const vector<Eigen::Vector3f> level{{15,0,2},{19,0,2}};
+    turn.rememberShortRightTurn(level,{{19,0,2},{21,0,2}});
+    turn.rememberShortRightTurn(level,{{19,0,2},{19,-2,3}});
+    assert(!turn.short_right_turn_); // Straight passage and a rising flight.
+    turn.rememberShortRightTurn(level,{{19,0,2},{19,-2,2}});
+    assert(turn.short_right_turn_);
+    assert((turn.short_right_turn_->first-Eigen::Vector3f(19,-2,2)).norm()<1.e-5f);
+    turn.short_right_turn_.reset();
+    turn.rememberShortRightTurn({{0,0,2},{-1,0,2},{-2,0,2},{-3,0,2},{-3,-1.4f,2}},{});
+    assert(!turn.short_right_turn_);
+    turn.rememberShortRightTurn({{0,0,2},{-1,0,2},{-2,0,2},{-3,0,2},{-3,1.4f,2}},{});
+    assert(turn.short_right_turn_ && (turn.short_right_turn_->second-Eigen::Vector2f(0,1)).norm()<1.e-5f);
+    turn.short_right_turn_.reset();
+    turn.rememberShortRightTurn(level,{{19,0,2},{19,-2,2}});
+    const vector<Eigen::Vector3f> right_fork{{0,0,2},{-2,0,2},{-2,2,2},{-2,5,2}};
+    assert(turn.backtracksRightTurn(right_fork,{{-2,1,2},{-2,-1,2},{-2,-5,2}},.85f));
+    assert(!turn.backtracksRightTurn(right_fork,{{-2,1,2},{-2,3,2},{-1,4,2}},.85f));
+    assert(!turn.backtracksRightTurn(right_fork,{{-2,4.5f,2},{-2,0,2},{-2,-5,2}},.85f));
+    const Eigen::Vector3f lip(19,-2,2);
+    const Eigen::Vector2f axis(0,-1);
+    assert(turn.exitsThroughEntry({{18,-4,2},{19,-1,2}},lip,axis,.85f));
+    assert(!turn.exitsThroughEntry({{18,-4,2},{12,-4,2},{12,0,2}},lip,axis,.85f));
+    assert(!turn.exitsThroughEntry({{18,-4,2},{19,-6,2}},lip,axis,.85f));
+    vector<Eigen::Vector3f> inside{{19,0,2},{19,-4,2}};
+    assert(!turn.continueShortRightTurn(inside));
+    turn.short_turn_until_=-1.;
+    assert(!turn.continueShortRightTurn(inside) && !turn.short_right_turn_);
+  }
+  assert(manager.retracesApproach({{0,0,2},{0,7,2},{0,-1,2}},1));
+  assert(!manager.retracesApproach({{0,0,2},{0,7,2},{4,7,2},{4,0,2}},1));
+  assert(!manager.retracesApproach({{0,0,2},{0,7,2},{1,7,2},{5,7,2}},1));
+
+  {
+    vector<Eigen::Vector3f> folded{{0,0,2},{4,0,2},{5,0,2},{4,0,2},{0,0,2}};
+    manager.limitFoldedPreview(folded,2);
+    assert(folded.size()==5 && std::abs(folded.back().x()-3.65f)<.001f);
+    vector<Eigen::Vector3f> near_turn{{4,0,2},{5,0,2},{0,0,2}};
+    manager.limitFoldedPreview(near_turn,1);
+    assert(near_turn.back().x()==0.f);
+    vector<Eigen::Vector3f> continuing{{0,0,2},{4,0,2},{8,0,2}};
+    manager.limitFoldedPreview(continuing,1);
+    assert(continuing.back().x()==8.f);
+  }
+
   manager.ed_->next_goal_node_=goal;manager.ed_->global_tour_={start->center_,Eigen::Vector3f(2,0,2)};
   manager.updateGoalNode();
   Eigen::Vector3i next;graph->getIndex(goal->center_,next);
@@ -138,9 +338,18 @@ int main(int argc,char** argv) {
   }
   // Optional LOCAL lookahead preserves global visiting order/goal identity.
   FastExplorationManager look;look.ed_=std::make_shared<ExplorationData>();
+  look.frontier_manager_ptr_=std::make_shared<FrontierManager>();
   look.planner_manager_=manager.planner_manager_;look.planner_manager_->local_data_.curr_vel_.setZero();
   look.ed_->next_goal_node_=std::make_shared<TopoNode>();look.ed_->next_goal_node_->center_=Eigen::Vector3f(-1,0,2);
   look.ed_->global_tour_={Eigen::Vector3f(-2,0,2),Eigen::Vector3f(-1,0,2),Eigen::Vector3f(1,0,2),Eigen::Vector3f(4,0,2)};
+  {
+    const auto tour=look.ed_->global_tour_;
+    vector<Eigen::Vector3f> approach{tour[0],tour[1]};
+    look.selected_observation_=std::make_shared<ClusterInfo>();
+    assert(!look.restorePublishedObservation(approach,{tour[0],tour[2]},{}));
+    assert(approach.back()==tour[1] && look.ed_->global_tour_==tour);
+    look.selected_observation_.reset();
+  }
   vector<Eigen::Vector3f> localGuide={look.ed_->global_tour_[0],look.ed_->global_tour_[1]};
   const auto savedTour=look.ed_->global_tour_;const auto savedGoal=look.ed_->next_goal_node_->center_;
   vector<Eigen::Vector3f> lagging={Eigen::Vector3f(-2,0,2),Eigen::Vector3f(-1,0,2),Eigen::Vector3f(1,0,2),Eigen::Vector3f(4,0,2)};
@@ -163,25 +372,32 @@ int main(int argc,char** argv) {
   for(size_t i=0;i<savedTour.size();++i)assert((look.ed_->global_tour_[i]-savedTour[i]).norm()<1.e-5);
   {
     look.ed_->global_tour_={Eigen::Vector3f(-2,0,2),Eigen::Vector3f(0,0,2),Eigen::Vector3f(0,3,2)};
+    vector<Eigen::Vector3f> flat_then_climb={{0,0,2},{2,0,2},{3,1,2},{3,3,6}};
+    look.limitPreviewSlope(flat_then_climb,1,.4f);
+    assert(flat_then_climb.size()==4 && (flat_then_climb[1]-Eigen::Vector3f(2,0,2)).norm()<.001f);
+    assert((flat_then_climb.back()-Eigen::Vector3f(3,1.2f,2.4f)).norm()<.001f);
+    vector<Eigen::Vector3f> continuous_rise={{0,0,2},{2,0,3},{2,2,4},{0,2,5}};
+    const auto rising=continuous_rise;
+    look.limitPreviewSlope(continuous_rise,1,.4f);
+    assert(continuous_rise==rising);
     const auto cornerTour=look.ed_->global_tour_;
     localGuide={cornerTour[0],cornerTour[1]};assert(!look.extendTourPath(localGuide));
     nh.native()->declare_parameter<double>("exploration.tour_lookahead_distance",0.);
     nh.native()->set_parameter(rclcpp::Parameter("exploration.tour_lookahead_distance",10.));
+    look.frontier_manager_ptr_->perimeter_target_=cornerTour[1];
+    assert(!look.extendTourPath(localGuide));
+    assert(localGuide.size()==2);
+    look.frontier_manager_ptr_->perimeter_target_.reset();
+    look.active_contour_approach_=localGuide;
+    assert(!look.extendTourPath(localGuide));
+    assert(localGuide.size()==2);
+    look.active_contour_approach_.clear();
     assert(look.extendTourPath(localGuide));assert((localGuide.back()-cornerTour[2]).norm()<1.e-5);
     for(size_t i=0;i<cornerTour.size();++i)assert((cornerTour[i]-look.ed_->global_tour_[i]).norm()<1.e-5);
     assert((look.ed_->next_goal_node_->center_-savedGoal).norm()<1.e-5);
     look.ed_->global_tour_={Eigen::Vector3f(-2,0,2),Eigen::Vector3f(0,0,2),Eigen::Vector3f(-3,0,2)};
     localGuide={look.ed_->global_tour_[0],look.ed_->global_tour_[1]};assert(look.extendTourPath(localGuide));
     assert((localGuide.back()-look.ed_->global_tour_[2]).norm()<1.e-5);
-    look.directional_frontiers_=true;
-    localGuide={look.ed_->global_tour_[0],look.ed_->global_tour_[1]};
-    assert(!look.extendTourPath(localGuide)); // A rear frontier is deferred, not visited.
-    assert(localGuide.size()==2 && look.ed_->global_tour_.size()==3);
-    look.ed_->global_tour_.push_back(Eigen::Vector3f(3,0,2));
-    assert(look.extendTourPath(localGuide));
-    assert((localGuide.back()-Eigen::Vector3f(3,0,2)).norm()<1.e-5);
-    assert((look.ed_->global_tour_[2]-Eigen::Vector3f(-3,0,2)).norm()<1.e-5);
-    look.directional_frontiers_=false;
     // The optional guide is arc-bounded even when a future native leg is long.
     look.ed_->global_tour_={Eigen::Vector3f(-2,0,2),Eigen::Vector3f(0,0,2),Eigen::Vector3f(0,8,2)};
     nh.native()->set_parameter(rclcpp::Parameter("exploration.tour_lookahead_distance",5.));
@@ -586,18 +802,6 @@ int main(int argc,char** argv) {
       assert(graph->parallel_bubble_astar_->collisionCheck_shortenPath(segment,.5));
     }
     std::cout<<"PASS: occupied cached geometry repaired via certified near-wall departure and native A*; goal unchanged\n";
-  }
-  {
-    auto clock=nh.native()->get_clock()->get_clock_handle();
-    assert(rcl_enable_ros_time_override(clock)==RCL_RET_OK);
-    assert(rcl_set_ros_time_override(clock,10000000000LL)==RCL_RET_OK);
-    manager.frontier_manager_ptr_=make_shared<FrontierManager>();
-    if(!nh.native()->has_parameter("exploration.frontier_empty_confirmation"))
-      nh.native()->declare_parameter<double>("exploration.frontier_empty_confirmation",3.);
-    nh.native()->set_parameter(rclcpp::Parameter("exploration.frontier_empty_confirmation",3.));
-    manager.frontier_empty_since_=-1.;assert(manager.frontierStatus()==FRONTIER_PENDING);
-    manager.frontier_empty_since_=epic_ros::Time::now().toSec()-3.1;
-    assert(manager.frontierStatus()==NO_FRONTIER);
   }
   rclcpp::shutdown();
 }

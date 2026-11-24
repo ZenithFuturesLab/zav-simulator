@@ -1,5 +1,6 @@
 """EPIC exploration and trajectory server connected to the ZAV LIO/PX4 pipeline."""
 import os
+import math
 import shutil
 import tempfile
 import numpy as np
@@ -16,6 +17,20 @@ from ament_index_python.packages import get_package_share_directory
 
 def setup(context):
     config = LaunchConfiguration('config').perform(context)
+    scene_config = LaunchConfiguration('scene_config').perform(context)
+    ceiling = LaunchConfiguration('survey_max_z').perform(context)
+    limits = []
+    if ceiling:
+        z = float(ceiling)
+        if not math.isfinite(z):
+            raise ValueError('The survey ceiling must be a finite world altitude in metres')
+        limits.append({'flight_height.max_z': z, 'FrontierManager.target_max_z': z})
+    flight_ceiling = LaunchConfiguration('survey_flight_max_z').perform(context)
+    if flight_ceiling:
+        flight_z = float(flight_ceiling)
+        if not math.isfinite(flight_z) or (ceiling and flight_z > float(ceiling)):
+            raise ValueError('Flight ceiling must be finite and within the survey volume')
+        limits.append({'flight_height.max_z': flight_z})
     external = LaunchConfiguration('external_local_planner').perform(context).lower() == 'true'
     calibration_dir = os.environ.get('PEGASUS_FASTLIVO_CONFIG_DIR',
         os.path.join(get_package_share_directory('fast_livo'), 'config'))
@@ -33,9 +48,17 @@ def setup(context):
 
     nodes = [
         Node(package='epic_ros2', executable='exploration_node', name='epic_exploration',
-            parameters=[config, {'exploration.tsp_dir': tsp, 'fsm.external_local_planner': external},
+            # Idle planning workers must yield CPU time to LIO and control.
+            additional_env={'OMP_WAIT_POLICY': 'PASSIVE'},
+            # Inherit the background priority in every planning/DDS worker,
+            # including threads created after startup. Local control stays at
+            # its original priority in the external-planner arrangement.
+            prefix='nice -n 10' if external else '',
+            parameters=[config, *([scene_config] if scene_config else []), *limits,
+                {'exploration.tsp_dir': tsp, 'fsm.external_local_planner': external},
                 *([{'odometry_topic': LaunchConfiguration('external_odometry_topic').perform(context),
                     'cloud_topic': LaunchConfiguration('external_cloud_topic').perform(context),
+                    'exploration.state_reference_imu_topic': LaunchConfiguration('external_reference_imu_topic').perform(context),
                     'lidar_perception.odom_twist_in_world': True}] if external else [])], remappings=remaps,
             output='screen'),
         Node(package='epic_ros2', executable='traj_server', name='epic_traj_server',
@@ -71,6 +94,12 @@ def generate_launch_description():
         DeclareLaunchArgument('external_local_planner', default_value='false'),
         DeclareLaunchArgument('external_odometry_topic', default_value='/zav/super/odom'),
         DeclareLaunchArgument('external_cloud_topic', default_value='/zav/super/cloud_world'),
+        DeclareLaunchArgument('external_reference_imu_topic', default_value='/drone0/mid360/imu',
+            description='Raw timestamp reference independent of the body-odometry adapter; empty uses ROS clock'),
+        DeclareLaunchArgument('survey_flight_max_z', default_value='', description='Optional ceiling for viewpoints and connectors within the survey volume'),
+        DeclareLaunchArgument('survey_max_z', default_value='', description='Optional upper altitude of the survey volume in metres'),
+        DeclareLaunchArgument('scene_config', default_value='',
+            description='Optional ROS parameter file for scene-specific exploration bounds'),
         DeclareLaunchArgument('config', default_value=os.path.join(
             get_package_share_directory('epic_ros2'), 'config', 'isaac_warehouse.yaml')),
         OpaqueFunction(function=setup)])

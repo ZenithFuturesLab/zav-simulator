@@ -43,28 +43,103 @@ public:
   epic_ros::Timer frontier_timer_;
   FrontierManager::Ptr frontier_manager_ptr_;
   double goal_yaw;
+  vector<Eigen::Vector3f> active_contour_approach_;
+  vector<Eigen::Vector3f> published_first_route_,published_preview_;
+  vector<Eigen::Vector3f> active_contour_preview_;
+  ClusterInfo::Ptr selected_observation_,published_wall_observation_;
+  vector<ClusterInfo::Ptr> deferred_observations_;
+  // RViz data from the same solve used for the handoff.
+  bool capture_tour_paths_ = false;
+  const char *selection_reason_ = "Reachable observation";
+  vector<vector<Eigen::Vector3f>> future_tour_paths_;
+  std::optional<Eigen::Vector3f> restored_observation_;
+  double last_observation_search_=-1.e9;
+  void rememberDisplacedGoal(const Eigen::Vector3f &body,const vector<Eigen::Vector3f> &replacement);
+  void rememberObservation(const ClusterInfo::Ptr &observation);
+  void appendDeferredObservation(const Eigen::Vector3f &body,vector<TopoNode::Ptr> &viewpoints);
+  std::optional<std::pair<Eigen::Vector3f,Eigen::Vector3f>> published_first_leg_;
+  double departure_deadline_=-1.;
+  // Door crossed on the issued path to a measured wall. A subsequent TSP
+  // solve may update entered_turn_ before its replacement is published.
+  std::optional<std::pair<Eigen::Vector3f,Eigen::Vector2f>> issued_wall_entry_;
+  double issued_wall_entry_until_=-1.;
+  std::optional<Eigen::Vector3f> active_sweep_entry_,published_sweep_entry_;
+  static bool enteredSweep(const Eigen::Vector3f &body,const Eigen::Vector3f &entry,
+                           const Eigen::Vector3f &goal,float tolerance);
+  double endpoint_height_margin_ = -1.;
+  bool reanchorContour(vector<Eigen::Vector3f> &path,const Eigen::Vector3f &body,bool multi_leg=false);
+  static size_t heightBoundedPrefix(const vector<Eigen::Vector3f> &path,double margin);
+  bool advanceOpeningGuide(const Eigen::Vector3f &body);
+  bool guideSupported(const vector<Eigen::Vector3f> &path) const;
+  static bool passedDuringPlanning(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,
+                                   const vector<Eigen::Vector3f> &guide,float radius);
+  vector<Eigen::Vector3f> publishedGuide() const;
+  static bool reversesInCruise(const vector<Eigen::Vector3f> &route,const Eigen::Vector3f &goal,
+      const Eigen::Vector2f &velocity,float radius,float lookahead=0.f);
+  static bool shortOnForwardPass(const Eigen::Vector3f &body,const Eigen::Vector3f &goal,
+      const vector<Eigen::Vector3f> &preview,const Eigen::Vector3f &forward_goal,float radius,float horizon);
+  static vector<Eigen::Vector3f> shortenedForwardPrefix(const vector<Eigen::Vector3f> &issued,
+      const vector<Eigen::Vector3f> &proposal,const Eigen::Vector3f &goal,
+      const Eigen::Vector2f &heading,float radius,float braking_horizon,bool retraces_flown_strip=false);
+  static vector<Eigen::Vector3f> forwardThroughGoal(const vector<Eigen::Vector3f> &previous,
+      const vector<Eigen::Vector3f> &guide,size_t first_goal,const Eigen::Vector3f &velocity,float radius,float accel);
+  static bool retractsStraightGoal(const vector<Eigen::Vector3f> &committed,
+      const vector<Eigen::Vector3f> &proposed,const vector<Eigen::Vector3f> &preview,float radius);
+  bool finishUnflownPass(vector<Eigen::Vector3f> &path,size_t first_goal,const Eigen::Vector3f &velocity);
+  bool restorePublishedObservation(vector<Eigen::Vector3f> &approach,vector<Eigen::Vector3f> committed,
+                                   vector<Eigen::Vector3f> preview);
+  void preservePublishedCorner(vector<Eigen::Vector3f> &approach,const Eigen::Vector3f &velocity);
+  static bool skipsWallCorner(const vector<Eigen::Vector3f> &preview,const vector<Eigen::Vector3f> &approach,float radius);
+  static bool retracesEntryToWall(const vector<Eigen::Vector3f> &approach,const Eigen::Vector3f &velocity,
+                                  const Eigen::Vector3f &entry,const Eigen::Vector2f &inward,float radius);
+  void rememberShortRightTurn(const vector<Eigen::Vector3f> &approach,const vector<Eigen::Vector3f> &preview);
+  static bool reachesInteriorObservation(const vector<Eigen::Vector3f> &route,const Eigen::Vector3f &goal,
+      const Eigen::Vector3f &lip,const Eigen::Vector2f &inward,float radius);
+  bool selectedWallInsideTurn(const vector<Eigen::Vector3f> &route,const Eigen::Vector3f &lip,
+      const Eigen::Vector2f &inward,float radius) const;
+  bool continueShortRightTurn(vector<Eigen::Vector3f> &route);
+  std::optional<std::pair<Eigen::Vector3f,Eigen::Vector2f>> short_right_turn_;
+  double short_turn_until_=-1.;
+  std::optional<std::pair<Eigen::Vector3f,Eigen::Vector2f>> entered_turn_;
+  static bool passesBesideEntry(const vector<Eigen::Vector3f> &route,const Eigen::Vector3f &lip,
+                                const Eigen::Vector2f &inward,float radius);
+  static bool exitsThroughEntry(const vector<Eigen::Vector3f> &route,const Eigen::Vector3f &entry,
+                               const Eigen::Vector2f &inward,float radius);
+  static bool backtracksRightTurn(const vector<Eigen::Vector3f> &issued,const vector<Eigen::Vector3f> &replacement,float radius);
+  bool retractsMeasuredEntry(const vector<Eigen::Vector3f> &replacement) const;
+  bool extendMeasuredTurn(vector<Eigen::Vector3f> &path,size_t first_goal,const Eigen::Vector3f &velocity);
+  void limitFoldedPreview(vector<Eigen::Vector3f> &path,size_t first_goal) const;
+  bool retracesApproach(const vector<Eigen::Vector3f> &path,size_t first_goal) const;
+  bool repairGuide(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,vector<Eigen::Vector3f> &path);
   bool use_velocity_direction_cost_ = false;
-  bool directional_frontiers_ = false;
-  bool external_reselect_from_current_ = false;
-  Eigen::Vector3f preferred_heading_ = Eigen::Vector3f::UnitY();
   shared_ptr<FastPlannerManager> planner_manager_;
   // ViewpointForest::Ptr vps_forest_;
-  double getPathCost(TopoNode::Ptr &n1, Eigen::Vector3d v1, float &yaw1, TopoNode::Ptr &n2, float &yaw2, double *initial_turn_cost = nullptr);
+  double getPathCost(TopoNode::Ptr &n1, Eigen::Vector3d v1, float &yaw1, TopoNode::Ptr &n2, float &yaw2,
+                     double *initial_turn_cost = nullptr, vector<Eigen::Vector3f> *tour_path = nullptr);
   static double initialDirectionCost(const vector<Eigen::Vector3f> &path,
                                      const Eigen::Vector3d &velocity,
                                      double weight, double yaw_rate);
   double getPathCostWithoutTopo(TopoNode::Ptr &n1, Eigen::Vector3d v1, float &yaw1, TopoNode::Ptr &n2, float &yaw2);
   void initialize(epic_ros::NodeHandle &nh, FrontierManager::Ptr frt_manager,
                   FastPlannerManager::Ptr planner_manager);
-  int frontierStatus();
+  int frontierStatus(const Eigen::Vector3f &body,bool exhausted_recovery=false);
+  int returnOrWait(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity);
+  bool return_to_start_=false, returning_=false;
+  size_t next_repair_candidate_=0;
   double frontier_empty_since_ = -1.;
+  double first_recovery_since_ = -1.;
+  vector<Eigen::Vector3f> exhausted_recovery_route_;
+  vector<Eigen::Vector3f> opening_guide_;
+  static bool bypassesRightTurn(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity,
+      const Eigen::Vector3f &goal,const vector<Eigen::Vector3f> &proposed,float radius);
   int planGlobalPath(const Vector3d &pos, const Vector3d &vel);
   void solveLHK(Eigen::MatrixXd &cost_mat, vector<int> &indices);
 
   void surfaceFrtCalllback(const epic_ros::TimerEvent &e);
   void goalCallback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr &msg);
   void updateGoalNode(const TopoNode::Ptr &validated_source = nullptr);
-  bool extendTourPath(vector<Eigen::Vector3f> &path);
+  static void limitPreviewSlope(vector<Eigen::Vector3f> &guide,size_t first_goal,float tolerance);
+  bool extendTourPath(vector<Eigen::Vector3f> &path, bool preserve_first_vertex=false);
   bool reanchorLocalPath(vector<Eigen::Vector3f> &path, const Eigen::Vector3f &boundary,
                         const Eigen::Vector3f &velocity);
 };

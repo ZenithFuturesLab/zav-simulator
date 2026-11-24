@@ -1,4 +1,3 @@
-#include <epic_planner/frontier_route.h>
 /***
  * @Author: ning-zelin && zl.ning@qq.com
  * @Date: 2024-02-29 16:54:46
@@ -53,7 +52,14 @@ void FastExplorationFSM::FSMCallback(const epic_ros::TimerEvent &e) {
   case PLAN_TRAJ: {
     if (!fd_->trigger_)
       return;
-    if (planner_manager_->topo_graph_->odom_node_->neighbors_.empty()) {
+    const bool selected_surface=external_local_planner_ && expl_manager_->frontier_manager_ptr_->surface_continuity_ &&
+        expl_manager_->ed_->global_tour_.size()>=2;
+    if (!selected_surface && planner_manager_->topo_graph_->odom_node_->neighbors_.empty() &&
+        (!external_local_planner_ || expl_manager_->active_contour_approach_.empty())) {
+      if (external_local_planner_) {
+        transitState(WAIT_MAP, "waiting for initial topology");
+        break;
+      }
       stopTraj();
       break;
     }
@@ -148,7 +154,24 @@ void FastExplorationFSM::FSMCallback(const epic_ros::TimerEvent &e) {
   }
 
   case EXEC_TRAJ: {
-    if (external_local_planner_) break;
+    if (external_local_planner_) {
+      const double now=epic_ros::Time::now().toSec();
+      if (now-last_external_plan_<.5*external_replan_period_ ||
+          !expl_manager_->ed_->next_goal_node_) break;
+      const Eigen::Vector3f to_view=expl_manager_->ed_->next_goal_node_->center_-fd_->odom_pos_;
+      const float speed=fd_->odom_vel_.norm();
+      const double acceleration=planner_manager_->gcopter_config_->maxAccMag;
+      if (acceleration<=0. || speed<.35f || to_view.dot(fd_->odom_vel_)<=0.f) break;
+      const double preview_speed=std::max(double(speed),planner_manager_->gcopter_config_->maxVelMag);
+      const double jerk=planner_manager_->gcopter_config_->maxJerkMag;
+      const double response=external_replan_period_+(jerk>0. ? acceleration/(2.*jerk) : 0.);
+      if (to_view.norm()<preview_speed*response+preview_speed*preview_speed/(2.*acceleration)) {
+        // A newly sampled observation can change the branch of the tour.
+        // Refresh the ATSP before changing #1, while SUPER is still moving.
+        updateTopoAndGlobalPath();
+      }
+      break;
+    }
     // collision check
     double collision_time;
     bool safe = planner_manager_->checkTrajCollision(collision_time);
@@ -189,8 +212,28 @@ void FastExplorationFSM::init(epic_ros::NodeHandle &nh,
   fd_.reset(new FSMData);
 
   nh.param("fsm/external_local_planner", external_local_planner_, false);
-  if (external_local_planner_)
+  if (external_local_planner_) {
     external_path_pub_ = nh.advertise<nav_msgs::msg::Path>("/mission/exploration_path", 1, true);
+    decision_pub_=nh.native()->create_publisher<MarkerArray>("/epic/decision",rclcpp::QoS(1).transient_local());
+    external_return_pub_ = nh.advertise<geometry_msgs::msg::PoseStamped>("/mission/exploration_returned", 1);
+    external_complete_pub_ = nh.advertise<std_msgs::msg::Bool>("/mission/exploration_complete", 1, true);
+    st10_manual_sub_ = nh.native()->create_subscription<std_msgs::msg::Bool>(
+        "/mission/st10_manual", 1, [this](const std_msgs::msg::Bool &msg) {
+          if (!msg.data || state_ == INIT || state_ == LAND) return;
+          fd_->trigger_ = false;
+          external_exploration_complete_ = false;
+          external_complete_pub_.publish(std_msgs::msg::Bool{});
+          transitState(WAIT_TRIGGER, "ST10 manual control");
+        });
+    return_home_sub_ = nh.native()->create_subscription<std_msgs::msg::Bool>(
+        "/mission/return_home_active", rclcpp::QoS(1).reliable().transient_local(),
+        [this](const std_msgs::msg::Bool &msg) {
+          if (!msg.data || state_ == LAND) return;
+          fd_->trigger_ = false;
+          external_exploration_complete_ = true;
+          transitState(FINISH, "SUPER return home");
+        });
+  }
   /*  Fsm param  */
   nh.param("fsm/thresh_replan", fp_->replan_thresh_, -1.0);
   nh.param("fsm/replan_time", fp_->replan_time_, -1.0);
@@ -224,6 +267,7 @@ void FastExplorationFSM::init(epic_ros::NodeHandle &nh,
   double global_period;nh.param("global_planning/replan_period",global_period,.2);
   if(!std::isfinite(global_period) || global_period<.1 || global_period>5.)
     throw std::invalid_argument("Invalid global planning period");
+  external_replan_period_=global_period;
   global_path_update_timer_ = nh.createTimer(
       epic_ros::Duration(global_period), &FastExplorationFSM::globalPathUpdateCallback, this);
   trigger_sub_ = nh.subscribe("/waypoint_generator/waypoints", 1,
@@ -268,8 +312,24 @@ void FastExplorationFSM::init(epic_ros::NodeHandle &nh,
     fd_->odom_pos_.setZero();
     fd_->odom_vel_.setZero();
     fd_->odom_yaw_ = 0.f;
-    external_odom_sub_ = nh.subscribe(odom_topic, 200,
-        &FastExplorationFSM::odometryCallback, this);
+    external_odom_sub_ = nh.native()->create_subscription<nav_msgs::msg::Odometry>(
+        odom_topic, rclcpp::QoS(1).best_effort(),
+        [this](const nav_msgs::msg::Odometry &msg) { odometryCallback(msg); });
+    external_clock_sub_=nh.native()->create_subscription<rosgraph_msgs::msg::Clock>(
+        "/clock",rclcpp::QoS(1).best_effort(),[this](const rosgraph_msgs::msg::Clock &msg) {
+          external_clock_stamp_=double(msg.clock.sec)+1.e-9*msg.clock.nanosec;
+        });
+    nh.param("exploration/state_max_age",external_input_freshness_.max_age,.10);
+    nh.param("exploration/startup_freshness_confirmation",external_input_freshness_.confirmation,.5);
+    nh.param("exploration/control_handoff_quiet_time",external_handoff_quiet_duration_,3.);
+    if(!std::isfinite(external_handoff_quiet_duration_) || external_handoff_quiet_duration_<0.)
+      throw std::invalid_argument("exploration.control_handoff_quiet_time must be nonnegative");
+    std::string reference_imu;
+    nh.param("exploration/state_reference_imu_topic",reference_imu,std::string{});
+    if(!reference_imu.empty())external_reference_imu_sub_=nh.native()->create_subscription<sensor_msgs::msg::Imu>(
+        reference_imu,rclcpp::QoS(1).best_effort(),[this](const sensor_msgs::msg::Imu &msg) {
+          external_reference_imu_stamp_=double(msg.header.stamp.sec)+1.e-9*msg.header.stamp.nanosec;
+        });
   }
 }
 
@@ -280,6 +340,8 @@ void FastExplorationFSM::battaryCallback(
 }
 
 void FastExplorationFSM::updateTopoAndGlobalPath() {
+  if (external_local_planner_ && !externalInputsReady(!external_motion_started_)) return;
+  if (external_exploration_complete_) return;
   if (!(state_ == WAIT_TRIGGER || state_ == PLAN_TRAJ || state_ == EXEC_TRAJ ||
         state_ == FINISH || state_ == WAIT_MAP)) {
     global_path_update_timer_.stop();
@@ -292,6 +354,7 @@ void FastExplorationFSM::updateTopoAndGlobalPath() {
   cnt++;
 
   global_path_update_timer_.stop();
+  last_external_plan_=epic_ros::Time::now().toSec();
   epic_ros::Time t2 = epic_ros::Time::now();
   planner_manager_->topo_graph_->getRegionsToUpdate();
   // cout << "getRegionsToUpdate time cost:" << (epic_ros::Time::now() - t2).toSec()
@@ -301,8 +364,13 @@ void FastExplorationFSM::updateTopoAndGlobalPath() {
   epic_ros::Time t3 = epic_ros::Time::now();
   planner_manager_->topo_graph_->updateOdomNode(fd_->odom_pos_, fd_->odom_yaw_);
   planner_manager_->topo_graph_->updateHistoricalOdoms();
+  if (external_local_planner_ && state_==WAIT_TRIGGER && !fd_->trigger_) {
+    global_path_update_timer_.start();
+    return;
+  }
 
-  if (planner_manager_->topo_graph_->odom_node_->neighbors_.empty()) {
+  if (planner_manager_->topo_graph_->odom_node_->neighbors_.empty() &&
+      !(external_local_planner_ && expl_manager_->frontier_manager_ptr_->surface_continuity_)) {
     double time;
     if (external_local_planner_) {
       global_path_update_timer_.start();
@@ -322,35 +390,6 @@ void FastExplorationFSM::updateTopoAndGlobalPath() {
     }
     global_path_update_timer_.start();
     return;
-  }
-  if(external_local_planner_ && expl_manager_->directional_frontiers_ && state_==EXEC_TRAJ) {
-    auto suffix=remainingFrontierRoute(expl_manager_->ed_->path_next_goal_,fd_->odom_pos_,
-        external_previous_position_,external_route_progress_);
-    external_previous_position_=fd_->odom_pos_;
-    double remaining=0.;for(size_t i=1;i<suffix.size();++i)remaining+=(suffix[i]-suffix[i-1]).norm();
-    const double now=epic_ros::Time::now().toSec();
-    if(external_progress_watch_stamp_<0. || external_route_progress_>external_progress_watch_+.3) {
-      external_progress_watch_=external_route_progress_;
-      external_progress_watch_stamp_=now;
-    }
-    const bool progressing=now-external_progress_watch_stamp_<3.;
-    if(remaining>12. && progressing) {
-      // Preserve an ongoing corridor pass, unless the next12m becomes unsafe.
-      const auto prefix=FastPlannerManager::boundedGuidePrefix(suffix,12.);
-      bool clear=prefix.size()>1;
-      for(size_t i=1;clear && i<prefix.size();++i) {
-        FrontierRoute segment{prefix[i-1].cast<float>(),prefix[i].cast<float>()};
-        clear=planner_manager_->topo_graph_->parallel_bubble_astar_->collisionCheck_shortenPath(segment);
-      }
-      if(clear){global_path_update_timer_.start();return;}
-    }
-    if(remaining>.5 && !progressing) {
-      const auto goal=expl_manager_->ed_->next_goal_node_->center_;
-      expl_manager_->frontier_manager_ptr_->deferViewpoint(goal,15.);
-      expl_manager_->external_reselect_from_current_=true;
-      ROS_WARN("External route stalled %.2fs; defer viewpoint (%.2f, %.2f, %.2f) for 15s and reselect from current pose",
-          now-external_progress_watch_stamp_,goal.x(),goal.y(),goal.z());
-    }
   }
   if (!external_local_planner_ && planner_manager_->local_data_.traj_id_ > 1) {
 
@@ -379,6 +418,7 @@ void FastExplorationFSM::updateTopoAndGlobalPath() {
            (t3 - t2).toSec() * 1000, (t4 - t3).toSec() * 1000);
   Eigen::Vector3d vel = fd_->odom_vel_.cast<double>();
   Eigen::Vector3d odom = fd_->odom_pos_.cast<double>();
+  expl_manager_->capture_tour_paths_=decision_pub_ && decision_pub_->get_subscription_count()>0;
   int res = expl_manager_->planGlobalPath(odom, vel);
   epic_ros::Time t5 = epic_ros::Time::now();
 
@@ -396,8 +436,18 @@ void FastExplorationFSM::updateTopoAndGlobalPath() {
 
   cout << "total time cost: " << time_cost_now << "ms" << endl;
   if ((res == NO_FRONTIER || res == FRONTIER_PENDING) && state_ != WAIT_TRIGGER) {
+    if (res==NO_FRONTIER || !external_local_planner_)
+      planner_manager_->graph_visualizer_->vizTour({},VizColor::RED,"global");
+    if (res==NO_FRONTIER && external_motion_started_ && fd_->trigger_ && !expl_manager_->return_to_start_) {
+      external_exploration_complete_=true;
+      std_msgs::msg::Bool done;
+      done.data=true;
+      external_complete_pub_.publish(done);
+    }
     transitState(res == FRONTIER_PENDING ? WAIT_MAP : FINISH, "planGlobalPath: frontier status");
   } else if (res == SUCCEED && state_ != WAIT_TRIGGER) {
+    if (!external_local_planner_)
+      planner_manager_->graph_visualizer_->vizTour(expl_manager_->ed_->global_tour_,VizColor::RED,"global");
     transitState(PLAN_TRAJ, "planGlobalPath: succeed");
   }
 
