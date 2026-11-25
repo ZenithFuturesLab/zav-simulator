@@ -146,7 +146,7 @@ public:
   static bool bypassesRightTurn(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity,
       const Eigen::Vector3f &goal,const vector<Eigen::Vector3f> &proposed,float radius);
   int planGlobalPath(const Vector3d &pos, const Vector3d &vel);
-  void solveLHK(Eigen::MatrixXd &cost_mat, vector<int> &indices);
+  bool solveLkh(const Eigen::MatrixXd &cost_mat, vector<int> &indices);
 
   void surfaceFrtCalllback(const epic_ros::TimerEvent &e);
   void goalCallback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr &msg);

@@ -7,17 +7,20 @@
  * @Copyright (c) 2024 by ning-zelin, All Rights Reserved.
  */
 
+#include <epic_ros2/lkh_tour.hpp>
 #include <epic_ros2/planning_workers.hpp>
 #include <boost/lexical_cast.hpp>
 #include <epic_planner/expl_data.h>
 #include <epic_planner/fast_exploration_manager.h>
+#include <cerrno>
+#include <csignal>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <lkh_tsp_solver/lkh_interface.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <plan_manage/planner_manager.h>
-#include <sys/types.h>
+#include <spawn.h>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -25,8 +28,36 @@
 using namespace std;
 using namespace Eigen;
 
+extern char **environ;
+
 namespace fast_planner {
 namespace {
+bool runLkhWorker(const std::filesystem::path &parameters) {
+  std::error_code error;
+  const auto executable = std::filesystem::read_symlink("/proc/self/exe", error);
+  if (error) return false;
+  auto worker = (executable.parent_path() / "epic_lkh_worker").string();
+  auto input = parameters.string();
+  char *argv[] = {worker.data(), input.data(), nullptr};
+  pid_t pid;
+  // LKH terminates its process on some input and I/O errors.
+  if (posix_spawn(&pid, worker.c_str(), nullptr, nullptr, argv, environ) != 0) return false;
+
+  using namespace std::chrono_literals;
+  const auto deadline = std::chrono::steady_clock::now() + 2s;
+  int status = 0;
+  for (;;) {
+    const auto result = waitpid(pid, &status, WNOHANG);
+    if (result == pid) return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    if (result < 0 && errno != EINTR) return false;
+    if (std::chrono::steady_clock::now() >= deadline) break;
+    std::this_thread::sleep_for(1ms);
+  }
+  kill(pid, SIGKILL);
+  while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+  return false;
+}
+
 float distanceToPolyline(const Vector3f &point,const vector<Vector3f> &path) {
   float best=std::numeric_limits<float>::infinity();
   for (size_t i=1;i<path.size();++i) {
@@ -139,12 +170,6 @@ void FastExplorationManager::initialize(
   if(use_velocity_direction_cost_)ROS_INFO("Global first-leg direction cost enabled: w=%.2f, native LKH retained",ep_->w_vdir_);
   nh.getParam("global_planning/w_yawdir", ep_->w_yawdir_);
   Eigen::Vector3d origin, size;
-  ofstream par_file(ep_->tsp_dir_ + "/single.par");
-  par_file << "PROBLEM_FILE = " << ep_->tsp_dir_ << "/single.tsp\n";
-  par_file << "GAIN23 = NO\n";
-  par_file << "MOVE_TYPE = 2\n";
-  par_file << "OUTPUT_TOUR_FILE =" << ep_->tsp_dir_ << "/single.txt\n";
-  par_file << "RUNS = 10\n";
   epic_ros::Duration(1.0).sleep();
 }
 
@@ -189,7 +214,7 @@ size_t FastExplorationManager::heightBoundedPrefix(const vector<Eigen::Vector3f>
 }
 
 bool FastExplorationManager::guideSupported(const vector<Eigen::Vector3f> &path) const {
-  if (path.size()<2) return false;
+  if (!planner_manager_->lidar_map_interface_->IsPathInBox(path)) return false;
   if (!frontier_manager_ptr_->surface_continuity_) return true;
   return std::all_of(path.begin(),path.end(),[&](const auto &p){return frontier_manager_ptr_->withinFlightHeight(p);}) &&
       heightBoundedPrefix(path,endpoint_height_margin_)==path.size() && frontier_manager_ptr_->observedGuide(path);
@@ -211,15 +236,7 @@ bool FastExplorationManager::planReturnLeg(const Vector3f &start, Vector3f &home
   if (!valid_home()) return false;
 
   const auto certified = [&](const vector<Vector3f> &candidate) {
-    if (!front.certifyFlightGuide(candidate)) return false;
-    for (size_t i = 1; i < candidate.size(); ++i) {
-      const Vector3f edge = candidate[i] - candidate[i - 1];
-      const int parts = std::max(1, int(std::ceil(edge.norm() / step)));
-      for (int j = 0; j <= parts; ++j) {
-        if (!map.IsInBox((candidate[i - 1] + edge * (float(j) / parts)).eval())) return false;
-      }
-    }
-    return true;
+    return map.IsPathInBox(candidate) && front.certifyFlightGuide(candidate);
   };
   route = {start, home};
   if (!certified(route) &&
@@ -1973,9 +1990,10 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
       if (status==SUCCEED || status==NO_FRONTIER) return status;
     }
   }
-  if (frontier_manager_ptr_->surface_continuity_) {
-    const float clearance=planner_manager_->topo_graph_->bubble_min_radius_+.02f;
-    viewpoints.erase(std::remove_if(viewpoints.begin(),viewpoints.end(),[&](const auto &node) {
+  const float clearance=planner_manager_->topo_graph_->bubble_min_radius_+.02f;
+  viewpoints.erase(std::remove_if(viewpoints.begin(),viewpoints.end(),[&](const auto &node) {
+      if (!node->center_.allFinite() || !planner_manager_->lidar_map_interface_->IsInBox(node->center_)) return true;
+      if (!frontier_manager_ptr_->surface_continuity_) return false;
       const auto obs=frontier_manager_ptr_->observations_.find(node.get());
       if (frontier_manager_ptr_->revisitsLowerPass(current_body_position,{node->center_}) ||
           (obs!=frontier_manager_ptr_->observations_.end() &&
@@ -1990,8 +2008,7 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
       // second traversal of the volume to get back to it.
       if (!measured && frontier_manager_ptr_->surveyedFromAround(current_body_position,node->center_)) return true;
       return recovering && !(measured && obs->second->exterior_pass_) && frontier_manager_ptr_->nearFlightPath(node->center_,1.25f*clearance,4.f*clearance);
-    }),viewpoints.end());
-  }
+  }),viewpoints.end());
   if (viewpoints.empty()) {
     if (exterior_pending) return FRONTIER_PENDING;
     ed_->global_tour_.clear();
@@ -2707,7 +2724,13 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   epic_ros::Time start_tsp = epic_ros::Time::now();
   cout << "calculate tsp cost matrix cost " << (start_tsp - t2).toSec() * 1000
        << "ms" << endl;
-  solveLHK(mat, indices);
+  if (!solveLkh(mat, indices)) {
+    ROS_WARN_THROTTLE(2., "LKH did not produce a valid tour; waiting for a new exploration plan");
+    ed_->global_tour_.clear();
+    ed_->global_tour_yaws_.clear();
+    planner_manager_->topo_graph_->removeNodes(viewpoints);
+    return FRONTIER_PENDING;
+  }
   epic_ros::Time end_tsp = epic_ros::Time::now();
   cout << "lkh solver cost: " << (end_tsp - start_tsp).toSec() * 1000 << "ms"
        << endl;
@@ -2758,67 +2781,45 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   return SUCCEED;
 }
 
-void FastExplorationManager::solveLHK(Eigen::MatrixXd &cost_mat,
-                                      vector<int> &indices) {
-  // Solve linear homogeneous kernel
-  // Write params and cost matrix to problem file
-  int dimension = cost_mat.rows();
-  if (dimension < 3)
-    return;
-  ofstream prob_file(ep_->tsp_dir_ + "/single.tsp");
-  // Problem specification part, follow the format of TSPLIB
+bool FastExplorationManager::solveLkh(const Eigen::MatrixXd &cost_mat, vector<int> &indices) {
+  const int dimension = cost_mat.rows();
+  if (dimension < 3 || cost_mat.cols() != dimension || !cost_mat.allFinite()) return false;
+  constexpr int scale = 100;
+  // LKH's explicit ATSP matrix uses integer weights and multiplies by PRECISION.
+  constexpr int precision = 100;
+  constexpr int max_weight = std::numeric_limits<int>::max() / 2 / precision;
+  if (cost_mat.cwiseAbs().maxCoeff() * scale > max_weight) return false;
 
-  string prob_spec =
-      "NAME : single\nTYPE : ATSP\nDIMENSION : " + to_string(dimension) +
-      "\nEDGE_WEIGHT_TYPE : "
-      "EXPLICIT\nEDGE_WEIGHT_FORMAT : FULL_MATRIX\nEDGE_WEIGHT_SECTION\n";
+  const std::filesystem::path directory(ep_->tsp_dir_);
+  const auto problem = directory / "single.tsp";
+  const auto parameters = directory / "single.par";
+  const auto result = directory / "single.txt";
+  std::error_code error;
+  std::filesystem::remove(result, error);
+  if (error) return false;
 
-  // string prob_spec = "NAME : single\nTYPE : TSP\nDIMENSION : " +
-  // to_string(dimension) +
-  //     "\nEDGE_WEIGHT_TYPE : "
-  //     "EXPLICIT\nEDGE_WEIGHT_FORMAT : LOWER_ROW\nEDGE_WEIGHT_SECTION\n";
+  ofstream par_file(parameters);
+  par_file << "PROBLEM_FILE = " << problem.string() << "\n"
+           << "GAIN23 = NO\nMOVE_TYPE = 2\n"
+           << "PRECISION = " << precision << "\n"
+           << "OUTPUT_TOUR_FILE = " << result.string() << "\nRUNS = 10\n";
+  par_file.close();
+  if (!par_file) return false;
 
-  prob_file << prob_spec;
-  // prob_file << "TYPE : TSP\n";
-  // prob_file << "EDGE_WEIGHT_FORMAT : LOWER_ROW\n";
-  // Problem data part
-  const int scale = 100;
-
-  // Use Asymmetric TSP
+  ofstream prob_file(problem);
+  prob_file << "NAME : single\nTYPE : ATSP\nDIMENSION : " << dimension
+            << "\nEDGE_WEIGHT_TYPE : EXPLICIT\nEDGE_WEIGHT_FORMAT : FULL_MATRIX\nEDGE_WEIGHT_SECTION\n";
   for (int i = 0; i < dimension; ++i) {
     for (int j = 0; j < dimension; ++j) {
-      int int_cost = cost_mat(i, j) * scale;
-      prob_file << int_cost << " ";
+      prob_file << static_cast<int>(cost_mat(i, j) * scale) << ' ';
     }
-    prob_file << "\n";
+    prob_file << '\n';
   }
-
   prob_file << "EOF";
   prob_file.close();
-
-  // Call LKH TSP solver
-  solveTSPLKH((ep_->tsp_dir_ + "/single.par").c_str());
-
-  // Read optimal tour from the tour section of result file
-  ifstream res_file(ep_->tsp_dir_ + "/single.txt");
-  string res;
-  while (getline(res_file, res)) {
-    // Go to tour section
-    if (res.compare("TOUR_SECTION") == 0)
-      break;
-  }
-
-  // Read path for ATSP formulation
-  while (getline(res_file, res)) {
-
-    // Read indices of frontiers in optimal tour
-    int id = stoi(res);
-    if (id == -1)
-      break;
-    indices.push_back(id - 1); // Idx of solver-2 == Idx of frontier
-  }
-
-  res_file.close();
+  if (!prob_file || !runLkhWorker(parameters)) return false;
+  ifstream res_file(result);
+  return epic_ros::readLkhTour(res_file, dimension, indices);
 }
 
 bool FastExplorationManager::reanchorLocalPath(vector<Eigen::Vector3f> &path,

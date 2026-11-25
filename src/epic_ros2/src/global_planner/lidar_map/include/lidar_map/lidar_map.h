@@ -52,6 +52,7 @@ public:
   void init(epic_ros::NodeHandle &nh);
   bool IsInBox(const Eigen::Vector3f &pos);
   bool IsInBox(const PointType &pos);
+  bool IsPathInBox(const vector<Eigen::Vector3f> &path) const;
   bool IsInMap(const Eigen::Vector3f &pos);
   bool IsInMap(const PointType &pos);
 

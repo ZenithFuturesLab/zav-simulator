@@ -32,11 +32,13 @@ def setup(context):
             raise ValueError('Flight ceiling must be finite and within the survey volume')
         limits.append({'flight_height.max_z': flight_z})
     external = LaunchConfiguration('external_local_planner').perform(context).lower() == 'true'
-    # External exploration profiles may contain only scene overrides.
-    default_config = os.path.join(get_package_share_directory('epic_ros2'), 'config',
-                                  'isaac_building_explore.yaml')
-    planner_configs = [default_config] if external and os.path.realpath(config) != os.path.realpath(default_config) else []
-    planner_configs.append(config)
+    aircraft_parameters = {}
+    if scene_config:
+        with open(scene_config) as stream:
+            profile = yaml.safe_load(stream)['/**']['ros__parameters']
+        aircraft_parameters = {key: profile[key] for key in
+            ('lidar_perception.lidar_pitch', 'lidar_perception.sensor_offset_body', 'VehicleMass')
+            if key in profile}
 
     calibration_dir = os.environ.get('PEGASUS_FASTLIVO_CONFIG_DIR',
         os.path.join(get_package_share_directory('fast_livo'), 'config'))
@@ -60,7 +62,7 @@ def setup(context):
             # including threads created after startup. Local control stays at
             # its original priority in the external-planner arrangement.
             prefix='nice -n 10' if external else '',
-            parameters=[*([{"use_sim_time": True}] if external else []), *planner_configs, *([scene_config] if scene_config else []), *limits,
+            parameters=[{'use_sim_time': True}, config, aircraft_parameters, *limits,
                 {'exploration.tsp_dir': tsp, 'fsm.external_local_planner': external},
                 *([{'odometry_topic': LaunchConfiguration('external_odometry_topic').perform(context),
                     'cloud_topic': LaunchConfiguration('external_cloud_topic').perform(context),
@@ -68,7 +70,7 @@ def setup(context):
                     'lidar_perception.odom_twist_in_world': True}] if external else [])], remappings=remaps,
             output='screen'),
         Node(package='epic_ros2', executable='traj_server', name='epic_traj_server',
-            parameters=[config], remappings=remaps, output='screen'),
+            parameters=[{'use_sim_time': True}, config], remappings=remaps, output='screen'),
         Node(package='epic_ros2', executable='isaac_adapter.py', name='epic_isaac_adapter',
             parameters=[{'trajectory_feedforward': LaunchConfiguration('feedforward').perform(context).lower() == 'true',
                 'use_sim_time': False, 'imu_mount_position': mount,
@@ -105,7 +107,8 @@ def generate_launch_description():
         DeclareLaunchArgument('survey_flight_max_z', default_value='', description='Optional ceiling for viewpoints and connectors within the survey volume'),
         DeclareLaunchArgument('survey_max_z', default_value='', description='Optional upper altitude of the survey volume in metres'),
         DeclareLaunchArgument('scene_config', default_value='',
-            description='Optional ROS parameter file for scene-specific exploration bounds'),
+            description='Optional LiDAR mounting and mass parameters from the active aircraft profile'),
         DeclareLaunchArgument('config', default_value=os.path.join(
-            get_package_share_directory('epic_ros2'), 'config', 'isaac_warehouse.yaml')),
+            get_package_share_directory('epic_ros2'), 'config', 'isaac_warehouse.yaml'),
+            description='Complete EPIC parameter file for the selected scene'),
         OpaqueFunction(function=setup)])

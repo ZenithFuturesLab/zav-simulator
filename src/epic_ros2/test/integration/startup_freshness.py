@@ -21,7 +21,7 @@ parser.add_argument('--domain',type=int,default=139)
 a=parser.parse_args();a.output.mkdir(parents=True,exist_ok=False)
 if not 0<=a.domain<=232:parser.error('domain must be between 0 and 232')
 os.environ['ROS_DOMAIN_ID']=str(a.domain);os.environ['ROS_LOCALHOST_ONLY']='1'
-config=Path(get_package_share_directory('epic_ros2'))/'config/isaac_building_explore.yaml'
+config=Path(get_package_share_directory('epic_ros2'))/'config/frontier_bounds.yaml'
 rclpy.init();node=rclpy.create_node('epic_startup_freshness_integration')
 for _ in range(10):rclpy.spin_once(node,timeout_sec=.1)
 peers=[name for name in node.get_node_names()if name!=node.get_name()]

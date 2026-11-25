@@ -36,6 +36,9 @@ add_library(epic_lkh SHARED ${LKH_SOURCES} ${G}/utils/lkh_tsp_solver/src/lkh_int
 target_include_directories(epic_lkh PRIVATE ${G}/utils/lkh_tsp_solver/include)
 target_compile_options(epic_lkh PRIVATE $<$<COMPILE_LANGUAGE:C>:-fcommon>)
 target_link_libraries(epic_lkh m)
+add_executable(epic_lkh_worker ${G}/utils/lkh_tsp_solver/src/lkh_worker.cpp)
+target_include_directories(epic_lkh_worker PRIVATE ${G}/utils/lkh_tsp_solver/include)
+target_link_libraries(epic_lkh_worker epic_lkh)
 
 add_library(epic_core STATIC
   ${G}/lidar_map/src/ikd_Tree.cpp ${G}/lidar_map/src/sim_lio.cpp ${G}/lidar_map/src/lidar_map_interface.cpp
@@ -51,17 +54,18 @@ target_include_directories(epic_core PUBLIC ${EPIC_INCLUDES})
 target_compile_options(epic_core PUBLIC -include epic_ros2/compat.hpp)
 ament_target_dependencies(epic_core ${ROS_DEPS})
 target_link_libraries(epic_core Eigen3::Eigen ${PCL_LIBRARIES} ${OpenCV_LIBS}
-  OpenMP::OpenMP_CXX epic_lkh "${message_typesupport}")
+  OpenMP::OpenMP_CXX "${message_typesupport}")
 
 add_executable(exploration_node ${G}/exploration_manager/src/exploration_node.cpp
   ${G}/exploration_manager/src/fast_exploration_fsm.cpp ${G}/exploration_manager/src/fsm_utils.cpp)
 target_link_libraries(exploration_node epic_core)
+add_dependencies(exploration_node epic_lkh_worker)
 add_executable(traj_server ${L}/minco_planner/src/traj_server.cpp)
 target_link_libraries(traj_server epic_core)
-set_target_properties(exploration_node traj_server PROPERTIES INSTALL_RPATH "$ORIGIN/..")
+set_target_properties(exploration_node traj_server epic_lkh_worker PROPERTIES INSTALL_RPATH "$ORIGIN/..")
 
 install(TARGETS epic_lkh LIBRARY DESTINATION lib)
-install(TARGETS exploration_node traj_server DESTINATION lib/${PROJECT_NAME})
+install(TARGETS exploration_node traj_server epic_lkh_worker DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY launch config docs DESTINATION share/${PROJECT_NAME})
 install(FILES LICENSE README.md DESTINATION share/${PROJECT_NAME})
 install(FILES scripts/epic_frames.py DESTINATION lib/${PROJECT_NAME})
@@ -78,21 +82,21 @@ if(BUILD_TESTING)
   # The native library remains optimized; avoid optimizing the assertion driver.
   target_compile_options(goal_handoff_test PRIVATE -UNDEBUG -O0)
   add_test(NAME goal_handoff_test COMMAND goal_handoff_test --ros-args
-    --params-file ${CMAKE_CURRENT_SOURCE_DIR}/config/isaac_warehouse_cruise.yaml)
+    --params-file ${CMAKE_CURRENT_SOURCE_DIR}/profiles/warehouse/isaac_warehouse_cruise.yaml)
   set_tests_properties(goal_handoff_test PROPERTIES
     ENVIRONMENT "ROS_DOMAIN_ID=97;ROS_LOCALHOST_ONLY=1;CYCLONEDDS_URI=")
   add_executable(frontier_clustering_test test/frontier_clustering_test.cpp)
   target_link_libraries(frontier_clustering_test epic_core)
   target_compile_options(frontier_clustering_test PRIVATE -UNDEBUG -O0)
   add_test(NAME frontier_clustering_test COMMAND frontier_clustering_test --ros-args
-    --params-file ${CMAKE_CURRENT_SOURCE_DIR}/config/isaac_warehouse_cruise.yaml)
+    --params-file ${CMAKE_CURRENT_SOURCE_DIR}/profiles/warehouse/isaac_warehouse_cruise.yaml)
   set_tests_properties(frontier_clustering_test PROPERTIES
     ENVIRONMENT "ROS_DOMAIN_ID=97;ROS_LOCALHOST_ONLY=1;CYCLONEDDS_URI=")
   add_executable(surface_visibility_test test/surface_visibility_test.cpp)
   target_link_libraries(surface_visibility_test epic_core)
   target_compile_options(surface_visibility_test PRIVATE -UNDEBUG -O0)
   add_test(NAME surface_visibility_test COMMAND surface_visibility_test --ros-args
-    --params-file ${CMAKE_CURRENT_SOURCE_DIR}/config/isaac_building_explore.yaml)
+    --params-file ${CMAKE_CURRENT_SOURCE_DIR}/config/frontier_bounds.yaml)
   set_tests_properties(surface_visibility_test PROPERTIES
     ENVIRONMENT "ROS_DOMAIN_ID=97;ROS_LOCALHOST_ONLY=1;CYCLONEDDS_URI=")
 endif()

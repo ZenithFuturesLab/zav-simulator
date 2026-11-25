@@ -1,8 +1,16 @@
-# Shared EPIC defaults for Isaac. Scene YAMLs override only geometry and survey settings.
+# Isaac clinic EPIC configuration.
 /**:
   ros__parameters:
+    # Survey volume and flight ceiling in Isaac world coordinates, metres.
+    box_num: 1
+    box_0.down: [-60.0, -60.0, -4.0]
+    box_0.up: [60.0, 60.0, 30.0]
+    dead_area_num: 0
+    FrontierManager.target_max_z: 2.7
+    flight_height.max_z: 2.1
 
-    # ROS 2 inputs. The external planner launch supplies the actual topics.
+    # Topology, frontier sampling and motion costs.
+    # ROS 2 inputs for standalone use. The integrated launch supplies its topics.
     odometry_topic: /epic/odom
     cloud_topic: /cloud_registered
     global_planning.w_vdir: 5.0
@@ -62,17 +70,6 @@
     ViewpointManager.sample_pillar_circle_sample_num: 8
     ViewpointManager.local_tsp_size: 12
 
-    # Default survey box. Scene YAMLs typically replace it.
-    box_num: 1
-    box_0.down:
-    - -60.0
-    - -60.0
-    - -4.0
-    box_0.up:
-    - 60.0
-    - 60.0
-    - 30.0
-    dead_area_num: 0
 
     # Native trajectory defaults and motion limits used in global costing.
     max_traj_len: 6.0

@@ -1,66 +1,84 @@
+# Isaac warehouse EPIC configuration.
 /**:
   ros__parameters:
+    # Survey volume and flight ceiling in Isaac world coordinates, metres.
+    box_num: 1
+    box_0.down: [-60.0, -60.0, -4.0]
+    box_0.up: [60.0, 60.0, 30.0]
+    dead_area_num: 0
+    FrontierManager.target_max_z: 2.7
+    flight_height.max_z: 2.1
+
+    # Topology, frontier sampling and motion costs.
+    # ROS 2 inputs for standalone use. The integrated launch supplies its topics.
     odometry_topic: /epic/odom
     cloud_topic: /cloud_registered
-    global_planning.w_vdir: 1.2
+    global_planning.w_vdir: 5.0
     global_planning.w_yawdir: 0.0
     view_graph: false
-    FrontierManager.view_cluster: false
+    FrontierManager.view_cluster: true
     FrontierManager.view_frt: true
-    bubble_topo.min_x: 0.6
-    bubble_topo.min_y: 0.6
-    bubble_topo.min_z: 0.3
-    bubble_topo.bubble_min_radius: 0.5
-    bubble_topo.init_region_size_x: 2.5
-    bubble_topo.init_region_size_y: 2.5
-    bubble_topo.init_region_size_z: 2.0
-    bubble_topo.cube_discrete_size: 0.25
-    bubble_astar.safe_distance: 0.4
-    max_update_region_num: 32
+
+    # Topology graph and obstacle clearance.
+    bubble_topo.min_x: 0.15
+    bubble_topo.min_y: 0.15
+    bubble_topo.min_z: 0.15
+    bubble_topo.bubble_min_radius: 0.85
+    bubble_topo.init_region_size_x: 2.4
+    bubble_topo.init_region_size_y: 2.4
+    bubble_topo.init_region_size_z: 1.4
+    bubble_topo.cube_discrete_size: 0.15
+    # Minimum centre-to-obstacle distance along a measured flight guide. Sparse graph nodes use the topology radius.
+    bubble_astar.safe_distance: 0.72
+    # Limited to a measured constriction between normally clear survey stances.
+    FrontierManager.measured_aperture_clearance: 0.62
+    bubble_astar.endpoint_height_margin: 0.4  # relative to each leg's endpoints, including stairs
+    max_update_region_num: 100
+
+    # LiDAR geometry and ray tracing.
     lidar_perception.fov_up: 52.0
     lidar_perception.fov_down: -7.0
     lidar_perception.lidar_pitch: 22.0
+    # Body-to-LiDAR translation. The aircraft profile can override it.
+    lidar_perception.sensor_offset_body: [0.01215, 0.0, 0.11503]
     lidar_perception.fov_viewpoint_up: 48.0
     lidar_perception.fov_viewpoint_down: -5.0
-    lidar_perception.max_ray_length: 20.0
-    parallel_astar.update_connection_timeout: 0.002
-    parallel_astar.insert_node_timeout: 0.002
+    lidar_perception.max_ray_length: 30
+    parallel_astar.update_connection_timeout: 0.005
+    parallel_astar.insert_node_timeout: 0.01
+
+    # Measured wall and frontier sampling.
+    FrontierManager.preferred_wall_clearance: 1.10
+    FrontierManager.preferred_ground_clearance: 1.7
     FrontierManager.cell_size: 0.4
     FrontierManager.noise_cell_range: 1
-    FrontierManager.good_observation_direction_score: 0.8
-    FrontierManager.good_observation_force_trust_length: 3.0
-    FrontierManager.good_observation_trust_length: 8.0
-    FrontierManager.update_length: 25.0
-    FrontierManager.cluster_max_size: 4.0
-    FrontierManager.cluster_min_size: 1.0
-    FrontierManager.cluster_min_radius: 1.0
-    FrontierManager.cluster_direction_radius: 0.15
-    FrontierManager.cluster_minmum_point_num: 5
-    ViewpointManager.sample_pillar_min_height: 1.1
-    ViewpointManager.sample_pillar_max_height: 2.3
-    ViewpointManager.sample_pillar_height_layer_num: 3
+    FrontierManager.good_observation_direction_score: 0.4
+    FrontierManager.good_observation_force_trust_length: 2.5
+    FrontierManager.good_observation_trust_length: 4.5
+    FrontierManager.update_length: 15.0
+    FrontierManager.cluster_max_size: 6.0
+    FrontierManager.cluster_min_size: 0.6
+    FrontierManager.cluster_min_radius: 0.6
+    FrontierManager.cluster_direction_radius: -0.0
+    FrontierManager.cluster_minmum_point_num: 4
+    ViewpointManager.sample_pillar_min_height: -1.8
+    ViewpointManager.sample_pillar_max_height: 1.8
+    ViewpointManager.sample_pillar_height_layer_num: 4
     ViewpointManager.sample_pillar_min_radius: 1.0
-    ViewpointManager.sample_pillar_max_radius: 3.0
+    ViewpointManager.sample_pillar_max_radius: 5.0
     ViewpointManager.sample_pillar_radius_layer_num: 3
     ViewpointManager.sample_pillar_circle_sample_num: 8
-    ViewpointManager.local_tsp_size: 20
-    box_num: 1
-    box_0.down:
-    - -43.0
-    - -10.0
-    - -0.5
-    box_0.up:
-    - 35.0
-    - 30.0
-    - 9.5
-    dead_area_num: 0
-    max_traj_len: 4.0
-    DilateRadiusSoft: 0.5
-    DilateRadiusHard: 0.4
-    MaxCorridorSize: 3.5
-    MaxVelMag: 0.6
-    maxBdrMag: 2.0
-    MaxTiltAngle: 0.35
+    ViewpointManager.local_tsp_size: 12
+
+
+    # Native trajectory defaults and motion limits used in global costing.
+    max_traj_len: 6.0
+    DilateRadiusSoft: 0.6
+    DilateRadiusHard: 0.45
+    MaxCorridorSize: 4.0
+    MaxVelMag: 2.5
+    maxBdrMag: 10000.0
+    MaxTiltAngle: 0.65
     MinThrust: 10.0
     MaxThrust: 28.0
     VehicleMass: 1.99
@@ -69,22 +87,23 @@
     VertDrag: 0.8
     ParasDrag: 0.01
     SpeedEps: 0.0001
-    WeightT: 2000.0
-    WeightSafeT: 400.0
+    WeightT: 100.0
+    WeightSafeT: 200.0
     ChiVec:
-    - 200000.0
-    - 15000.0
-    - 10000.0
-    - 100000.0
-    - 100000.0
-    SmoothingEps: 0.015
-    IntegralIntervs: 32
-    RelCostTol: 1.0e-06
-    yaw_max_vel: 0.7
-    yaw_rho_vis: 10000.0
-    yaw_time_fwd: 1.5
-    bubble_astar.allocate_num: 100000
-    bubble_astar.lambda_heu: 10.0
-    bubble_astar.resolution_astar: 0.2
-    fsm.replan_time: 0.3
-    use_sim_time: true
+    - 1100000.0
+    - 1500000.0
+    - 11000.0
+    - 110000.0
+    - 1100000.0
+    SmoothingEps: 0.01
+    IntegralIntervs: 16
+    RelCostTol: 3.0e-07
+    yaw_max_vel: 1.2
+    yaw_rho_vis: 1.0
+    yaw_time_fwd: 2.5
+    global_planning.w_firstnode: 0.2
+    bubble_topo.odom_node_distance: 3.0
+    frontier.candidate_dphi: 0.26
+    frontier.candidate_znum: 3
+    # Inspect near-vertical surfaces in the building survey.
+    FrontierManager.target_max_abs_normal_z: 0.3

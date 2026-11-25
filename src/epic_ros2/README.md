@@ -37,20 +37,27 @@ colcon test-result --verbose
 
 이 launch는 기존 ZAV의 `fast_livo` 보정 설정을 읽는다. LIO 실행, 센서·시계 공급, 이륙 trigger, 외부 궤적 생성과 PX4 제어는 별도로 연결해야 한다. 워크스페이스의 `run_epic*.sh`나 SUPER 연동은 이 패키지의 일부가 아니다.
 
-외부 플래너를 연결할 때는 `config`에 장면 YAML을 전달한다. launch가 공통 설정인 `isaac_building_explore.yaml`을 먼저 읽는다.
-
-- [체육관](config/gym-epic-full-local.yaml)은 이륙 기준 로컬 좌표를 사용한다.
-- [프론티어관 1층](config/frontier-first-floor-sim.yaml)은 시뮬레이터 월드 좌표를 사용하며 연결 통로와 1층 복도를 포함한다.
-
-```bash
-ros2 launch epic_ros2 isaac_epic.launch.py external_local_planner:=true \
-  config:="$(ros2 pkg prefix epic_ros2)/share/epic_ros2/config/frontier-first-floor-sim.yaml"
-```
-
-LKH 임시 문제·해 파일은 launch가 `/tmp`에 생성하고 종료 시 정리한다. 기존 표시 토픽을 보는 명령은 `ros2 launch epic_ros2 rviz.launch.py`다.
+LKH는 별도 프로세스에서 방문 순서를 계산한다. 실행에 실패하거나 결과가 완전하지 않으면 다음 탐색 계획을 기다린다. 임시 문제·해 파일은 launch가 `/tmp`에 생성하고 종료 시 정리한다. 기존 표시 토픽을 보는 명령은 `ros2 launch epic_ros2 rviz.launch.py`다.
 
 ## 탐색 목표 선택
 
 관측한 frontier를 군집화하고 각 군집에서 가시성이 있는 뷰포인트를 선택한다. EPIC은 연결 가능한 후보의 방문 순서를 LKH로 계산하고 SUPER에 전역 경로를 전달한다. RViz의 Sampled viewpoints는 후보 선별 전에 샘플링한 위치를 표시한다.
 
-원본 EPIC의 토폴로지 그래프, 프런티어 샘플링 및 LKH 순서 선택은 공통 설정을 사용한다. 관측된 연결이 유지되는 동안 EPIC은 기존 경로의 남은 구간을 이어서 전달하고, 새 벽 구간은 경계·충돌 검사를 거친 뒤 추가한다.
+## 맵별 설정
+
+실행마다 `config/` 아래의 완전한 EPIC 설정 하나를 읽는다. 좌표계, 탐사 경계, 비행 높이, 벽 오프셋과 샘플링 값을 해당 파일에서 관리한다. 외부 로컬 플래너로 발행하는 탐색 및 복귀 경로는 모든 선분이 허용 박스의 합집합 안에 있어야 한다. 진입 금지 박스와 교차하는 선분은 차단한다.
+
+| 맵 | 설정 |
+| --- | --- |
+| 체육관, 이륙점 기준 좌표 | [gym-epic-full-local.yaml](config/gym-epic-full-local.yaml) |
+| 프론티어관 전체, 계단 포함 | [frontier_bounds.yaml](config/frontier_bounds.yaml) |
+| 프론티어관 1층 | [frontier-first-floor-sim.yaml](config/frontier-first-floor-sim.yaml) |
+| 진료소 | [isaac_clinic.yaml](config/isaac_clinic.yaml) |
+| 창고 | [isaac_warehouse.yaml](config/isaac_warehouse.yaml) |
+
+`config:=`로 사용할 맵의 설정을 지정한다. 예전 창고 실험용 설정은 `profiles/warehouse/`에 보관한다.
+
+```bash
+ros2 launch epic_ros2 isaac_epic.launch.py external_local_planner:=true \
+  config:="$(ros2 pkg prefix epic_ros2)/share/epic_ros2/config/frontier-first-floor-sim.yaml"
+```

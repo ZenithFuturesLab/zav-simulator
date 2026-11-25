@@ -24,12 +24,9 @@ void WriteTour(char *FileName, int *Tour, GainType Cost)
         return;
     FullFileName = FullName(FileName, Cost);
     Now = time(&Now);
-    if (TraceLevel >= 1)
-        // printff("Writing%s: \"%s\" ... ",
-        //         FileName == TourFileName ? " TOUR_FILE" :
-        //         FileName == OutputTourFileName ? " OUTPUT_TOUR_FILE" : "",
-        //         FullFileName);
     TourFile = fopen(FullFileName, "w");
+    if (!TourFile)
+        eprintf("Cannot write tour file: %s", FullFileName);
     fprintf(TourFile, "NAME : %s." GainFormat ".tour\n", Name, Cost);
     fprintf(TourFile, "COMMENT : Length = " GainFormat "\n", Cost);
     fprintf(TourFile, "COMMENT : Found by LKH [Keld Helsgaun] %s",
@@ -52,8 +49,6 @@ void WriteTour(char *FileName, int *Tour, GainType Cost)
     }
     fprintf(TourFile, "-1\nEOF\n");
     fclose(TourFile);
-    if (TraceLevel >= 1)
-        ;
     free(FullFileName);
 }
 

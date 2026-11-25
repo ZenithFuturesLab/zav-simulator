@@ -775,8 +775,10 @@ bool FrontierManager::connectObserved(const Eigen::Vector3f &start,const Eigen::
                                       double budget,vector<Eigen::Vector3f> &route) const {
   auto astar=graph_->parallel_bubble_astar_;
   route={start,goal};
-  if (observedGuide(route) && astar->collisionCheck_shortenPath(route)) return true;
-  if (surface_body_ && (start-*surface_body_).norm()<.55f && certifyFlightGuide(route)) return true;
+  if (lidar_map_interface_->IsPathInBox(route)) {
+    if (observedGuide(route) && astar->collisionCheck_shortenPath(route)) return true;
+    if (surface_body_ && (start-*surface_body_).norm()<.55f && certifyFlightGuide(route)) return true;
+  }
   route.clear();
   if (budget<=0. || !observedAir(start) || !observedAir(goal)) return false;
   // Short direct joins dominate normal flight. For the remaining joins,
@@ -792,6 +794,8 @@ bool FrontierManager::connectObservedGrid(const Eigen::Vector3f &start,const Eig
                                          bool distant) const {
   route.clear();
   auto astar=graph_->parallel_bubble_astar_;
+  if (!start.allFinite() || !goal.allFinite() ||
+      !lidar_map_interface_->IsInBox(start) || !lidar_map_interface_->IsInBox(goal)) return false;
   const float z_margin=distant ? std::max(cell,float(2.*astar->safe_distance_)) : cell;
   const float heuristic=distant ? 2.5f : 1.f;
   const auto index=[&](const Eigen::Vector3f &x)->Eigen::Vector3i {
@@ -832,7 +836,9 @@ bool FrontierManager::connectObservedGrid(const Eigen::Vector3f &start,const Eig
         const Eigen::Vector3f seed=point(key);
         const float distance=(seed-start).norm();
         if (distance>2.5f || !observedAir(seed)) break;
-        if (radius(key)<=.02f || !certifyFlightGuide({start,seed})) continue;
+        const vector<Eigen::Vector3f> segment{start,seed};
+        if (radius(key)<=.02f || !lidar_map_interface_->IsPathInBox(segment) || !certifyFlightGuide(segment))
+          continue;
         cost[key]=distance;parent[key]=first;
         open.push({key,distance,distance+(goal-seed).norm()});
         break;
@@ -846,7 +852,8 @@ bool FrontierManager::connectObservedGrid(const Eigen::Vector3f &start,const Eig
       for (auto k=last;k!=first;k=parent.at(k)) route.push_back(point(k));
       route.push_back(start);std::reverse(route.begin(),route.end());
       auto shortened=route;
-      if (astar->collisionCheck_shortenPath(shortened) && observedGuide(shortened)) route.swap(shortened);
+      if (astar->collisionCheck_shortenPath(shortened) && lidar_map_interface_->IsPathInBox(shortened) &&
+          observedGuide(shortened)) route.swap(shortened);
       return true;
     }
     const auto current=point(top.key);
@@ -863,7 +870,7 @@ bool FrontierManager::connectObservedGrid(const Eigen::Vector3f &start,const Eig
       if (known!=cost.end() && known->second<=new_cost) continue;
       if (radius(next)<=.01f) continue;
       vector<Eigen::Vector3f> segment{current,pos};
-      if (!observedGuide(segment) ||
+      if (!lidar_map_interface_->IsPathInBox(segment) || !observedGuide(segment) ||
           (radius(next)+radius(top.key)<edge+.001f && !astar->collisionCheck_shortenPath(segment))) continue;
       parent[next]=top.key;cost[next]=new_cost;
       open.push({next,new_cost,new_cost+heuristic*(goal-pos).norm()});

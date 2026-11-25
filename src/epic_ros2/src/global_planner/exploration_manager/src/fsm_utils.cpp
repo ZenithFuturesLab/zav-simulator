@@ -312,15 +312,16 @@ int FastExplorationFSM::callExplorationPlanner() {
       else rounded.push_back(corner);
     }
     rounded.push_back(path_next_goal.back());
-    auto &map=*planner_manager_->lidar_map_interface_;
-    bool in_bounds=true;
-    for (size_t i=1;i<rounded.size() && in_bounds;++i) {
-      const Vector3f edge=rounded[i]-rounded[i-1];
-      const int steps=std::max(1,int(std::ceil(edge.norm()/(.5f*front.getCellSize()))));
-      for (int j=0;j<=steps && in_bounds;++j)
-        in_bounds=map.IsInBox((rounded[i-1]+edge*(float(j)/steps)).eval());
-    }
-    if (in_bounds && front.certifyFlightGuide(rounded)) path_next_goal.swap(rounded);
+    if (planner_manager_->lidar_map_interface_->IsPathInBox(rounded) &&
+        front.certifyFlightGuide(rounded)) path_next_goal.swap(rounded);
+  }
+  if (path_next_goal.size() < 2) return FRONTIER_PENDING;
+  if (external_local_planner_ && !planner_manager_->lidar_map_interface_->IsPathInBox(path_next_goal)) {
+    // Keep the selected observation when only the optional continuation crosses a boundary.
+    const auto goal = expl_manager_->ed_->global_tour_[1];
+    const auto first = std::find_if(path_next_goal.begin() + 1, path_next_goal.end(),
+        [&](const Vector3f &point) { return (point - goal).norm() < .01f; });
+    if (first != path_next_goal.end()) path_next_goal.erase(first + 1, path_next_goal.end());
   }
   vector<Eigen::Vector3f> path_next_goal_tmp;
   path_next_goal_tmp.push_back(path_next_goal[0]);
@@ -378,17 +379,9 @@ int FastExplorationFSM::callExplorationPlanner() {
       const auto reached=[&](const vector<Vector3f> &candidate) {
         return FastExplorationManager::repeatsReachedGuide(body,last_guide,candidate,cell);
       };
-      auto &map=*planner_manager_->lidar_map_interface_;
       const auto safe_join=[&](const vector<Vector3f> &candidate) {
-        if (!expl_manager_->guideSupported(candidate) || !front.certifyFlightGuide(candidate) ||
-            front.revisitsLowerPass(candidate.front(),candidate)) return false;
-        for (size_t i=1;i<candidate.size();++i) {
-          const Vector3f edge=candidate[i]-candidate[i-1];
-          const int steps=std::max(1,int(std::ceil(edge.norm()/(.5f*cell))));
-          for (int j=0;j<=steps;++j)
-            if (!map.IsInBox((candidate[i-1]+edge*(float(j)/steps)).eval())) return false;
-        }
-        return true;
+        return expl_manager_->guideSupported(candidate) && front.certifyFlightGuide(candidate) &&
+            !front.revisitsLowerPass(candidate.front(),candidate);
       };
       if (issued_valid && (already_crossed || reverses || cuts_wall || shortens_wall)) {
         const float join_distance=std::max(2.f*radius,3.f*cell);
@@ -662,6 +655,10 @@ void FastExplorationFSM::resetExternalPlanWait() {
 }
 
 bool FastExplorationFSM::publishExternalGuide(const vector<Vector3f> &route) {
+  if (!planner_manager_->lidar_map_interface_->IsPathInBox(route)) {
+    ROS_WARN_THROTTLE(2., "Rejected EPIC guide outside exploration bounds");
+    return false;
+  }
   nav_msgs::msg::Path guide;
   guide.header.frame_id = "world";
   guide.header.stamp = epic_ros::Time::now();
@@ -669,7 +666,6 @@ bool FastExplorationFSM::publishExternalGuide(const vector<Vector3f> &route) {
   double yaw = fd_->odom_yaw_;
   for (size_t i = 0; i < route.size(); ++i) {
     const auto &point = route[i];
-    if (!point.allFinite()) return false;
     geometry_msgs::msg::PoseStamped pose;
     pose.header = guide.header;
     yaw = FastExplorationManager::pathTangentYaw(route, i, lookahead, yaw);

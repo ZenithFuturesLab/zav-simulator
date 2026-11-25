@@ -1,13 +1,27 @@
 #include <epic_planner/fast_exploration_manager.h>
 #include <epic_planner/expl_data.h>
+#include <epic_ros2/lkh_tour.hpp>
 #include <plan_manage/planner_manager.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <cassert>
 #include <gcopter/geo_utils.hpp>
 #include <iostream>
+#include <sstream>
 
 int main(int argc,char** argv) {
   epic_ros::init(argc,argv,"goal_handoff_regression");
+  {
+    std::istringstream valid("TYPE : TOUR\nTOUR_SECTION\n1\n3\n2\n-1\nEOF\n");
+    vector<int> tour;
+    assert(epic_ros::readLkhTour(valid, 3, tour) && (tour == vector<int>{0, 2, 1}));
+    for (const char *invalid : {"", "TOUR_SECTION\n1 2 -1\nEOF", "TOUR_SECTION\n1 2 2 -1\nEOF",
+                                "TOUR_SECTION\n2 1 3 -1\nEOF", "TOUR_SECTION\n1 2 4 -1\nEOF",
+                                "TOUR_SECTION\n1 2 3", "TOUR_SECTION\n1 2 3 -1",
+                                "TOUR_SECTION\n1 2 bad -1\nEOF"}) {
+      std::istringstream input(invalid);
+      assert(!epic_ros::readLkhTour(input, 3, tour) && tour.empty());
+    }
+  }
   {
     const Eigen::Vector3f body(25.52f,1.0f,1.03f),tip(25.57f,1.07f,1.07f);
     const vector<Eigen::Vector3f> issued{{22.81f,-8.47f,1.03f},tip};
@@ -228,6 +242,26 @@ int main(int argc,char** argv) {
   }
   epic_ros::NodeHandle nh;
   auto lio=std::make_shared<LIOInterface>();lio->init(nh);
+  {
+    // A diagonal can leave the corridor even when both endpoints are inside.
+    auto map_ptr = std::make_unique<LIOInterface>();
+    auto &map = *map_ptr;
+    map.lp_ = std::make_unique<LIOInterfaceParam>();
+    map.lp_->box_num_ = 2;
+    map.lp_->dead_area_num_ = 0;
+    map.lp_->global_box_min_boundary_vec_ = {{0, 0, 0}, {1, 0, 0}};
+    map.lp_->global_box_max_boundary_vec_ = {{1, 3, 2}, {3, 1, 2}};
+    const Eigen::Vector3f start(.5f, 2.5f, 1.f), elbow(.5f, .5f, 1.f), end(2.5f, .5f, 1.f);
+    assert(map.IsInBox(start) && map.IsInBox(end));
+    assert(map.IsPathInBox({start, elbow, end}));
+    assert(!map.IsPathInBox({start, end}));
+    assert(!map.IsPathInBox({elbow, end, {3.1f, .5f, 1.f}}));
+    map.lp_->dead_area_num_ = 1;
+    map.lp_->dead_area_min_boundary_vec_ = {{1.02f, 0, 0}};
+    map.lp_->dead_area_max_boundary_vec_ = {{1.03f, 1, 2}};
+    assert(map.IsInBox(elbow) && map.IsInBox(end));
+    assert(!map.IsPathInBox({elbow, end}));
+  }
   lio->lp_->global_map_min_boundary_=Eigen::Vector3f(-20,-20,-5);
   lio->lp_->global_map_max_boundary_=Eigen::Vector3f(20,20,5);
   lio->ld_->first_map_flag_=true;
