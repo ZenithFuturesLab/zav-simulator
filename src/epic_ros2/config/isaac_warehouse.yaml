@@ -86,11 +86,5 @@
     bubble_astar.allocate_num: 100000
     bubble_astar.lambda_heu: 10.0
     bubble_astar.resolution_astar: 0.2
-    fsm.thresh_replan: 0.5
     fsm.replan_time: 0.3
-    fsm.emergency_replan_control_error: 1.0
     use_sim_time: true
-    ViewpointManager.consider_range: 8
-    ViewpointManager.global_recluster_size: 20
-    viewpoint_param.global_viewpoint_num: 20
-    viewpoint_param.local_viewpoint_num: 20

@@ -27,9 +27,9 @@ void Bubble::init(double radius2_, PointType center_) {
 
 void BubbleAstar::init(epic_ros::NodeHandle &nh,
                        const LIOInterface::Ptr &lidar_map) {
-  nh.param("bubble_astar/resolution_astar", resolution_, 0.1);
-  nh.param("bubble_astar/lambda_heu", lambda_heu_, 1.0);
-  nh.param("bubble_astar/allocate_num", allocate_num_, -1);
+  nh.param("bubble_astar/resolution_astar", resolution_, 0.2);
+  nh.param("bubble_astar/lambda_heu", lambda_heu_, 100.0);
+  nh.param("bubble_astar/allocate_num", allocate_num_, 1000000);
   nh.param("bubble_astar/safe_distance", safe_distance_, -1.0);
   nh.param("bubble_astar/debug", debug_, false);
   vizer.init(nh);

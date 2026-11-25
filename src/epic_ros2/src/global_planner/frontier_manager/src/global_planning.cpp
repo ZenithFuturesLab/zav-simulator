@@ -355,6 +355,21 @@ void FrontierManager::generateTSPViewpoints(Eigen::Vector3f&center,  vector<Topo
             return sample.kind==ObservationSample::Kind::WallFace;
           });
       if (hasLateralSurveyGain(node->center_,wall)) return false;
+      // The first viewpoint can be a transit stance through the bend. Keep
+      // a local outline if its checked continuation still inspects new wall.
+      const auto &preview=view.contour_preview_;
+      const bool checked_preview=view.follows_local_outline_ && preview.size()>1 &&
+          (preview.front()-node->center_).norm()<.01f &&
+          std::any_of(preview.begin()+1,preview.end(),[&](const auto &point) {
+            return !visitedStance(point) && hasLateralSurveyGain(point,true);
+          }) && certifyFlightGuide(preview);
+      if (checked_preview) {
+        ROS_INFO("Kept measured wall turn for fresh observations beyond its first stance");
+        return false;
+      }
+      if (std::getenv("EPIC_TRACE_WALL_CHOICE") && view.follows_local_outline_)
+        ROS_INFO("Rejected wall outline at %.2f %.2f: no lateral gain at the selected stance or checked preview",
+                 node->center_.x(),node->center_.y());
       if (perimeter_target_ && (*perimeter_target_-node->center_).squaredNorm()<1.e-6f)
         perimeter_target_.reset();
       return true;

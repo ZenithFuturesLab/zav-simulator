@@ -26,7 +26,8 @@ void FastExplorationFSM::pubState() {
 }
 
 int FastExplorationFSM::callExplorationPlanner() {
-  if (external_local_planner_ && !externalInputsReady(!external_motion_started_)) return FRONTIER_PENDING;
+  if (external_local_planner_ &&
+      (!externalInputsReady(!external_motion_started_) || externalPlanTimedOut(true))) return FRONTIER_PENDING;
   // if (planner_manager_->lidar_map_interface_->getDisToOcc(fd_->odom_pos_) < planner_manager_->gcopter_config_->dilateRadiusHard)
   //   return START_FAIL;
   const bool surface_handoff=external_local_planner_ && expl_manager_->frontier_manager_ptr_->surface_continuity_;
@@ -243,10 +244,21 @@ int FastExplorationFSM::callExplorationPlanner() {
     if (!exterior) {
       expl_manager_->finishUnflownPass(path_next_goal,first_goal,fd_->odom_vel_);
       if (expl_manager_->continueShortRightTurn(path_next_goal)) {
-        const auto &tip=path_next_goal.back();
+        const Vector3f tip=path_next_goal.back();
         const Eigen::Vector3f tangent=tip-path_next_goal[path_next_goal.size()-2];
         expl_manager_->active_contour_approach_=path_next_goal;
         expl_manager_->active_contour_preview_.clear();
+        auto preview=front.previewRightWall(tip,tangent.head<2>());
+        if (preview.size()>1) {
+          auto through=path_next_goal;
+          through.insert(through.end(),preview.begin()+1,preview.end());
+          if (expl_manager_->guideSupported(through) && front.certifyFlightGuide(through) &&
+              !front.revisitsLowerPass(fd_->odom_pos_,through)) {
+            expl_manager_->active_contour_preview_=std::move(preview);
+            path_next_goal.swap(through);
+            ROS_INFO("Extended the turn entry along the next measured wall");
+          }
+        }
         expl_manager_->active_sweep_entry_=expl_manager_->short_right_turn_->first;
         expl_manager_->selected_observation_.reset();
         expl_manager_->ed_->global_tour_={path_next_goal.front(),tip};
@@ -256,8 +268,7 @@ int FastExplorationFSM::callExplorationPlanner() {
         ROS_INFO("Kept the measured right turn through its entry to %.2f %.2f",tip.x(),tip.y());
       }
     }
-    if (!expl_manager_->returning_ &&
-        expl_manager_->frontier_manager_ptr_->revisitsLowerPass(fd_->odom_pos_,path_next_goal)) {
+    if (expl_manager_->frontier_manager_ptr_->revisitsLowerPass(fd_->odom_pos_,path_next_goal)) {
       // Preview is optional. Preserve an executable first observation if
       // only its look-ahead dipped back into previously surveyed air.
       const auto goal=std::find_if(path_next_goal.begin(),path_next_goal.end(),[&](const auto &q) {
@@ -274,6 +285,42 @@ int FastExplorationFSM::callExplorationPlanner() {
         return FAIL;
       }
     }
+  }
+  if (external_local_planner_ && expl_manager_->right_hand_priority_ &&
+      path_next_goal.size()>2 && expl_manager_->ed_->global_tour_.size()>1) {
+    const auto &goal=expl_manager_->ed_->global_tour_[1];
+    const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
+    vector<Vector3f> rounded{path_next_goal.front()};
+    for (size_t i=1;i+1<path_next_goal.size();++i) {
+      const auto &corner=path_next_goal[i];
+      const Vector3f before=corner-path_next_goal[i-1], after=path_next_goal[i+1]-corner;
+      const float lead=std::min({radius,.42f*before.norm(),.42f*after.norm()});
+      if (lead<.15f || (corner-goal).norm()<.1f ||
+          std::abs(before.normalized().dot(after.normalized()))>.90f) {
+        rounded.push_back(corner);
+        continue;
+      }
+      const Vector3f entry=corner-lead*before.normalized(), exit=corner+lead*after.normalized();
+      vector<Vector3f> arc{rounded.back(),entry};
+      for (int step=1;step<=4;++step) {
+        const float t=step/4.f, u=1.f-t;
+        arc.push_back(u*u*entry+2.f*u*t*corner+t*t*exit);
+      }
+      arc.push_back(path_next_goal[i+1]);
+      if (front.certifyFlightGuide(arc))
+        rounded.insert(rounded.end(),arc.begin()+1,arc.end()-1);
+      else rounded.push_back(corner);
+    }
+    rounded.push_back(path_next_goal.back());
+    auto &map=*planner_manager_->lidar_map_interface_;
+    bool in_bounds=true;
+    for (size_t i=1;i<rounded.size() && in_bounds;++i) {
+      const Vector3f edge=rounded[i]-rounded[i-1];
+      const int steps=std::max(1,int(std::ceil(edge.norm()/(.5f*front.getCellSize()))));
+      for (int j=0;j<=steps && in_bounds;++j)
+        in_bounds=map.IsInBox((rounded[i-1]+edge*(float(j)/steps)).eval());
+    }
+    if (in_bounds && front.certifyFlightGuide(rounded)) path_next_goal.swap(rounded);
   }
   vector<Eigen::Vector3f> path_next_goal_tmp;
   path_next_goal_tmp.push_back(path_next_goal[0]);
@@ -292,18 +339,12 @@ int FastExplorationFSM::callExplorationPlanner() {
   }
   expl_manager_->ed_->path_next_goal_.swap(path_next_goal_tmp);
   if (external_local_planner_) {
-    nav_msgs::msg::Path guide;
-    guide.header.frame_id = "world";
-    guide.header.stamp = epic_ros::Time::now();
     if (!fd_->odom_pos_.allFinite()) return FAIL;
     if (expl_manager_->ed_->path_next_goal_.empty() ||
         (expl_manager_->ed_->path_next_goal_.front() - fd_->odom_pos_).norm() > .01f) {
       ROS_WARN_THROTTLE(2., "Guide departure differs from measured pose after reanchoring");
       return FAIL;
     }
-    bool forward_view_yaw = false;
-    epic_ros::NodeHandle nh;
-    nh.param("exploration/forward_viewpoint_yaw", forward_view_yaw, false);
     const auto &route = expl_manager_->ed_->path_next_goal_;
     if (expl_manager_->frontier_manager_ptr_->surface_continuity_ &&
         std::none_of(route.begin(),route.end(),[&](const auto &point) {
@@ -312,119 +353,135 @@ int FastExplorationFSM::callExplorationPlanner() {
       ROS_WARN_THROTTLE(2., "Guide misses the selected observation %.2f %.2f %.2f", selected.x(),selected.y(),selected.z());
       return FAIL;
     }
-    double yaw=fd_->odom_yaw_;
-    for (size_t i = 0; i < route.size(); ++i) {
-      const auto &point = route[i];
-      if (!point.allFinite()) return FAIL;
-      geometry_msgs::msg::PoseStamped pose;
-      pose.header = guide.header;
-      if (forward_view_yaw) {
-        if (i+1<route.size()) {
-          const Eigen::Vector2f tangent=(route[i+1]-point).head<2>();
-          if (tangent.norm()>.05f) yaw=std::atan2(tangent.y(),tangent.x());
-        }
-        pose.pose.orientation.z = std::sin(.5*yaw);
-        pose.pose.orientation.w = std::cos(.5*yaw);
-      }
-      pose.pose.position.x = point.x();
-      pose.pose.position.y = point.y();
-      pose.pose.position.z = point.z();
-      guide.poses.push_back(pose);
-    }
     if (!externalInputsReady(false)) return FAIL;
+    if (externalPlanTimedOut()) return FRONTIER_PENDING;
     if ((expl_manager_->ed_->path_next_goal_.front()-fd_->odom_pos_).norm() > .2f) return FAIL;
     const auto &tour=expl_manager_->ed_->global_tour_;
-    if (front.surface_continuity_ && !expl_manager_->returning_ && tour.size()>1 &&
-        FastExplorationManager::passedDuringPlanning(tour.front(),tour[1],route,
-            planner_manager_->topo_graph_->bubble_min_radius_)) {
-      ROS_INFO("Skipped first observation already crossed during planning");
-      // Keep SUPER on its current trajectory until the next global solve.
-      return FRONTIER_PENDING;
-    }
-    if (front.surface_continuity_ && !expl_manager_->returning_ && tour.size()>1) {
-      const Eigen::Vector2f velocity=fd_->odom_vel_.head<2>();
-      const float speed=velocity.norm();
-      const auto heading=speed>=.5f ? std::optional<Eigen::Vector2f>(velocity/speed) :
-                                      front.recentFlightDirection(route.front());
-      if (heading) {
-        const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
-        const float planning_travel=(route.front()-tour.front()).head<2>().dot(*heading);
-        const float reaction=std::max(planning_travel,float(speed*external_replan_period_));
-        const float horizon=std::max(2.f*radius,float(reaction+
-            speed*speed/(2.*std::max(1.,expl_manager_->ep_->a_avg_))));
-        const Eigen::Vector2f to_goal=(tour[1]-route.front()).head<2>();
-        // The instantaneous velocity can be skewed by lateral tracking. A
-        // proposed reversal on measured flown air need not line up exactly
-        // with that tangent all the way back to the old observation.
-        const bool rolling_return=FastExplorationManager::reversesInCruise(
-            route,tour[1],velocity,radius,horizon);
-        const bool retraces=(rolling_return || to_goal.dot(*heading)<-.8f*to_goal.norm()) &&
-            std::all_of(route.begin()+1,route.end(),[&](const auto &p) {
-              return (p-route.front()).norm()<radius ||
-                     front.nearFlightPath(p,1.6f*radius,0.f,.35f*radius,radius);
-            });
-        if (rolling_return && retraces && expl_manager_->published_first_leg_) {
-          ROS_INFO("Deferred rolling reversal over flown air: speed %.2f, first (%.2f, %.2f) from (%.2f, %.2f)",
-                   speed,tour[1].x(),tour[1].y(),route.front().x(),route.front().y());
-          return FRONTIER_PENDING;
+    bool retained_guide=false;
+    if (front.surface_continuity_ && tour.size()>1) {
+      const Vector2f velocity=fd_->odom_vel_.head<2>();
+      const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
+      const float cell=front.getCellSize();
+      const auto already_crossed=FastExplorationManager::passedDuringPlanning(tour.front(),tour[1],route,radius);
+      const bool reverses=FastExplorationManager::reversesInCruise(route,tour[1],velocity,radius);
+      const auto last_guide=expl_manager_->publishedGuide();
+      auto issued=last_guide;
+      const bool issued_valid=expl_manager_->reanchorContour(issued,route.front(),true) &&
+          expl_manager_->guideSupported(issued) && front.certifyFlightGuide(issued);
+      const bool cuts_wall=expl_manager_->retractsMeasuredEntry(route);
+      const bool shortens_wall=expl_manager_->right_hand_priority_ && issued_valid &&
+          expl_manager_->published_right_hand_ &&
+          FastExplorationManager::shortensIssuedGuide(issued,route,std::max(radius,2.f*cell),2.f*radius);
+      // A temporary disagreement between tour solves must not stop an active
+      // flight. Use the live, collision-checked prefix and look for its next edge.
+      const Vector3f body=fd_->odom_pos_;
+      const auto reached=[&](const vector<Vector3f> &candidate) {
+        return FastExplorationManager::repeatsReachedGuide(body,last_guide,candidate,cell);
+      };
+      auto &map=*planner_manager_->lidar_map_interface_;
+      const auto safe_join=[&](const vector<Vector3f> &candidate) {
+        if (!expl_manager_->guideSupported(candidate) || !front.certifyFlightGuide(candidate) ||
+            front.revisitsLowerPass(candidate.front(),candidate)) return false;
+        for (size_t i=1;i<candidate.size();++i) {
+          const Vector3f edge=candidate[i]-candidate[i-1];
+          const int steps=std::max(1,int(std::ceil(edge.norm()/(.5f*cell))));
+          for (int j=0;j<=steps;++j)
+            if (!map.IsInBox((candidate[i-1]+edge*(float(j)/steps)).eval())) return false;
         }
-        const auto issued=expl_manager_->publishedGuide();
-        auto prefix=FastExplorationManager::shortenedForwardPrefix(
-            issued,route,tour[1],*heading,radius,horizon,retraces);
-        // Near braking speed, small lateral corrections skew the velocity
-        // frame. The already issued straight supplies its own measured axis.
-        Eigen::Vector2f check_axis=*heading;
-        if (prefix.empty() && !issued.empty() && !front.flownObservationStance(issued.back())) {
-          const Eigen::Vector2f remaining=(issued.back()-route.front()).head<2>();
-          if (remaining.norm()>3.f*radius && heading->dot(remaining)>.60f*remaining.norm()) {
-            check_axis=remaining.normalized();
-            prefix=FastExplorationManager::shortenedForwardPrefix(
-                issued,route,tour[1],check_axis,radius,3.f*radius,false);
+        return true;
+      };
+      if (issued_valid && (already_crossed || reverses || cuts_wall || shortens_wall)) {
+        const float join_distance=std::max(2.f*radius,3.f*cell);
+        vector<Vector3f> joined;
+        if (!already_crossed) {
+          joined=FastExplorationManager::spliceOnwardGuide(issued,route,tour[1],join_distance,
+              [&](const vector<Vector3f> &candidate) {
+                return safe_join(candidate) && !expl_manager_->retractsMeasuredEntry(candidate);
+              });
+          if (joined.empty()) {
+            auto appended=FastExplorationManager::appendOnwardGuide(issued,route,tour[1],join_distance);
+            if (safe_join(appended)) joined=std::move(appended);
           }
         }
-        if (!prefix.empty() && !front.certifyFlightGuide(prefix)) {
-          const Vector3f start=prefix.front(),end=prefix.back();
-          prefix.clear();
-          // A positional correction can offset the old guide. Certify a
-          // connection to the same forward point before retaining the route.
-          if (!front.connectObserved(start,end,.012,prefix) ||
-              !std::all_of(prefix.begin(),prefix.end(),[&](const auto &p) {
-                const Eigen::Vector2f delta=(p-start).template head<2>();
-                const float along=delta.dot(check_axis);
-                return along>=-.25f*radius && (delta-along*check_axis).norm()<=1.5f*radius &&
-                       std::abs(p.z()-start.z())<=radius;
-              }) || !front.certifyFlightGuide(prefix)) prefix.clear();
-        }
-        if (!prefix.empty()) {
-          ROS_INFO("Kept certified forward prefix over replacement at (%.2f, %.2f, %.2f) from (%.2f, %.2f, %.2f)",
-              tour[1].x(),tour[1].y(),tour[1].z(),route.front().x(),route.front().y(),route.front().z());
-          return FRONTIER_PENDING;
+        if (joined.empty()) {
+          if (expl_manager_->right_hand_priority_ && !reached(issued)) {
+            const Vector2f heading=(issued.back()-issued[issued.size()-2]).head<2>();
+            expl_manager_->extendRightWallGuide(issued,heading);
+          }
+          if (safe_join(issued)) {
+            expl_manager_->ed_->path_next_goal_.swap(issued);
+            retained_guide=true;
+          }
+        } else {
+          expl_manager_->ed_->path_next_goal_.swap(joined);
+          ROS_INFO("Joined the issued wall to the next observed section");
         }
       }
+      // The active trajectory may finish while the global solver is working.
+      // Use the latest odometry and the issued tangent, which is still useful at rest.
+      if (reached(route)) {
+        vector<Vector3f> onward{body};
+        const double heading_yaw=FastExplorationManager::pathTangentYaw(
+            last_guide,last_guide.size()-2,2.f*cell,fd_->odom_yaw_);
+        const Vector2f heading(std::cos(heading_yaw),std::sin(heading_yaw));
+        if (!expl_manager_->right_hand_priority_ ||
+            !expl_manager_->extendRightWallGuide(onward,heading) || !safe_join(onward)) {
+          ROS_INFO("Skipped reached guide at %.2f %.2f %.2f; awaiting measured continuation",
+              body.x(),body.y(),body.z());
+          return FRONTIER_PENDING;
+        }
+        const Vector3f goal=onward.back();
+        expl_manager_->active_contour_approach_=onward;
+        expl_manager_->active_contour_preview_.clear();
+        expl_manager_->active_sweep_entry_.reset();
+        expl_manager_->selected_observation_.reset();
+        expl_manager_->restored_observation_.reset();
+        expl_manager_->ed_->global_tour_={body,goal};
+        const double goal_yaw=FastExplorationManager::pathTangentYaw(
+            onward,onward.size()-2,2.f*cell,heading_yaw);
+        expl_manager_->ed_->global_tour_yaws_={fd_->odom_yaw_,goal_yaw};
+        expl_manager_->selection_reason_="Continue along the measured right wall";
+        expl_manager_->updateGoalNode();
+        expl_manager_->ed_->path_next_goal_.swap(onward);
+        retained_guide=false;
+        ROS_INFO("Skipped reached guide and continued along the measured right wall to %.2f %.2f %.2f",
+            goal.x(),goal.y(),goal.z());
+      } else if (!retained_guide && (already_crossed ||
+          FastExplorationManager::reversesInCruise(route,tour[1],velocity,radius))) {
+        return FRONTIER_PENDING;
+      }
     }
-    if (front.surface_continuity_ && expl_manager_->retractsMeasuredEntry(route)) {
-      ROS_INFO("Continuing certified inward preview until crossing the selected turn");
-      return FRONTIER_PENDING;
-    }
+    if (!publishExternalGuide(route)) return FRONTIER_PENDING;
     planner_manager_->graph_visualizer_->vizTour(tour,VizColor::RED,"global");
-    external_path_pub_.publish(guide);
     last_external_plan_=epic_ros::Time::now().toSec();
-    if (expl_manager_->frontier_manager_ptr_->surface_continuity_) {
+    if (retained_guide) {
+      if (expl_manager_->published_first_leg_) {
+        const auto &goal=expl_manager_->published_first_leg_->second;
+        const auto split=std::find_if(route.begin(),route.end(),[&](const auto &p){return (p-goal).norm()<.01f;});
+        if (split!=route.end()) {
+          expl_manager_->published_first_route_.assign(route.begin(),split+1);
+          expl_manager_->published_preview_.assign(split,route.end());
+        }
+      }
+      return SUCCEED;
+    }
+    if (front.surface_continuity_) {
       auto &leg=expl_manager_->published_first_leg_;
       const auto &goal=expl_manager_->ed_->global_tour_[1];
       auto &committed=expl_manager_->published_first_route_;
       auto &preview=expl_manager_->published_preview_;
       const bool same_wall_goal=leg && (leg->second-goal).norm()<.01f;
       if (!same_wall_goal) expl_manager_->rememberDisplacedGoal(fd_->odom_pos_,route);
-      if (!same_wall_goal || expl_manager_->returning_) expl_manager_->issued_wall_entry_.reset();
-      if (!same_wall_goal || expl_manager_->returning_) expl_manager_->published_wall_observation_.reset();
+      if (!same_wall_goal) expl_manager_->issued_wall_entry_.reset();
+      if (!same_wall_goal) expl_manager_->published_wall_observation_.reset();
       committed.clear();preview.clear();
       auto &entry=expl_manager_->published_sweep_entry_;
       entry.reset();
-      if (expl_manager_->returning_) leg.reset();
-      else {
+      {
         const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
-        if (!leg || (leg->second-goal).norm()>radius) {
+        const bool new_wall_goal=!leg || (leg->second-goal).norm()>radius;
+        if (new_wall_goal) {
+          expl_manager_->published_right_hand_=false;
           const double brake_time=fd_->odom_vel_.norm()/std::max(1.,expl_manager_->ep_->a_avg_);
           expl_manager_->departure_deadline_=last_external_plan_+std::min(4.,2.+brake_time);
         }
@@ -459,6 +516,17 @@ int FastExplorationFSM::callExplorationPlanner() {
           if (chosen && chosen->follows_local_outline_ && !chosen->contour_approach_.empty() &&
               (chosen->contour_approach_.back()-goal).norm()<.1f)
             expl_manager_->published_wall_observation_=chosen;
+          if (expl_manager_->right_hand_priority_ && new_wall_goal && committed.size()>1 &&
+              ((chosen && (chosen->right_hand_opening_ || chosen->exterior_pass_)) ||
+               front.followsRightWall(committed))) {
+            float length=0.f;
+            for (size_t i=1;i<committed.size();++i) length+=(committed[i]-committed[i-1]).norm();
+            expl_manager_->published_right_hand_=true;
+            expl_manager_->right_hand_best_distance_=(goal-route.front()).norm();
+            expl_manager_->right_hand_progress_time_=last_external_plan_;
+            expl_manager_->right_hand_deadline_=last_external_plan_+
+                std::clamp(2.+length/std::max(1.,.5*expl_manager_->ep_->v_max_),3.,8.);
+          }
 
         }
       }
@@ -495,7 +563,13 @@ void FastExplorationFSM::triggerCallback(const nav_msgs::msg::Path::ConstSharedP
     return;
   fd_->trigger_ = true;
   external_exploration_complete_=false;
-  if (external_local_planner_) external_complete_pub_.publish(std_msgs::msg::Bool{});
+  resetExternalPlanWait();
+  if (external_local_planner_) {
+    refreshExternalOdom();
+    external_home_.reset();
+    if (external_state_received_ && fd_->odom_pos_.allFinite()) external_home_ = fd_->odom_pos_;
+    external_complete_pub_.publish(std_msgs::msg::Bool{});
+  }
   cout << "Triggered!" << endl;
   total_time_ = epic_ros::Time::now().toSec();
   transitState(PLAN_TRAJ, "triggerCallback");
@@ -545,6 +619,140 @@ void FastExplorationFSM::CloudOdomCallback(const sensor_msgs::msg::PointCloud2::
   ROS_INFO_STREAM_THROTTLE(1.0, "cloud odom callback cost: " << "ikd-tree insert:" << (t2 - t1).toSec() * 1000 << "ms  "
                                                              << "update frontier clusters: " << (t4 - t3).toSec() * 1000 << "ms  "
                                                              << "total: " << (t4 - t1).toSec() * 1000 << "ms" << endl);
+}
+
+bool FastExplorationFSM::externalPlanTimedOut(bool begin_wait) {
+  if (!external_local_planner_ || !fd_->trigger_ || external_exploration_complete_ ||
+      state_ == LAND || state_ == RETURN_HOME) return false;
+  {
+    std::lock_guard<std::mutex> lock(external_plan_mutex_);
+    if (!external_plan_expired_) {
+      if (!begin_wait && !external_plan_wait_since_) return false;
+
+      // Give an issued guide time to run while the vehicle is still moving.
+      refreshExternalOdom();
+      if (external_motion_started_ && fd_->odom_vel_.norm() >= .3f) {
+        external_plan_wait_since_.reset();
+        return false;
+      }
+      const double now = epic_ros::Time::now().toSec();
+      if (!external_plan_wait_since_ || now < *external_plan_wait_since_)
+        external_plan_wait_since_ = now;
+      if (!expireExternalPlanWaitLocked(now)) return false;
+    }
+  }
+  startExternalReturn("external guide timeout");
+  return true;
+}
+
+bool FastExplorationFSM::expireExternalPlanWaitLocked(double now) {
+  constexpr double plan_wait_limit = 5.;
+  if (external_plan_expired_ || !external_plan_wait_since_ ||
+      now - *external_plan_wait_since_ < plan_wait_limit) return external_plan_expired_;
+
+  external_plan_expired_ = true;
+  ROS_WARN("EPIC exploration ended after %.2fs without a new guide", now - *external_plan_wait_since_);
+  return true;
+}
+
+void FastExplorationFSM::resetExternalPlanWait() {
+  std::lock_guard<std::mutex> lock(external_plan_mutex_);
+  external_plan_wait_since_.reset();
+  external_plan_expired_ = false;
+}
+
+bool FastExplorationFSM::publishExternalGuide(const vector<Vector3f> &route) {
+  nav_msgs::msg::Path guide;
+  guide.header.frame_id = "world";
+  guide.header.stamp = epic_ros::Time::now();
+  const float lookahead = 2.f * expl_manager_->frontier_manager_ptr_->getCellSize();
+  double yaw = fd_->odom_yaw_;
+  for (size_t i = 0; i < route.size(); ++i) {
+    const auto &point = route[i];
+    if (!point.allFinite()) return false;
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header = guide.header;
+    yaw = FastExplorationManager::pathTangentYaw(route, i, lookahead, yaw);
+    pose.pose.orientation.z = std::sin(.5 * yaw);
+    pose.pose.orientation.w = std::cos(.5 * yaw);
+    pose.pose.position.x = point.x();
+    pose.pose.position.y = point.y();
+    pose.pose.position.z = point.z();
+    guide.poses.push_back(pose);
+  }
+  std::lock_guard<std::mutex> lock(external_plan_mutex_);
+  // The watchdog may expire while the main thread is building a guide.
+  if (state_ != RETURN_HOME && expireExternalPlanWaitLocked(epic_ros::Time::now().toSec())) return false;
+  external_path_pub_.publish(guide);
+  external_plan_wait_since_.reset();
+  return true;
+}
+
+void FastExplorationFSM::startExternalReturn(const char *reason) {
+  resetExternalPlanWait();
+  external_return_target_.reset();
+  external_return_wait_since_.reset();
+  next_external_return_plan_ = 0.;
+  planner_manager_->graph_visualizer_->vizTour({}, VizColor::RED, "global");
+  if (!external_home_) {
+    finishExternalExploration("launch pose unavailable; hold position");
+    return;
+  }
+  ROS_INFO("EPIC returning to launch %.2f %.2f %.2f", external_home_->x(), external_home_->y(), external_home_->z());
+  transitState(RETURN_HOME, reason);
+}
+
+void FastExplorationFSM::updateExternalReturn() {
+  const double now = epic_ros::Time::now().toSec();
+  if (now < next_external_return_plan_) return;
+  next_external_return_plan_ = now + external_replan_period_;
+
+  const bool ready = externalInputsReady(false);
+  if (ready && fd_->odom_vel_.norm() >= .3f) {
+    external_return_wait_since_.reset();
+    return;
+  }
+  constexpr float arrival_distance = .15f;
+  if (ready && (fd_->odom_pos_ - *external_home_).norm() < arrival_distance) {
+    ROS_INFO("EPIC reached launch position within %.2fm", (fd_->odom_pos_ - *external_home_).norm());
+    finishExternalExploration("reached launch position");
+    return;
+  }
+  if (ready && external_return_target_ &&
+      (fd_->odom_pos_ - *external_return_target_).norm() < arrival_distance) {
+    external_return_target_.reset();
+    external_return_wait_since_.reset();
+  }
+  if (!external_return_wait_since_) external_return_wait_since_ = now;
+  if (now - *external_return_wait_since_ >= 5.) {
+    ROS_WARN("EPIC return stalled or has no verified connection to launch; holding position");
+    finishExternalExploration("return unavailable; hold position");
+    return;
+  }
+  if (!ready || external_return_target_) return;
+
+  const Vector3f start = fd_->odom_pos_;
+  vector<Vector3f> route;
+  Vector3f home = *external_home_;
+  if (!expl_manager_->planReturnLeg(start, home, route) || !externalInputsReady(false) ||
+      (fd_->odom_pos_ - start).norm() > arrival_distance || fd_->odom_vel_.norm() >= .3f ||
+      !publishExternalGuide(route)) return;
+  external_home_ = home;
+  external_return_target_ = route.back();
+  external_return_wait_since_ = epic_ros::Time::now().toSec();
+  planner_manager_->graph_visualizer_->vizTour(route, VizColor::RED, "global");
+  ROS_INFO("EPIC published return leg to %.2f %.2f %.2f (%zu vertices)",
+           route.back().x(), route.back().y(), route.back().z(), route.size());
+}
+
+void FastExplorationFSM::finishExternalExploration(const char *reason) {
+  external_exploration_complete_ = true;
+  resetExternalPlanWait();
+  std_msgs::msg::Bool done;
+  done.data = true;
+  external_complete_pub_.publish(done);
+  planner_manager_->graph_visualizer_->vizTour({}, VizColor::RED, "global");
+  transitState(FINISH, reason);
 }
 
 bool FastExplorationFSM::externalInputsReady(bool settle) {
@@ -610,26 +818,11 @@ void FastExplorationFSM::odometryCallback(const nav_msgs::msg::Odometry &msg) {
 void FastExplorationFSM::transitState(EXPL_STATE new_state, string pos_call, bool red) {
   if (state_ == LAND && new_state != LAND) return;
   if (!fd_->trigger_ && new_state == CAUTION) return;
-  if (external_local_planner_ && new_state == FINISH && state_ != FINISH &&
-      fd_->trigger_ && expl_manager_->returning_) {
-    const auto home = expl_manager_->frontier_manager_ptr_->home();
-    if (home && (fd_->odom_pos_ - *home).norm() < .7f) {
-      geometry_msgs::msg::PoseStamped returned;
-      returned.header.stamp = epic_ros::Time::now();
-      returned.header.frame_id = "world";
-      returned.pose.position.x = home->x();
-      returned.pose.position.y = home->y();
-      returned.pose.position.z = home->z();
-      returned.pose.orientation.w = 1.;
-      external_exploration_complete_=true;
-      external_return_pub_.publish(returned);
-    }
-  }
   int pre_s = int(state_);
   state_ = new_state;
   if (decision_pub_ && (new_state==WAIT_MAP ||
-      (new_state!=pre_s && (new_state==FINISH || new_state==LAND || new_state==WAIT_TRIGGER)))) {
-    visualizeDecision(false, new_state==WAIT_MAP ? "Waiting for the next reachable view" : nullptr);
+      (new_state!=pre_s && (new_state==FINISH || new_state==LAND || new_state==RETURN_HOME || new_state==WAIT_TRIGGER)))) {
+    visualizeDecision(false);
   }
   if (!red) {
     cout << "\033[32m[" + pos_call + "]\033[0m: from " + fd_->state_str_[pre_s] + " to " + fd_->state_str_[int(new_state)] << endl;
@@ -638,7 +831,7 @@ void FastExplorationFSM::transitState(EXPL_STATE new_state, string pos_call, boo
   }
 }
 
-void FastExplorationFSM::visualizeDecision(bool issued, const char *status) {
+void FastExplorationFSM::visualizeDecision(bool issued) {
   if (!decision_pub_) return;
   using Marker = visualization_msgs::msg::Marker;
   visualization_msgs::msg::MarkerArray frame;
@@ -646,94 +839,68 @@ void FastExplorationFSM::visualizeDecision(bool issued, const char *status) {
   clear.action=Marker::DELETEALL;
   clear.header.frame_id="world";
   frame.markers.push_back(clear);
-  if (!issued && !status) {
-    decision_pub_->publish(frame);
-    return;
-  }
 
   const auto &manager=*expl_manager_;
-  const auto &tour=manager.ed_->global_tour_;
   const auto &front=*manager.frontier_manager_ptr_;
+  const auto &tour=manager.ed_->global_tour_;
   auto &visualizer=*planner_manager_->graph_visualizer_;
-  int id=0;
-  const auto point=[](const Eigen::Vector3f &p) {
-    geometry_msgs::msg::Point msg;
-    msg.x=p.x();msg.y=p.y();msg.z=p.z();
-    return msg;
+  const auto mark=[&](const Vector3f &stance,const char *ns,int id,VizColor color,
+                      float diameter,const std::string &text,float size) {
+    Marker point;
+    visualizer.SetMarker(color,ns,diameter,1.f,point,1.f);
+    point.type=Marker::SPHERE;
+    point.id=2*id;
+    point.pose.position.x=stance.x();
+    point.pose.position.y=stance.y();
+    point.pose.position.z=stance.z();
+    frame.markers.push_back(point);
+    if (text.empty()) return;
+    point.type=Marker::TEXT_VIEW_FACING;
+    point.id+=1;
+    point.pose.position.z+=.42;
+    point.scale.z=size;
+    point.text=text;
+    frame.markers.push_back(std::move(point));
   };
-  const auto label=[&](const Eigen::Vector3f &p, const std::string &text, VizColor color,
-                       const char *ns, float size) {
-    Marker marker;
-    visualizer.SetMarker(color,ns,size,1.f,marker,1.f);
-    marker.type=Marker::TEXT_VIEW_FACING;
-    marker.id=id++;
-    marker.pose.position=point(p);
-    marker.pose.position.z+=.28;
-    marker.text=text;
-    frame.markers.push_back(std::move(marker));
-  };
-  const auto dashes=[&](const vector<Eigen::Vector3f> &path, VizColor color, const char *ns) {
-    Marker marker;
-    visualizer.SetMarker(color,ns,.065f,.75f,marker,1.f);
-    marker.type=Marker::LINE_LIST;
-    marker.id=id++;
-    for (size_t i=1;i<path.size();++i) {
-      const Eigen::Vector3f edge=path[i]-path[i-1];
-      const int pieces=std::max(1,int(std::ceil(edge.norm()/.33f)));
-      for (int j=0;j<pieces;++j) {
-        marker.points.push_back(point(path[i-1]+(float(j)/pieces)*edge));
-        marker.points.push_back(point(path[i-1]+((j+.6f)/pieces)*edge));
-      }
-    }
-    if (!marker.points.empty()) frame.markers.push_back(std::move(marker));
-  };
-  if (issued && tour.size()>1) {
-    label(tour[1],std::string("1  ")+manager.selection_reason_,VizColor::WHITE,"issued_goal",.38f);
-    for (size_t i=2;i<tour.size();++i)
-      label(tour[i],std::to_string(i)+"  ATSP preview",VizColor::EMERALD,"tour_order",.3f);
-    for (const auto &path:manager.future_tour_paths_) {
-      // Handoff may retain a prior first goal or extend a measured turn.
-      // Only draw cached links that still join consecutive tour vertices.
-      for (size_t i=2;i<tour.size();++i) {
-        if ((path.front()-tour[i-1]).norm()<.2f && (path.back()-tour[i]).norm()<.2f) {
-          dashes(path,VizColor::EMERALD,"tour_paths");
-          break;
-        }
-      }
-    }
-  } else if (status) {
-    label(fd_->odom_pos_,status,VizColor::WHITE,"status",.38f);
-    if (manager.published_first_leg_)
-      label(manager.published_first_leg_->second,"1  Last issued goal",VizColor::WHITE,"issued_goal",.38f);
+
+  const bool waiting=!issued && state_==WAIT_MAP;
+  const size_t end=issued ? std::min(tour.size(),size_t(4)) : 0;
+  for (size_t i=1;i<end;++i) {
+    if (!tour[i].allFinite()) continue;
+    const bool restored=i==1 && manager.restored_observation_ &&
+        (*manager.restored_observation_-tour[i]).norm()<.01f;
+    const auto color=restored ? VizColor::ORANGE : (i==1 ? VizColor::YELLOW : VizColor::EMERALD);
+    mark(tour[i],"viewpoint_order",i,color,i==1 ? .25f : .18f,
+         restored ? "1 Saved" : std::to_string(i),i==1 ? .48f : .38f);
   }
-  for (const auto &saved:manager.deferred_observations_) {
-    const auto &goal=saved->best_vp_;
-    if (!goal.allFinite() || front.visitedStance(goal) || front.observedCluster(*saved)) continue;
-    if (issued && tour.size()>1 && std::any_of(tour.begin()+1,tour.end(),[&](const auto &p) {
-      return (p-goal).norm()<.5f;
-    })) continue;
-    if (!issued && manager.published_first_leg_ &&
-        (manager.published_first_leg_->second-goal).norm()<.5f) continue;
-    label(goal,"Saved view | recheck",VizColor::ORANGE,"saved_views",.28f);
-    if (saved->contour_preview_.size()>1 && (saved->contour_preview_.front()-goal).norm()<.2f) {
-      dashes(saved->contour_preview_,VizColor::ORANGE,"saved_passes");
-    } else if (saved->contour_approach_.size()>1 && (saved->contour_approach_.back()-goal).norm()<.2f) {
-      // Show the stored approach near the candidate without connecting the
-      // current aircraft pose to a historical departure point.
-      auto start=std::prev(saved->contour_approach_.end(),2);
-      for (float length=(*std::next(start)-*start).norm();
-           start!=saved->contour_approach_.begin() && length<2.f;) {
-        --start;
-        length+=(*std::next(start)-*start).norm();
-      }
-      dashes(vector<Eigen::Vector3f>(start,saved->contour_approach_.end()),VizColor::ORANGE,"saved_passes");
+  if (issued || waiting) {
+    // Show the nearest actionable memories. These stances are separate from
+    // the numbered route unless the planner actually selects one as #1.
+    vector<Vector3f> saved;
+    for (const auto &observation:manager.deferred_observations_) {
+      const auto &stance=observation->best_vp_;
+      if (!stance.allFinite() || front.visitedStance(stance) || front.observedCluster(*observation) ||
+          front.unseenSupport(*observation).empty()) continue;
+      if (end>1 && std::any_of(tour.begin()+1,tour.begin()+end,[&](const auto &p) {
+            return (p-stance).norm()<.5f;
+          })) continue;
+      saved.push_back(stance);
     }
+    std::sort(saved.begin(),saved.end(),[&](const auto &a,const auto &b) {
+      return (a-fd_->odom_pos_).squaredNorm()<(b-fd_->odom_pos_).squaredNorm();
+    });
+    for (size_t i=0;i<std::min(saved.size(),size_t(3));++i)
+      mark(saved[i],"saved_views",i,VizColor::ORANGE,.15f,"Saved",.28f);
+    const auto &pending=front.pendingSurveyLocation();
+    if (waiting && pending && pending->allFinite())
+      mark(*pending,"pending_survey",0,VizColor::MAGNA,.20f,"Pending check",.32f);
   }
   decision_pub_->publish(frame);
 }
 
 void FastExplorationFSM::stopTraj() {
   if (state_ == LAND) return;
+  if (external_local_planner_) resetExternalPlanWait();
   // Never truncate a moving polynomial into a zero-velocity hold.
   // PX4 NAV_LAND owns braking and descent once exploration becomes unsafe.
   fd_->trigger_ = false;

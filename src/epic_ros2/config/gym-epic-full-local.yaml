@@ -1,0 +1,18 @@
+# Gym survey in launch coordinates. The map origin is [0.0, 15.0, -0.215] m
+# with yaw -90 degrees. Other values come from isaac_building_explore.yaml.
+/**:
+  ros__parameters:
+    # Survey envelope in metres. The separate flight band applies to guides.
+    box_0.down: [-21.0, -28.0, 0.3]
+    box_0.up: [36.0, 28.0, 2.1]
+    flight_height.min_z: 0.3
+    flight_height.max_z: 1.5
+
+    # Topology sampling radius. The shared bubble_astar.safe_distance
+    # still controls obstacle clearance along measured flight segments.
+    bubble_topo.bubble_min_radius: 0.5
+
+    # Keep measured walls on the right at the preferred lateral separation.
+    global_planning.right_hand_priority: true
+    FrontierManager.preferred_wall_clearance: 2.0
+    FrontierManager.preferred_ground_clearance: 0.8

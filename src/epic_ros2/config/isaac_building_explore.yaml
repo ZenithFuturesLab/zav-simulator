@@ -1,14 +1,17 @@
-# Native EPIC frontier sampling and TSP with external SUPER planning.
+# Shared EPIC defaults for Isaac. Scene YAMLs override only geometry and survey settings.
 /**:
   ros__parameters:
+
+    # ROS 2 inputs. The external planner launch supplies the actual topics.
     odometry_topic: /epic/odom
-    exploration.forward_viewpoint_yaw: true
     cloud_topic: /cloud_registered
     global_planning.w_vdir: 5.0
     global_planning.w_yawdir: 0.0
     view_graph: false
     FrontierManager.view_cluster: true
     FrontierManager.view_frt: true
+
+    # Topology graph and obstacle clearance.
     bubble_topo.min_x: 0.15
     bubble_topo.min_y: 0.15
     bubble_topo.min_z: 0.15
@@ -23,16 +26,20 @@
     FrontierManager.measured_aperture_clearance: 0.62
     bubble_astar.endpoint_height_margin: 0.4  # relative to each leg's endpoints, including stairs
     max_update_region_num: 100
+
+    # LiDAR geometry and ray tracing.
     lidar_perception.fov_up: 52.0
     lidar_perception.fov_down: -7.0
     lidar_perception.lidar_pitch: 22.0
+    # Body-to-LiDAR translation. The aircraft profile can override it.
     lidar_perception.sensor_offset_body: [0.01215, 0.0, 0.11503]
     lidar_perception.fov_viewpoint_up: 48.0
     lidar_perception.fov_viewpoint_down: -5.0
     lidar_perception.max_ray_length: 30
     parallel_astar.update_connection_timeout: 0.005
     parallel_astar.insert_node_timeout: 0.01
-    parallel_astar.goal_connection_timeout: 0.02
+
+    # Measured wall and frontier sampling.
     FrontierManager.preferred_wall_clearance: 1.10
     FrontierManager.preferred_ground_clearance: 1.7
     FrontierManager.cell_size: 0.4
@@ -54,9 +61,8 @@
     ViewpointManager.sample_pillar_radius_layer_num: 3
     ViewpointManager.sample_pillar_circle_sample_num: 8
     ViewpointManager.local_tsp_size: 12
-    FrontierManager.max_frontier_support_distance: 0.55
-    FrontierManager.debug_viewpoint_rejections: true
-    FrontierManager.measured_surface_visibility: true
+
+    # Default survey box. Scene YAMLs typically replace it.
     box_num: 1
     box_0.down:
     - -60.0
@@ -67,15 +73,13 @@
     - 60.0
     - 30.0
     dead_area_num: 0
+
+    # Native trajectory defaults and motion limits used in global costing.
     max_traj_len: 6.0
     DilateRadiusSoft: 0.6
     DilateRadiusHard: 0.45
     MaxCorridorSize: 4.0
     MaxVelMag: 2.5
-    MaxAccMag: 2.5
-    MaxJerkMag: 5.0
-    MaxVelUp: 0.25
-    MaxVelDown: 0.25
     maxBdrMag: 10000.0
     MaxTiltAngle: 0.65
     MinThrust: 10.0
@@ -96,51 +100,13 @@
     - 1100000.0
     SmoothingEps: 0.01
     IntegralIntervs: 16
-    OptimizerTimeBudgetMs: 200.0
     RelCostTol: 3.0e-07
     yaw_max_vel: 1.2
-    yaw_max_acc: 1.2
     yaw_rho_vis: 1.0
     yaw_time_fwd: 2.5
-    bubble_astar.allocate_num: 1000000
-    bubble_astar.lambda_heu: 100.0
-    bubble_astar.resolution_astar: 0.2
-    fsm.thresh_replan: 0.5
-    fsm.replan_time: 0.0
-    fsm.emergency_replan_control_error: 1.5
-    use_sim_time: true
-    ViewpointManager.consider_range: 8
-    ViewpointManager.global_recluster_size: 20
-    viewpoint_param.global_viewpoint_num: 12
-    viewpoint_param.local_viewpoint_num: 12
     global_planning.w_firstnode: 0.2
     bubble_topo.odom_node_distance: 3.0
     frontier.candidate_dphi: 0.26
     frontier.candidate_znum: 3
-    fsm.replan_time_after_traj_start: 3.0
-    fsm.replan_time_before_traj_end: 1.5
-    FrontierManager.target_min_z: -1000000.0
-    FrontierManager.target_max_z: 1000000.0
+    # Inspect near-vertical surfaces in the building survey.
     FrontierManager.target_max_abs_normal_z: 0.3
-    ViewpointManager.fixed_height_enabled: false
-    ViewpointManager.walls_at_current_height: true
-    ViewpointManager.fixed_height: 1.7
-    ViewpointManager.reached_position_tolerance: 0.35
-    ViewpointManager.reached_yaw_tolerance: 0.2
-    ViewpointManager.unreachable_retry_interval: 2.0
-    flight_height.min_z: -1000000.0
-    flight_height.max_z: 1000000.0
-    StartCorridorRecovery: true
-    SafeTerminalHoldFallback: true
-    StrictCandidateCollision: true
-    FlightHeightPlanningMargin: 0.02
-    StartCorridorRecoveryMargin: 0.05
-    LengthPerPiece: 2.5
-    global_planning.surface_continuity: true
-    global_planning.return_to_start: false
-    global_planning.use_velocity_direction_cost: true
-    StraightSweepHorizon: 10.0
-    exploration.tour_lookahead_distance: 30.0
-    global_planning.replan_period: 0.35
-    exploration.frontier_empty_confirmation: 3.0
-    FrontierManager.trust_close_fov_edge: true

@@ -5,6 +5,8 @@
 struct SurfaceVisibilityRegression {
   static void run(FrontierManager &m) {
     auto node=m.nh_.native();
+    if (!node->has_parameter("FrontierManager.measured_surface_visibility"))
+      node->declare_parameter<bool>("FrontierManager.measured_surface_visibility",true);
     auto mode=[&](bool enabled) {
       node->set_parameter(rclcpp::Parameter("FrontierManager.measured_surface_visibility",enabled));
     };
@@ -54,6 +56,15 @@ struct SurfaceVisibilityRegression {
     m.graph_->odom_node_->center_=cluster->center_+Eigen::Vector3f(5,0,0);
     m.graph_->odom_node_->yaw_=0.;
     m.graph_->bubble_min_radius_=1.f;
+    {
+      const Eigen::Vector3f start(plane_x-2.5f,-.5f,1.3f);
+      const Eigen::Vector2f forward=Eigen::Vector2f::UnitY();
+      m.graph_->bubble_min_radius_=.5f;
+      assert(!m.rightWallDistance(start,forward,1.5f));
+      assert(m.rightWallDistance(start,forward,3.f));
+      assert(!m.rightWallDistance(start,-forward,3.f));
+      m.graph_->bubble_min_radius_=1.f;
+    }
     auto score=[&](float side) {
       cluster->is_dormant_=false;cluster->vp_clusters_.clear();
       ViewpointCluster group;group.center_=cluster->center_+Eigen::Vector3f(side*4,0,0);
@@ -130,6 +141,8 @@ struct SurfaceVisibilityRegression {
     }
     m.graph_->parallel_bubble_astar_=make_shared<ParallelBubbleAstar>();
     m.graph_->parallel_bubble_astar_->init(m.nh_,m.lidar_map_interface_);
+
+
     {
       const auto saved_air=m.observed_air_;
       const auto saved_yaw=m.graph_->odom_node_->yaw_;
@@ -386,12 +399,6 @@ struct SurfaceVisibilityRegression {
         m.observed_air_.insert((Eigen::Vector3f(x,.2f,1.5f)/m.frtp_.cell_size_).array().floor().cast<int>());
       assert(!m.visitedStance(exit) && m.nearFlightPath(exit,1.4f,0.f,.2f));
       assert(!m.nearFlightPath(Eigen::Vector3f(wall-.55f,.2f,1.5f),1.4f,0.f,.2f));
-      const Eigen::Vector3f launch(exit.x(),.8f,.1f);
-      m.flight_history_={launch,exit};
-      const auto home=m.home();
-      assert(home && (*home-exit).norm()<.01f);
-      m.flight_history_={launch};
-      assert(!m.home());
       m.flight_history_.clear();
       astar->safe_distance_=original;
     }

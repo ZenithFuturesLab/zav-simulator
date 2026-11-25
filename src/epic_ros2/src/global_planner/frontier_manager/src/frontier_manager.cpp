@@ -19,11 +19,14 @@ void FrontierManager::init(epic_ros::NodeHandle &nh, LIOInterface::Ptr &lio_inte
                            TopoGraph::Ptr graph) {
   nh_ = nh;
   graph_ = graph;
-  nh.param("global_planning/surface_continuity", surface_continuity_, false);
+  // External planning uses measured LiDAR air for both frontier views and guides.
+  bool external;
+  nh.param("fsm/external_local_planner",external,false);
+  nh.param("global_planning/surface_continuity",surface_continuity_,external);
   nh.param("FrontierManager/preferred_ground_clearance",ground_clearance_,0.);
   lidar_map_interface_ = lio_interface;
   bool recovery;double hard,margin;
-  nh.param("StartCorridorRecovery",recovery,false);
+  nh.param("StartCorridorRecovery",recovery,external);
   nh.param("DilateRadiusHard",hard,.45);
   nh.param("StartCorridorRecoveryMargin",margin,.05);
   if (recovery && hard>0. && margin>=0.) departure_margin_=hard+margin;
@@ -34,11 +37,11 @@ void FrontierManager::init(epic_ros::NodeHandle &nh, LIOInterface::Ptr &lio_inte
   nh.param("FrontierManager/target_min_z", frtp_.target_min_z_, -1.0e6);
   nh.param("FrontierManager/target_max_z", frtp_.target_max_z_, 1.0e6);
   nh.param("FrontierManager/target_max_abs_normal_z", frtp_.target_max_abs_normal_z_, 1.0);
-  nh.param("ViewpointManager/unreachable_retry_interval",vpp_.unreachable_retry_interval_,0.);
+  nh.param("ViewpointManager/unreachable_retry_interval",vpp_.unreachable_retry_interval_,external ? 2. : 0.);
   nh.param("ViewpointManager/fixed_height_enabled", vpp_.fixed_height_enabled_, false);
-  nh.param("ViewpointManager/fixed_height", vpp_.fixed_height_, 1.75);
-  nh.param("ViewpointManager/reached_position_tolerance", vpp_.reached_position_tolerance_, .01);
-  nh.param("ViewpointManager/reached_yaw_tolerance", vpp_.reached_yaw_tolerance_, .01);
+  nh.param("ViewpointManager/fixed_height", vpp_.fixed_height_,external ? 1.7 : 1.75);
+  nh.param("ViewpointManager/reached_position_tolerance", vpp_.reached_position_tolerance_,external ? .35 : .01);
+  nh.param("ViewpointManager/reached_yaw_tolerance", vpp_.reached_yaw_tolerance_,external ? .2 : .01);
   if (frtp_.target_min_z_>frtp_.target_max_z_ ||
       frtp_.target_max_abs_normal_z_<0.f || frtp_.target_max_abs_normal_z_>1.f ||
       !std::isfinite(vpp_.fixed_height_) || vpp_.reached_position_tolerance_<=0.f ||
@@ -85,9 +88,6 @@ void FrontierManager::init(epic_ros::NodeHandle &nh, LIOInterface::Ptr &lio_inte
   nh.getParam("ViewpointManager/sample_pillar_max_radius",
               vpp_.sample_pillar_max_radius_);
 
-  nh.getParam("ViewpointManager/consider_range", vpp_.consider_range_);
-  nh.getParam("ViewpointManager/global_recluster_size",
-              vpp_.global_recluster_size_);
   nh.getParam("ViewpointManager/local_tsp_size", vpp_.local_tsp_size_);
 
   nh.getParam("lidar_perception/fov_viewpoint_up", vpp_.fov_up_);
@@ -788,7 +788,8 @@ bool FrontierManager::connectObserved(const Eigen::Vector3f &start,const Eigen::
 }
 
 bool FrontierManager::connectObservedGrid(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,
-                                         float cell,double budget,vector<Eigen::Vector3f> &route,bool distant) const {
+                                         float cell,double budget,vector<Eigen::Vector3f> &route,
+                                         bool distant) const {
   route.clear();
   auto astar=graph_->parallel_bubble_astar_;
   const float z_margin=distant ? std::max(cell,float(2.*astar->safe_distance_)) : cell;
@@ -1074,7 +1075,7 @@ bool FrontierManager::measureUnseenWall(const Eigen::Vector3f &stance,ClusterInf
 bool FrontierManager::hasLateralSurveyGain(const Eigen::Vector3f &stance,bool following_wall) const {
   if (frtp_.target_max_abs_normal_z_>=1.f) return true;
   const float cell=frtp_.cell_size_,radius=graph_->bubble_min_radius_;
-  const float range=3.f*radius;
+  const float range=following_wall ? rightWallSearchRange() : 3.f*radius;
   PointVector hits;
   const Eigen::Vector3f extent(range,range,cell);
   lidar_map_interface_->boxSearch(stance-extent,stance+extent,hits);
@@ -1971,27 +1972,6 @@ void FrontierManager::updateSurfaceSamples() {
 
 }
 
-std::optional<Eigen::Vector3f> FrontierManager::home() const {
-  if (flight_history_.empty()) return std::nullopt;
-  const float safe=graph_->bubble_min_radius_;
-  const auto &launch=flight_history_.front();
-  Eigen::Vector3f cruise=launch;
-  if (std::abs(vpp_.fixed_height_-launch.z())<2.f*safe) cruise.z()=vpp_.fixed_height_;
-  const auto flyable=[&](const Eigen::Vector3f &p) {
-    return observedAir(p) && lidar_map_interface_->getDisToOcc(p)>safe+.025f;
-  };
-  if (flyable(cruise)) return cruise;
-  // The first odometry sample can be on the ground. Recover an actual
-  // airborne launch pose if the ideal hover voxel has no LiDAR evidence.
-  std::optional<Eigen::Vector3f> best;
-  float distance=2.f*safe;
-  for (const auto &p:flight_history_) {
-    const float error=(p-cruise).norm();
-    if (error<distance && flyable(p)) {best=p;distance=error;}
-  }
-  return best;
-}
-
 bool FrontierManager::connectFlightHistory(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,
                                           double budget,vector<Eigen::Vector3f> &route,
                                           vector<Eigen::Vector3f> *prefix) const {
@@ -2387,127 +2367,6 @@ bool FrontierManager::connectDistantObserved(const Eigen::Vector3f &start,const 
   return false;
 }
 
-bool FrontierManager::resumeReturnPath(const Eigen::Vector3f &body,vector<Eigen::Vector3f> &route) {
-  if (return_path_.size()<2) return false;
-  size_t nearest=0;float distance=std::numeric_limits<float>::infinity(),examined=0.f;
-  Eigen::Vector3f projection=return_path_.front();
-  for (size_t i=0;i+1<return_path_.size() && examined<frtp_.update_length_;++i) {
-    const Eigen::Vector3f delta=return_path_[i+1]-return_path_[i];
-    examined+=delta.norm();
-    const float fraction=std::clamp((body-return_path_[i]).dot(delta)/std::max(.000001f,delta.squaredNorm()),0.f,1.f);
-    const auto q=(return_path_[i]+fraction*delta).eval();
-    if ((body-q).norm()<distance) {distance=(body-q).norm();nearest=i;projection=q;}
-  }
-  if (distance>3.f*graph_->bubble_min_radius_) return false;
-  route={body};
-  if (distance>.05f) route.push_back(projection);
-  float length=distance;
-  for (size_t i=nearest+1;i<return_path_.size() && length<frtp_.update_length_;++i) {
-    const float step=(return_path_[i]-route.back()).norm();
-    if (step<.005f) continue;
-    length+=step;route.push_back(return_path_[i]);
-  }
-  if (route.size()<2 || !certifyFlightGuide(route)) return false;
-  return_path_.erase(return_path_.begin(),return_path_.begin()+nearest);
-  return true;
-}
-
-bool FrontierManager::returnGuide(const Eigen::Vector3f &body,vector<Eigen::Vector3f> &route) {
-  const auto anchor=home();
-  if (!anchor || (body-*anchor).norm()<.7f) return false;
-  surface_body_=body;
-  if (!return_path_.empty()) {
-    if ((return_path_.back()-body).norm()>.7f*graph_->bubble_min_radius_ && resumeReturnPath(body,route)) return true;
-    return_path_.clear();
-  }
-  if (connectObserved(body,*anchor,0.,route) || connectFlightHistory(body,*anchor,.045,route) ||
-      connectObserved(body,*anchor,.035,route)) return true;
-  // Close to launch, do not send a distant historical waypoint with no
-  // verified connection to home. Wait for a valid local connection.
-  if ((body-*anchor).norm()<2.f*graph_->bubble_min_radius_) return false;
-  const double now=epic_ros::Time::now().toSec();
-  if (now-last_distant_return_>2. && (body-*anchor).norm()>frtp_.good_observation_trust_length_) {
-    last_distant_return_=now;
-    vector<Eigen::Vector3f> prefix;
-    if (!connectDistantObserved(body,*anchor,return_path_,&prefix)) return_path_=std::move(prefix);
-    if (!return_path_.empty()) {
-      if (resumeReturnPath(body,route)) return true;
-      return_path_.clear();
-    }
-  }
-  if (return_checkpoint_) {
-    const auto &[index,target]=*return_checkpoint_;
-    if ((body-target).norm()<graph_->bubble_min_radius_) {
-      return_history_limit_=std::min(return_history_limit_.value_or(flight_history_.size()),index);
-      return_checkpoint_.reset();
-    } else if (connectObserved(body,target,.02,route) && certifyFlightGuide(route)) {
-      return true;
-    } else return_checkpoint_.reset();
-  }
-  const size_t limit=std::min(return_history_limit_.value_or(flight_history_.size()),flight_history_.size());
-  const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(100);
-  // A blocked old stance must not consume the whole search budget while
-  // earlier directly visible checkpoints are still waiting to be tested.
-  vector<size_t> indirect;
-  for (int pass=0;pass<2;++pass) {
-    if (pass && return_history_limit_ && limit<flight_history_.size()) {
-      size_t first=limit;
-      float distance=0.f;
-      while (first>0 && distance<frtp_.update_length_) {
-        distance+=(flight_history_[first]-flight_history_[first-1]).norm();
-        --first;
-      }
-      // The next section of the flown path has temporal continuity. Old
-      // poses on other floors can be closer in Euclidean distance.
-      std::stable_partition(indirect.begin(),indirect.end(),[&](size_t i){return i>=first;});
-    }
-    const size_t count=pass ? indirect.size() : limit;
-    for (size_t n=0;n<count;++n) {
-      const size_t i=pass ? indirect[n] : n;
-      const auto &p=flight_history_[i];
-      const float distance=(p-body).norm();
-      if (distance<.5f || distance>15.f || lidar_map_interface_->getDisToOcc(p)<graph_->bubble_min_radius_+.02f) continue;
-      if (std::chrono::steady_clock::now()>until) break;
-      const double remaining=std::chrono::duration<double>(until-std::chrono::steady_clock::now()).count();
-      const double search=pass ? std::max(0.,std::min(remaining,return_history_limit_ ? .06 : .012)) : 0.;
-      if (!connectObserved(body,p,search,route)) {
-        if (!pass) indirect.push_back(i);
-        continue;
-      }
-      // Keep following the earlier measured track through corners. A temporary
-      // stitching point in a narrow passage is guidance, not the terminal goal.
-      vector<Eigen::Vector3f> next;
-      size_t j=i;
-      double length=distance;
-      while (j>0 && length<15. && std::chrono::steady_clock::now()<until) {
-        // A past pose can now be too close to an obstacle. Rejoin an
-        // earlier clear pose around that point if the whole join is observed.
-        size_t earliest=j-1;
-        while (earliest>0 && (flight_history_[j]-flight_history_[earliest]).norm()<3.f*graph_->bubble_min_radius_ &&
-               j-earliest<12) --earliest;
-        size_t k=earliest;
-        while (k<j && std::chrono::steady_clock::now()<until) {
-          if (lidar_map_interface_->getDisToOcc(flight_history_[k])>graph_->parallel_bubble_astar_->safe_distance_+.02f &&
-              connectObserved(route.back(),flight_history_[k],.006,next)) break;
-          ++k;
-        }
-        if (std::chrono::steady_clock::now()>=until || k==j || next.size()<2 || (next.back()-flight_history_[k]).norm()>.02f) break;
-        for (size_t k=1;k<next.size();++k) {
-          length+=(next[k]-route.back()).norm();
-          route.push_back(next[k]);
-        }
-        j=k;
-      }
-      if (!j && connectObserved(route.back(),*anchor,.005,next))
-        route.insert(route.end(),next.begin()+1,next.end());
-      if (route.size()>1 && (route.back()-body).norm()>.5f && certifyFlightGuide(route)) {
-        return_checkpoint_=std::make_pair(j,route.back());
-        return true;
-      }
-    }
-  }
-  return false;
-}
 
 // Repeated views from the same line cannot establish that the surrounding
 // volume is inspected. Require known, unobstructed sight from poses that
@@ -2643,10 +2502,6 @@ void FrontierManager::recordPassage(const Eigen::Vector3f &body) {
   if (travelled.norm()>.35f) {
     const int steps=std::max(1,int(std::ceil(travelled.norm()/frtp_.cell_size_)));
     const bool retracing=nearFlightPath(body,1.5f*safe,4.f*safe);
-    if (!retracing && return_history_limit_ && !visitedStance(body)) {
-      return_history_limit_.reset();
-      return_checkpoint_.reset();
-    }
     // A few centimetres outside the earlier track do not erase an entire
     // repeated pass. Sustained motion into fresh air clears the history.
     retraced_distance_=std::max(0.f,retraced_distance_+(retracing ? 1.f : -2.f)*travelled.norm());
@@ -2900,6 +2755,7 @@ void FrontierManager::appendContourViewpoints(const Eigen::Vector3f &body, vecto
     }
     return gain;
   };
+  TopoNode::Ptr straight_wall;
   const float start_range=sideRange(body);
   if (start_range>0.f) {
     vector<Eigen::Vector3f> straight{body};
@@ -2935,7 +2791,8 @@ void FrontierManager::appendContourViewpoints(const Eigen::Vector3f &body, vecto
         perimeter_target_=node->center_;
         observation->follows_local_outline_=true;
         observations_[node.get()]=observation;views.push_back(node);
-        return;
+        if (!include_alternative) return;
+        straight_wall=node;
       }
     }
   }
@@ -3191,6 +3048,9 @@ void FrontierManager::appendContourViewpoints(const Eigen::Vector3f &body, vecto
     }
     if (coverage>=2.f*safe || pass>0) break;
   }
+  if (straight_wall && (!preferred || !preferred_observation->follows_local_outline_ ||
+      ((preferred->center_-straight_wall->center_).norm()<graph_->bubble_min_radius_ &&
+       preferred_observation->contour_preview_.size()<2))) return;
   if (preferred) {
     perimeter_target_=preferred->center_;
     views.push_back(preferred);
@@ -3198,7 +3058,7 @@ void FrontierManager::appendContourViewpoints(const Eigen::Vector3f &body, vecto
   }
   // Allow the global tour to compare one nearby detached face before
   // passing its entrance. The rolling local sampler keeps its single goal.
-  if (!include_alternative || (preferred && previous_outline_.empty())) return;
+  if (straight_wall || !include_alternative || (preferred && previous_outline_.empty())) return;
   vector<Start> nearby;
   for (size_t k=0;k<outlines.size();++k) {
     const auto &curve=outlines[k];if (curve.size()<16 || attached_curve==k) continue;
@@ -3379,33 +3239,115 @@ void FrontierManager::appendContourViewpoints(const Eigen::Vector3f &body, vecto
 
 // Test the side of the flown connector. A wall visible from its far end
 // does not establish that the intervening open floor follows a boundary.
+float FrontierManager::rightWallSearchRange() const {
+  const float radius=graph_->bubble_min_radius_;
+  double preferred;
+  nh_.param("FrontierManager/preferred_wall_clearance",preferred,double(radius));
+  return std::max(3.f*radius,1.5f*float(preferred));
+}
+
+std::optional<float> FrontierManager::rightWallDistance(const Eigen::Vector3f &point,
+    const Eigen::Vector2f &heading,float max_range) const {
+  const float cell=frtp_.cell_size_,radius=graph_->bubble_min_radius_;
+  const Eigen::Vector3f right(heading.y(),-heading.x(),0.f);
+  for (float distance=radius;distance<=max_range+.25f*cell;distance+=.5f*cell) {
+    const Eigen::Vector3f probe=point+distance*right;
+    PointVector hits;
+    vector<float> distances;
+    lidar_map_interface_->KNN(PointType(probe.x(),probe.y(),probe.z()),1,hits,distances);
+    if (hits.empty() || distances.front()>.64f*cell*cell) continue;
+    if (inspectionSurface(*lidar_map_interface_,hits.front(),cell,std::min(.5f,frtp_.target_max_abs_normal_z_)))
+      return distance;
+    return {};
+  }
+  return {};
+}
+
 bool FrontierManager::followsRightWall(const vector<Eigen::Vector3f> &guide) const {
   const float radius=graph_->bubble_min_radius_,cell=frtp_.cell_size_;
+  const float max_range=rightWallSearchRange();
   const float horizon=frtp_.good_observation_trust_length_+2.f*radius;
   float along=0.f,next=cell,run=0.f;
   for (size_t i=1;i<guide.size() && next<=horizon;++i) {
     const Eigen::Vector3f edge=guide[i]-guide[i-1];
     const float length=edge.head<2>().norm();
     if (length<.01f) continue;
-    const Eigen::Vector3f right(edge.y()/length,-edge.x()/length,0.f);
+    const Eigen::Vector2f tangent=edge.head<2>()/length;
     for (;next<=along+length && next<=horizon;next+=cell) {
       const Eigen::Vector3f q=guide[i-1]+((next-along)/length)*edge;
       if (std::abs(q.z()-guide.front().z())>radius) return false;
-      bool found=false;
-      for (float d=radius;d<=3.f*radius;d+=cell) {
-        const Eigen::Vector3f probe=q+d*right;
-        PointVector hits;vector<float> distances;
-        lidar_map_interface_->KNN(PointType(probe.x(),probe.y(),probe.z()),1,hits,distances);
-        if (hits.empty() || distances.front()>.64f*cell*cell) continue;
-        found=inspectionSurface(*lidar_map_interface_,hits.front(),cell,std::min(.5f,frtp_.target_max_abs_normal_z_));
-        break;
-      }
-      run=found ? run+cell : 0.f;
+      run=rightWallDistance(q,tangent,max_range) ? run+cell : 0.f;
       if (run>=1.5f*radius) return true;
     }
     along+=length;
   }
   return false;
+}
+
+bool FrontierManager::keepsRightWall(const vector<Eigen::Vector3f> &guide,float lookahead) const {
+  if (guide.size()<2) return false;
+  const float cell=frtp_.cell_size_,max_range=rightWallSearchRange();
+  const float horizon=std::max(3.f*cell,lookahead);
+  int samples=0,supported=0;
+  float along=0.f,next=cell;
+  for (size_t i=1;i<guide.size() && next<=horizon;++i) {
+    const Eigen::Vector3f edge=guide[i]-guide[i-1];
+    const float length=edge.head<2>().norm();
+    if (length<.01f) continue;
+    const Eigen::Vector2f tangent=edge.head<2>()/length;
+    for (;next<=along+length && next<=horizon;next+=cell) {
+      const Eigen::Vector3f point=guide[i-1]+((next-along)/length)*edge;
+      ++samples;
+      if (rightWallDistance(point,tangent,max_range)) ++supported;
+    }
+    along+=length;
+  }
+  // Require support along the route. A single close glimpse of a wall near
+  // the start does not justify ranking a later crossing as wall following.
+  return samples>=3 && supported*3>=samples*2;
+}
+
+vector<Eigen::Vector3f> FrontierManager::previewRightWall(const Eigen::Vector3f &start,
+    const Eigen::Vector2f &heading) const {
+  if (heading.squaredNorm()<.01f) return {};
+  const float radius=graph_->bubble_min_radius_,cell=frtp_.cell_size_;
+  double preference;
+  nh_.param("FrontierManager/preferred_wall_clearance",preference,double(radius));
+  const float preferred=std::max(radius,float(preference));
+  const float range=rightWallSearchRange();
+  const float step=std::max(radius,2.f*cell);
+  const int steps=std::min(8,int(frtp_.good_observation_trust_length_/step));
+  vector<Eigen::Vector3f> guide{start};
+  Eigen::Vector2f tangent=heading.normalized();
+  float fresh=0.f;
+  for (int i=0;i<steps;++i) {
+    const float yaw=std::atan2(tangent.y(),tangent.x());
+    float best=std::numeric_limits<float>::infinity();
+    Eigen::Vector3f next;
+    Eigen::Vector2f next_tangent;
+    for (const float turn:{0.f,-.26f,-.52f,.26f,.52f}) {
+      const Eigen::Vector2f direction(std::cos(yaw+turn),std::sin(yaw+turn));
+      if (direction.dot(heading)<-.05f*heading.norm()) continue;
+      Eigen::Vector3f point=guide.back();
+      point.head<2>()+=step*direction;
+      if (!lidar_map_interface_->IsInBox(point) || !observedAir(point) ||
+          (point-start).head<2>().norm()<.5f*step) continue;
+      const auto wall=rightWallDistance(point,direction,range);
+      if (!wall || !certifyCruiseGuide({guide.back(),point})) continue;
+      const float score=std::abs(*wall-preferred)+step*std::abs(turn);
+      if (score<best) {
+        best=score;
+        next=point;
+        next_tangent=direction;
+      }
+    }
+    if (!std::isfinite(best)) break;
+    if (!visitedStance(next)) fresh+=step;
+    guide.push_back(next);
+    tangent=next_tangent;
+  }
+  if (fresh<2.f*step) return {};
+  return guide;
 }
 
 // Compare every departure in the same frame: the direction actually flown
@@ -4461,7 +4403,7 @@ void FrontierManager::updateFrontierClusters(
   if (surface_continuity_) updateSurfaceSamples();
   PointVector frt_new;
   bool trust_close_fov_edge;
-  nh_.param("FrontierManager/trust_close_fov_edge",trust_close_fov_edge,false);
+  nh_.param("FrontierManager/trust_close_fov_edge",trust_close_fov_edge,surface_continuity_);
   auto has_dense_nbr = [&](const Eigen::Vector3i &idx) -> bool {
     for (int i = -1; i <= 1; i++) {
       for (int j = -1; j <= 1; j++) {
@@ -4878,12 +4820,13 @@ void FrontierManager::selectBestViewpoint(ClusterInfo::Ptr &cluster) {
   RayCaster ray_caster;
   ray_caster.setParams(double(frtp_.cell_size_), frtp_.map_min_.cast<double>());
   bool measured_surface=false;
-  nh_.param("FrontierManager/measured_surface_visibility",measured_surface,false);
+  nh_.param("FrontierManager/measured_surface_visibility",measured_surface,surface_continuity_);
   vector<Eigen::Vector3f> target_surface(cluster->cells_.size(),Eigen::Vector3f::Zero());
   vector<bool> target_supported(cluster->cells_.size(),false);
   vector<bool> remaining(cluster->cells_.size(),true);
   double support_distance;
-  nh_.param("FrontierManager/max_frontier_support_distance",support_distance,double(std::sqrt(3.f)*frtp_.cell_size_));
+  // Scale the acceptable nearest return with the frontier voxel.
+  nh_.param("FrontierManager/max_frontier_support_distance",support_distance,1.375*frtp_.cell_size_);
   if(measured_surface)for(size_t j=0;j<cluster->cells_.size();++j) {
     PointVector nearest;vector<float> distances;
     lidar_map_interface_->KNN(cluster->cells_[j],1,nearest,distances);
@@ -5530,6 +5473,7 @@ bool FrontierManager::surveyedLowerSurface(const ClusterInfo &cluster,const Eige
 // replans. Once all remaining patches are of this kind, finish only after
 // checking the full set of measured recovery anchors from the current pose.
 bool FrontierManager::hasPendingSurveyFrontiers(const Eigen::Vector3f &body) {
+  pending_survey_location_.reset();
   if (!surface_continuity_ || ground_clearance_<=0.) return hasInspectionFrontiers();
   const float radius=graph_->bubble_min_radius_,trust=frtp_.good_observation_trust_length_;
   const float lower=body.z()-std::max(2.f*radius,float(ground_clearance_)+frtp_.cell_size_);
@@ -5591,12 +5535,14 @@ bool FrontierManager::hasPendingSurveyFrontiers(const Eigen::Vector3f &body) {
         (c->is_reachable_ && !c->vp_clusters_.empty() && !spent_stances && !revisitsLowerPass(body,{c->best_vp_}))) {
       if (trace) ROS_WARN_THROTTLE(3., "Survey completion waiting for label %d at %.2f %.2f %.2f: sampled %d, reachable %d, groups %zu, cells %zu",
           c->id_,c->center_.x(),c->center_.y(),c->center_.z(),int(c->last_viewpoint_attempt_>=0.),int(c->is_reachable_),c->vp_clusters_.size(),c->cells_.size());
+      pending_survey_location_=c->center_;
       residual_sweep_.reset();
       return true;
     }
     if (!approachedClusterCells(*c,band)) {
       if (trace) ROS_WARN_THROTTLE(3., "Survey completion lacks measured face or approach for label %d at %.2f %.2f %.2f",
           c->id_,c->center_.x(),c->center_.y(),c->center_.z());
+      pending_survey_location_=c->center_;
       residual_sweep_.reset();
       return true;
     }
@@ -5609,6 +5555,7 @@ bool FrontierManager::hasPendingSurveyFrontiers(const Eigen::Vector3f &body) {
   if (!residual_sweep_ || (body-residual_sweep_->first).norm()>radius)
     residual_sweep_=std::make_pair(body,next_branch_anchor_+branch_anchors_.size());
   if (next_branch_anchor_<residual_sweep_->second) {
+    pending_survey_location_=branch_anchors_[next_branch_anchor_%branch_anchors_.size()];
     if (trace) ROS_WARN_THROTTLE(3., "Survey completion checking recovery anchors: %zu remaining",residual_sweep_->second-next_branch_anchor_);
     return true;
   }

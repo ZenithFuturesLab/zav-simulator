@@ -35,7 +35,10 @@ struct Boundary {
 // returns. The convex envelope orders headings; only measured free air, a
 // measured right face and a collision-checked connector may produce a goal.
 TopoNode::Ptr FrontierManager::exteriorViewpoint(const V3 &body,bool observe_only) {
-  if (ground_clearance_<=0. || measured_hits_by_layer_.empty() || !observedAir(body)) return {};
+  bool directional_priority;
+  nh_.param("global_planning/right_hand_priority",directional_priority,false);
+  if (directional_priority ||
+      ground_clearance_<=0. || measured_hits_by_layer_.empty() || !observedAir(body)) return {};
   const float cell=frtp_.cell_size_,radius=graph_->bubble_min_radius_;
   const float trust=frtp_.good_observation_trust_length_,range=frtp_.update_length_;
   if (perimeter_pass_ && std::abs(perimeter_pass_->level-body.z())>2.5f*radius)

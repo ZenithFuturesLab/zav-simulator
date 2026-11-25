@@ -634,13 +634,10 @@ void TopoGraph::insertNodes(vector<TopoNode::Ptr> &nodes, bool only_raycast) {
       continue;
     Eigen::Vector3i region_idx;
     getIndex(node->center_, region_idx);
-    // else
     auto region_node = getRegionNode(region_idx);
-    // if (region_node == nullptr) {
-    //   continue;
-    // }
-    ROS_ASSERT(region_node != nullptr);
-    region_node->topo_nodes_.insert(node);
+    // Temporary viewpoints can connect to odometry without owning a region.
+    ROS_ASSERT(region_node != nullptr || node->is_viewpoint_);
+    if (region_node) region_node->topo_nodes_.insert(node);
   }
 
   // 找到邻居region和自己region的其他节点

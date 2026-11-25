@@ -128,14 +128,14 @@ void FastExplorationManager::initialize(
   ep_->v_max_ = planner_manager_->gcopter_config_->maxVelMag;
   ep_->yaw_v_max_ = planner_manager_->gcopter_config_->yaw_max_vel;
   nh.param("exploration/tsp_dir", ep_->tsp_dir_, string("null"));
-  nh.getParam("viewpoint_param/global_viewpoint_num",
-              ep_->global_viewpoint_num_);
   nh.getParam("view_graph", ep_->view_graph_);
-  nh.getParam("viewpoint_param/local_viewpoint_num", ep_->local_viewpoint_num_);
+  nh.param("ViewpointManager/local_tsp_size", ep_->local_viewpoint_num_, 12);
   nh.getParam("global_planning/w_vdir", ep_->w_vdir_);
   nh.param("bubble_astar/endpoint_height_margin",endpoint_height_margin_,-1.);
-  nh.param("global_planning/return_to_start",return_to_start_,false);
-  nh.param("global_planning/use_velocity_direction_cost",use_velocity_direction_cost_,false);
+  nh.param("global_planning/right_hand_priority",right_hand_priority_,false);
+  bool external;
+  nh.param("fsm/external_local_planner",external,false);
+  nh.param("global_planning/use_velocity_direction_cost",use_velocity_direction_cost_,external);
   if(use_velocity_direction_cost_)ROS_INFO("Global first-leg direction cost enabled: w=%.2f, native LKH retained",ep_->w_vdir_);
   nh.getParam("global_planning/w_yawdir", ep_->w_yawdir_);
   Eigen::Vector3d origin, size;
@@ -195,6 +195,54 @@ bool FastExplorationManager::guideSupported(const vector<Eigen::Vector3f> &path)
       heightBoundedPrefix(path,endpoint_height_margin_)==path.size() && frontier_manager_ptr_->observedGuide(path);
 }
 
+bool FastExplorationManager::planReturnLeg(const Vector3f &start, Vector3f &home,
+                                           vector<Vector3f> &route) const {
+  auto &front = *frontier_manager_ptr_;
+  auto &map = *planner_manager_->lidar_map_interface_;
+  auto &astar = *planner_manager_->topo_graph_->parallel_bubble_astar_;
+  const float step = .5f * front.getCellSize();
+  const auto valid_home = [&]() {
+    return front.withinFlightHeight(home) && map.IsInBox(home) && front.observedAir(home) &&
+        map.getDisToOcc(home) > astar.safe_distance_ + .01;
+  };
+  // Preserve the launch XY if the first airborne height is too close to the floor.
+  const float max_home_z = std::min(float(astar.flight_max_z_), home.z() + float(astar.safe_distance_));
+  while (!valid_home() && home.z() < max_home_z) home.z() = std::min(home.z() + step, max_home_z);
+  if (!valid_home()) return false;
+
+  const auto certified = [&](const vector<Vector3f> &candidate) {
+    if (!front.certifyFlightGuide(candidate)) return false;
+    for (size_t i = 1; i < candidate.size(); ++i) {
+      const Vector3f edge = candidate[i] - candidate[i - 1];
+      const int parts = std::max(1, int(std::ceil(edge.norm() / step)));
+      for (int j = 0; j <= parts; ++j) {
+        if (!map.IsInBox((candidate[i - 1] + edge * (float(j) / parts)).eval())) return false;
+      }
+    }
+    return true;
+  };
+  route = {start, home};
+  if (!certified(route) &&
+      !(front.connectObserved(start, home, .10, route) && certified(route)) &&
+      !(front.connectFlightHistory(start, home, .18, route) && certified(route)) &&
+      !(front.connectDistantObserved(start, home, route) && certified(route))) return false;
+
+  // Keep the local planner's altitude envelope valid on a return across levels.
+  route.resize(heightBoundedPrefix(route, endpoint_height_margin_));
+  float remaining = front.sensorUpdateRange();
+  for (size_t i = 1; i < route.size(); ++i) {
+    const Vector3f edge = route[i] - route[i - 1];
+    const float length = edge.norm();
+    if (length > remaining) {
+      route[i] = route[i - 1] + (remaining / length) * edge;
+      route.resize(i + 1);
+      break;
+    }
+    remaining -= length;
+  }
+  return certified(route);
+}
+
 bool FastExplorationManager::passedDuringPlanning(const Vector3f &start,const Vector3f &goal,
                                                   const vector<Vector3f> &guide,float radius) {
   if (guide.size()<2 || radius<=0.f) return false;
@@ -213,11 +261,163 @@ bool FastExplorationManager::passedDuringPlanning(const Vector3f &start,const Ve
   return crossed(goal) && std::all_of(guide.begin(),guide.end(),crossed);
 }
 
+bool FastExplorationManager::repeatsReachedGuide(const Vector3f &body,
+    const vector<Vector3f> &issued,const vector<Vector3f> &candidate,float tolerance) {
+  if (issued.size()<2 || candidate.empty()) return false;
+  const float tolerance_squared=tolerance*tolerance;
+  const auto reached=[&](const Vector3f &point) {
+    return (point-body).squaredNorm()<=tolerance_squared;
+  };
+  // Match a previously issued endpoint and keep previews that leave it.
+  return reached(issued.back()) && std::all_of(candidate.begin(),candidate.end(),reached);
+}
+
+double FastExplorationManager::pathTangentYaw(const vector<Vector3f> &route,
+    size_t index,float lookahead,double fallback) {
+  if (index>=route.size()) return fallback;
+  Vector2f heading=Vector2f::Zero();
+  float remaining=lookahead;
+  for (size_t i=index+1;i<route.size() && remaining>0.f;++i) {
+    const Vector2f edge=(route[i]-route[i-1]).head<2>();
+    const float length=edge.norm();
+    if (length<.01f) continue;
+    if (heading.dot(edge)<0.f) break;
+    const float distance=std::min(length,remaining);
+    heading+=(distance/length)*edge;
+    remaining-=distance;
+  }
+  return heading.norm()>.05f ? std::atan2(heading.y(),heading.x()) : fallback;
+}
+
 vector<Vector3f> FastExplorationManager::publishedGuide() const {
   auto guide=published_first_route_;
   if (!guide.empty() && published_preview_.size()>1 && (guide.back()-published_preview_.front()).norm()<.1f)
     guide.insert(guide.end(),published_preview_.begin()+1,published_preview_.end());
   return guide;
+}
+
+bool FastExplorationManager::shortensIssuedGuide(const vector<Vector3f> &issued,
+    const vector<Vector3f> &proposed,float tolerance,float minimum_tail) {
+  if (issued.size()<2 || proposed.size()<2) return false;
+  float progress=0.f,total=0.f;
+  for (size_t i=1;i<issued.size();++i) total+=(issued[i]-issued[i-1]).norm();
+  for (size_t i=1;i<proposed.size();++i) {
+    float arc=0.f,nearest=tolerance*tolerance,projected=-1.f;
+    for (size_t j=1;j<issued.size();++j) {
+      const Vector3f edge=issued[j]-issued[j-1];
+      const float length=edge.norm();
+      if (length<.001f) continue;
+      const float t=std::clamp((proposed[i]-issued[j-1]).dot(edge)/edge.squaredNorm(),0.f,1.f);
+      const float at=arc+t*length;
+      const float error=(proposed[i]-issued[j-1]-t*edge).squaredNorm();
+      if (at+tolerance>=progress && error<nearest) {
+        nearest=error;
+        projected=at;
+      }
+      arc+=length;
+    }
+    if (projected<0.f) return false;
+    progress=std::max(progress,projected);
+  }
+  return total-progress>=minimum_tail;
+}
+
+bool FastExplorationManager::extendRightWallGuide(vector<Vector3f> &route,const Vector2f &heading) const {
+  if (route.empty()) return false;
+  auto &front=*frontier_manager_ptr_;
+  const auto preview=front.previewRightWall(route.back(),heading);
+  if (preview.size()<2) return false;
+  auto extended=route;
+  extended.insert(extended.end(),preview.begin()+1,preview.end());
+  if (!guideSupported(extended) || !front.certifyFlightGuide(extended) ||
+      front.revisitsLowerPass(route.front(),extended)) return false;
+  route.swap(extended);
+  return true;
+}
+
+vector<Vector3f> FastExplorationManager::appendOnwardGuide(const vector<Vector3f> &issued,
+    const vector<Vector3f> &proposed,const Vector3f &goal,float max_gap) {
+  if (issued.size()<2 || proposed.size()<2) return {};
+  const auto &tip=issued.back();
+  const Vector3f incoming=tip-issued[issued.size()-2];
+  if (incoming.norm()<.01f) return {};
+  const auto target=std::find_if(proposed.begin()+1,proposed.end(),[&](const auto &point) {
+    return (point-goal).norm()<.01f;
+  });
+  if (target==proposed.end() || (target+1==proposed.end() && (tip-*target).norm()<=.01f)) return {};
+  for (auto join=target;join!=proposed.begin();--join) {
+    const Vector3f gap=*join-tip;
+    if (gap.norm()>max_gap) continue;
+    if (gap.norm()>.01f && incoming.dot(gap)<-.15f*incoming.norm()*gap.norm()) continue;
+    if (join+1!=proposed.end()) {
+      const Vector3f outgoing=*(join+1)-*join;
+      if (incoming.dot(outgoing)<-.15f*incoming.norm()*outgoing.norm() ||
+          gap.dot(outgoing)<-.15f*gap.norm()*outgoing.norm()) continue;
+    }
+    const bool shared_vertex=gap.norm()<=.01f;
+    auto extended=issued;
+    extended.insert(extended.end(),join+shared_vertex,proposed.end());
+    return extended;
+  }
+  return {};
+}
+
+vector<Vector3f> FastExplorationManager::spliceOnwardGuide(const vector<Vector3f> &issued,
+    const vector<Vector3f> &proposed,const Vector3f &goal,float max_gap,
+    const std::function<bool(const vector<Vector3f>&)> &accept) {
+  if (issued.size()<2 || proposed.size()<2) return {};
+  const auto target=std::find_if(proposed.begin()+1,proposed.end(),[&](const auto &point) {
+    return (point-goal).norm()<.01f;
+  });
+  if (target==proposed.end()) return {};
+
+  constexpr float sample_spacing=.25f;
+  float tail_length=0.f;
+  int checks=0;
+  // Try the latest departure first and preserve all but a short tail of the issued route.
+  for (size_t end=issued.size()-1;end>0 && tail_length<2.f*max_gap;--end) {
+    const Vector3f edge=issued[end]-issued[end-1];
+    const float length=edge.norm();
+    if (length<.01f) continue;
+    const Vector3f incoming=edge/length;
+    const int steps=std::max(2,int(std::ceil(length/sample_spacing)));
+    for (int step=1;step<steps;++step) {
+      const float trim=length*step/steps;
+      if (tail_length+trim>2.f*max_gap) break;
+      const Vector3f start=issued[end]-trim*incoming;
+      for (auto next=target;next!=proposed.begin();--next) {
+        const Vector3f proposed_edge=*next-*(next-1);
+        const float proposed_length=proposed_edge.norm();
+        if (proposed_length<.01f) continue;
+        const Vector3f outgoing=proposed_edge/proposed_length;
+        if (incoming.dot(outgoing)<-.15f) continue;
+        const int parts=std::max(2,int(std::ceil(proposed_length/sample_spacing)));
+        for (int part=1;part<=parts;++part) {
+          const float remaining=proposed_length*part/parts;
+          const Vector3f finish=*next-remaining*outgoing;
+          const Vector3f gap=finish-start;
+          const float distance=gap.norm();
+          if (distance<.05f || distance>max_gap ||
+              incoming.dot(gap)<0.f || outgoing.dot(gap)<0.f) continue;
+
+          // Match both tangents and keep the control points inside the join.
+          const float handle=std::min(distance/3.f,remaining);
+          const Vector3f a=start+handle*incoming,b=finish-handle*outgoing;
+          vector<Vector3f> joined(issued.begin(),issued.begin()+end);
+          joined.push_back(start);
+          for (int sample=1;sample<=4;++sample) {
+            const float t=sample/4.f,u=1.f-t;
+            joined.push_back(u*u*u*start+3.f*u*u*t*a+3.f*u*t*t*b+t*t*t*finish);
+          }
+          joined.insert(joined.end(),next,proposed.end());
+          if (accept(joined)) return joined;
+          if (++checks>=8) return {};
+        }
+      }
+    }
+    tail_length+=length;
+  }
+  return {};
 }
 
 // A complete replacement that ends behind the moving body is different
@@ -484,7 +684,7 @@ double FastExplorationManager::getPathCost(TopoNode::Ptr &n1,
   vector<Eigen::Vector3f> path;
   int res = planner_manager_->fast_searcher_->topoSearch(n1, n2, 1e-2, path);
   if (frontier_manager_ptr_->surface_continuity_ && (!guideSupported(path) ||
-      (!returning_ && n1==planner_manager_->topo_graph_->odom_node_ &&
+      (n1==planner_manager_->topo_graph_->odom_node_ &&
        frontier_manager_ptr_->revisitsLowerPass(n1->center_,path)))) return 2e3+1.;
   const double cost=estimateCost(n1, v1, yaw1, n2, yaw2, res, path);
   if(initial_turn_cost && cost<2e3)
@@ -515,14 +715,15 @@ int FastExplorationManager::frontierStatus(const Eigen::Vector3f &body,bool exha
         body.x(),body.y(),body.z(),planner_manager_->lidar_map_interface_->getDisToOcc(body),
         int(frontier_manager_ptr_->observedAir(body)));
   }
-  if (!exhausted_recovery && (return_to_start_ ? frontier_manager_ptr_->hasInspectionFrontiers() :
-                             frontier_manager_ptr_->hasPendingSurveyFrontiers(body))) {
+  if (!exhausted_recovery && frontier_manager_ptr_->hasPendingSurveyFrontiers(body)) {
     frontier_empty_since_=-1.;return FRONTIER_PENDING;
   }
   const double now=epic_ros::Time::now().toSec();
   if(frontier_empty_since_<0.)frontier_empty_since_=now;
   epic_ros::NodeHandle nh;double confirm;
-  nh.param("exploration/frontier_empty_confirmation",confirm,0.);
+  // Debounce survey completion across scan updates.
+  nh.param("exploration/frontier_empty_confirmation",confirm,
+           frontier_manager_ptr_->surface_continuity_ ? 3. : 0.);
   return now-frontier_empty_since_<confirm ? FRONTIER_PENDING : NO_FRONTIER;
 }
 
@@ -531,7 +732,7 @@ bool FastExplorationManager::advanceOpeningGuide(const Eigen::Vector3f &body) {
   // Recovery can run between a first handoff and SUPER's first feasible turn.
   // Compare the contiguous unflown ends of both measured guides before
   // abandoning a newly issued observation for a different opening.
-  if (opening_guide_.size()>1 && !returning_ && published_first_leg_ &&
+  if (opening_guide_.size()>1 && published_first_leg_ &&
       published_first_route_.size()>1 && epic_ros::Time::now().toSec()<departure_deadline_ &&
       distanceToPolyline(published_first_leg_->second,opening_guide_)>2.f*radius) {
     const auto fresh_tail=[&](const vector<Vector3f> &route) {
@@ -562,10 +763,8 @@ bool FastExplorationManager::advanceOpeningGuide(const Eigen::Vector3f &body) {
   }
   if (opening_guide_.size()<2 || (opening_guide_.back()-body).norm()<=.7f*radius ||
       !reanchorContour(opening_guide_,body,true)) return false;
-  if (!returning_) {
-    frontier_manager_ptr_->continueBeforeLeftTurn(body,opening_guide_);
-    if (frontier_manager_ptr_->revisitsLowerPass(body,opening_guide_)) return false;
-  }
+  frontier_manager_ptr_->continueBeforeLeftTurn(body,opening_guide_);
+  if (frontier_manager_ptr_->revisitsLowerPass(body,opening_guide_)) return false;
   size_t end=heightBoundedPrefix(opening_guide_,endpoint_height_margin_);
   if (opening_guide_[end-1].z()>body.z()+radius) {
     vector<Eigen::Vector3f> level;
@@ -578,7 +777,6 @@ bool FastExplorationManager::advanceOpeningGuide(const Eigen::Vector3f &body) {
   if (!frontier_manager_ptr_->certifyFlightGuide(active_contour_approach_)) return false;
   active_contour_preview_.clear();
   frontier_manager_ptr_->perimeter_target_.reset();
-  returning_=false;
   const auto goal=active_contour_approach_.back();
   const auto edge=goal-active_contour_approach_[end-2];
   ed_->global_tour_={body,goal};
@@ -589,28 +787,26 @@ bool FastExplorationManager::advanceOpeningGuide(const Eigen::Vector3f &body) {
   return true;
 }
 
-int FastExplorationManager::returnOrWait(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity) {
-  const auto home=return_to_start_ ? frontier_manager_ptr_->home() : std::nullopt;
+int FastExplorationManager::recoverOrWait(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity) {
   const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
   auto &front=*frontier_manager_ptr_;
-  if (front.surface_continuity_ && !published_first_leg_ && !returning_) {
-    // At takeoff the first cloud and the first surface-view update can arrive
-    // in different solves. Give the normal survey the empty-map confirmation
-    // interval before a free-air recovery is allowed to start the mission.
-    const double now=epic_ros::Time::now().toSec();
-    epic_ros::NodeHandle nh;
-    double confirm=0.;
-    nh.param("exploration/frontier_empty_confirmation",confirm,0.);
-    if (first_recovery_since_<0. || now<first_recovery_since_) {
-      first_recovery_since_=now;
-      if (confirm>0.) ROS_INFO("Waiting for first surface observations before starting recovery");
+  if (right_hand_priority_ && front.surface_continuity_) {
+    Vector2f heading=velocity.head<2>();
+    if (heading.norm()<.5f) {
+      const double yaw=planner_manager_->local_data_.curr_yaw_;
+      heading=Vector2f(std::cos(yaw),std::sin(yaw));
     }
-    if (now-first_recovery_since_<confirm) return FRONTIER_PENDING;
+    vector<Vector3f> wall{body};
+    if (extendRightWallGuide(wall,heading)) {
+      opening_guide_=std::move(wall);
+      if (advanceOpeningGuide(body)) return SUCCEED;
+      opening_guide_.clear();
+    }
   }
   vector<Eigen::Vector3f> route;
   // Resume a recovery connector only after this solve exhausted the
   // reachable observations. A fresh wall or doorway gets the first choice.
-  if (front.surface_continuity_ && !returning_ && !opening_guide_.empty()) {
+  if (front.surface_continuity_ && !opening_guide_.empty()) {
     if (advanceOpeningGuide(body)) return SUCCEED;
     opening_guide_.clear();
   }
@@ -653,8 +849,13 @@ int FastExplorationManager::returnOrWait(const Eigen::Vector3f &body,const Eigen
       (front.surface_continuity_ && front.reachableOpening(body,route) && commit()) ||
       (front.sightlineGoal(body,route) && commit()))
     return SUCCEED;
+  if (right_hand_priority_ && front.surface_continuity_ && !published_first_leg_) {
+    const double yaw=planner_manager_->local_data_.curr_yaw_-M_PI/6.;
+    const Vector2f forward_right(std::cos(yaw),std::sin(yaw));
+    if (front.observedBoundaryGuide(body,route,&forward_right) && commit()) return SUCCEED;
+  }
   if (front.surface_continuity_ && front.observedBoundaryGuide(body,route,nullptr,nullptr,0.f,&prefix)) {
-    if (!return_to_start_ && front.exhaustedAboveFlownFloor(route)) {
+    if (front.exhaustedAboveFlownFloor(route)) {
       exhausted_recovery_route_=route;
       ROS_INFO("Confirming survey completion above a flown floor with no remaining surface viewpoint");
       return frontierStatus(body,true);
@@ -670,62 +871,16 @@ int FastExplorationManager::returnOrWait(const Eigen::Vector3f &body,const Eigen
   if (front.surface_continuity_ && front.ground_clearance_>0. && front.risingBoundaryGuide(body,route) && commit()) return SUCCEED;
   if (front.surface_continuity_ && front.previousOpening(body,route) && commit()) return SUCCEED;
   if (front.surface_continuity_ && front.resumeSurveyThroughAperture(body,route) && commit()) return SUCCEED;
-  route.clear();
-  bool linked=false;
-  const bool resuming=returning_ && return_to_start_ && home && (body-*home).norm()>=.7f;
-  if (resuming) linked=frontier_manager_ptr_->returnGuide(body,route);
-  // A temporary clearance manoeuvre can point back into the exhausted
-  // pocket. While returning, prefer a certified leg which advances home.
-  const bool advances_home=linked && (body-*home).norm()-(route.back()-*home).norm()>radius;
-  if (!advances_home && frontier_manager_ptr_->surface_continuity_ &&
-      frontier_manager_ptr_->clearanceDepartureGuide(body,opening_guide_,resuming ? &*home : nullptr)) {
-    if (advanceOpeningGuide(body)) {
-      returning_=resuming;
-      if (resuming) opening_guide_.clear();
-      return SUCCEED;
-    }
+  if (front.surface_continuity_ && front.clearanceDepartureGuide(body,opening_guide_)) {
+    if (advanceOpeningGuide(body)) return SUCCEED;
     opening_guide_.clear();
   }
-  if (front.surface_continuity_ && !published_first_leg_ && !returning_) {
+  if (front.surface_continuity_ && !published_first_leg_) {
     if (front.initialSurveyGuide(body,opening_guide_) && advanceOpeningGuide(body)) return SUCCEED;
     opening_guide_.clear();
     return FRONTIER_PENDING;
   }
-  if (!home || !return_to_start_) return frontierStatus(body);
-  if ((body-*home).norm()<.7f) {
-    if (returning_ && frontier_manager_ptr_->surface_continuity_ &&
-        frontier_manager_ptr_->observedBoundaryGuide(body,opening_guide_)) {
-      if (advanceOpeningGuide(body)) return SUCCEED;
-      opening_guide_.clear();
-    }
-    return returning_ ? NO_FRONTIER:frontierStatus(body);
-  }
-  if (!returning_) {
-    const double now=epic_ros::Time::now().toSec();
-    if (frontier_empty_since_<0.) frontier_empty_since_=now;
-    double confirm;
-    epic_ros::NodeHandle nh;
-    nh.param("exploration/frontier_empty_confirmation",confirm,0.);
-    if (now-frontier_empty_since_<confirm) return FRONTIER_PENDING;
-  }
-  if (!resuming) linked=frontier_manager_ptr_->returnGuide(body,route);
-  if (frontier_manager_ptr_->surface_continuity_ && (body-*home).norm()>4.f*radius &&
-      (!linked || (route.back()-body).norm()<2.5f*radius)) {
-    vector<Eigen::Vector3f> onward;
-    if (frontier_manager_ptr_->reachableOpening(body,onward,&*home)) route.swap(onward);
-    else if (!linked) return frontierStatus(body);
-  } else if (!linked) return frontierStatus(body);
-  route.resize(heightBoundedPrefix(route,endpoint_height_margin_));
-  returning_=true;
-  active_contour_approach_=route;
-  ed_->global_tour_={body,route.back()};
-  selection_reason_="Return through observed space";
-  const auto delta=route.back()-body;
-  const double yaw=std::atan2(delta.y(),delta.x());
-  ed_->global_tour_yaws_={planner_manager_->local_data_.curr_yaw_,yaw};
-  updateGoalNode();
-  ROS_INFO("Returning along observed free space; takeoff %.1fm away",(body-*home).norm());
-  return SUCCEED;
+  return frontierStatus(body);
 }
 
 bool FastExplorationManager::retractsStraightGoal(const vector<Eigen::Vector3f> &committed,
@@ -756,7 +911,7 @@ bool FastExplorationManager::retractsStraightGoal(const vector<Eigen::Vector3f> 
 void FastExplorationManager::rememberDisplacedGoal(const Vector3f &body,const vector<Vector3f> &replacement) {
   auto &front=*frontier_manager_ptr_;
   const auto &issued=published_first_route_;
-  if (returning_ || issued.size()<2 || replacement.size()<2 || front.exteriorPassPending()) return;
+  if (issued.size()<2 || replacement.size()<2 || front.exteriorPassPending()) return;
   const auto &q=issued.back();
   const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
   if (std::abs(q.z()-body.z())>radius || (q-body).norm()<3.f*radius ||
@@ -803,7 +958,7 @@ void FastExplorationManager::appendDeferredObservation(const Vector3f &body,vect
   const double now=epic_ros::Time::now().toSec();
   // During a bend, a single new scan can contain only the view through the
   // doorway. Keep the actual unflown wall arc available to this ATSP solve.
-  if (published_wall_observation_ && !published_wall_observation_->exterior_pass_ && published_first_leg_ && !returning_ && now<departure_deadline_ &&
+  if (published_wall_observation_ && !published_wall_observation_->exterior_pass_ && published_first_leg_ && now<departure_deadline_ &&
       published_first_route_.size()>1 && distanceToPolyline(body,published_first_route_)<2.f*radius) {
     const auto &goal=published_first_leg_->second;
     auto route=published_first_route_;
@@ -837,7 +992,7 @@ void FastExplorationManager::appendDeferredObservation(const Vector3f &body,vect
     saved->best_vp_yaw_=view->yaw_;
     rememberObservation(saved);
   }
-  const bool entering=!returning_ && published_first_leg_ && published_sweep_entry_ && now<departure_deadline_;
+  const bool entering=published_first_leg_ && published_sweep_entry_ && now<departure_deadline_;
   if ((productive && !entering) || deferred_observations_.empty()) return;
 
   ClusterInfo::Ptr candidate;
@@ -937,7 +1092,7 @@ bool FastExplorationManager::retracesEntryToWall(const vector<Vector3f> &approac
 }
 
 void FastExplorationManager::preservePublishedCorner(vector<Eigen::Vector3f> &approach,const Eigen::Vector3f &velocity) {
-  if (returning_ || !opening_guide_.empty() || !published_first_leg_ || approach.size()<2 ||
+  if (!opening_guide_.empty() || !published_first_leg_ || approach.size()<2 ||
       published_first_route_.size()<2) return;
   const Vector3f body=approach.front(),goal=published_first_leg_->second;
   auto &front=*frontier_manager_ptr_;
@@ -1036,7 +1191,7 @@ bool FastExplorationManager::restorePublishedObservation(vector<Vector3f> &appro
 // after the local guide is assembled. Finish the further, certified pass if
 // the replacement turns left and runs all the way back past the aircraft.
 bool FastExplorationManager::finishUnflownPass(vector<Vector3f> &path,size_t first_goal,const Vector3f &velocity) {
-  if (returning_ || !published_first_leg_ || published_first_route_.size()<2 ||
+  if (!published_first_leg_ || published_first_route_.size()<2 ||
       !first_goal || first_goal>=path.size()) return false;
   const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
   auto &front=*frontier_manager_ptr_;
@@ -1118,7 +1273,7 @@ bool FastExplorationManager::finishUnflownPass(vector<Vector3f> &path,size_t fir
 // measured segment visible beyond it. Remember the observed direction in
 // the map frame while the next scan resolves the interior.
 void FastExplorationManager::rememberShortRightTurn(const vector<Vector3f> &approach,const vector<Vector3f> &preview) {
-  if (returning_ || approach.size()<2) return;
+  if (approach.size()<2) return;
   const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
   const auto remember=[&](size_t pivot,const Vector3f &lip) {
     const auto &corner=approach[pivot];
@@ -1189,7 +1344,7 @@ bool FastExplorationManager::selectedWallInsideTurn(const vector<Vector3f> &rout
 // collision-checked continuation. Release the commitment as soon as the
 // vehicle crosses it or a real replacement continues into the same space.
 bool FastExplorationManager::continueShortRightTurn(vector<Vector3f> &route) {
-  if (!short_right_turn_ || returning_ || route.size()<2) return false;
+  if (!short_right_turn_ || route.size()<2) return false;
   const auto [lip,axis]=*short_right_turn_;
   const float radius=planner_manager_->topo_graph_->bubble_min_radius_,cell=frontier_manager_ptr_->getCellSize();
   const Vector3f body=route.front();
@@ -1214,6 +1369,23 @@ bool FastExplorationManager::continueShortRightTurn(vector<Vector3f> &route) {
     if (depth>1.75f*radius && (delta-depth*axis).norm()<2.5f*radius) return false;
   }
   auto &front=*frontier_manager_ptr_;
+  // A transient entry preview must not replace a complete, advancing wall
+  // guide. Keep a measured doorway commitment protected by the normal guard.
+  if (right_hand_priority_ && !issued_wall_entry_ && selected_observation_ &&
+      selected_observation_->follows_local_outline_ &&
+      selected_observation_->fresh_contour_length_>=2.f*radius) {
+    const auto incoming=front.recentFlightDirection(body);
+    const auto departure=std::find_if(route.begin()+1,route.end(),[&](const Vector3f &point) {
+      return (point-body).head<2>().norm()>=radius;
+    });
+    if (incoming && departure!=route.end() &&
+        (*departure-body).head<2>().dot(*incoming)>0.f &&
+        (route.back()-body).head<2>().norm()>4.f*radius &&
+        guideSupported(route) && front.certifyFlightGuide(route)) {
+      ROS_INFO("Kept the advancing wall guide past a transient turn preview");
+      return false;
+    }
+  }
   if (front.flownObservationStance(lip)) return false;
   Vector3f tip=lip;
   for (float depth=cell;depth<=4.f*radius;depth+=cell) {
@@ -1381,7 +1553,7 @@ static bool cutsActiveWallPass(FrontierManager &front,const vector<Vector3f> &is
 // A short preview through a measured turn has already been sent to SUPER.
 // Recheck it against the current scan before letting a subsequent solve brake
 // at the entry or turn back across it. Release on progress or on a new obstacle.
-bool FastExplorationManager::retractsMeasuredEntry(const vector<Vector3f> &replacement) const {
+bool FastExplorationManager::retractsMeasuredEntry(const vector<Vector3f> &replacement) {
   if (!published_first_leg_ || replacement.size()<2) return false;
   const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
   const double now=epic_ros::Time::now().toSec();
@@ -1406,6 +1578,20 @@ bool FastExplorationManager::retractsMeasuredEntry(const vector<Vector3f> &repla
     link.insert(link.begin()+1,*nearest);
     return front.certifyFlightGuide(link);
   };
+  if (right_hand_priority_ && published_right_hand_) {
+    const auto &tip=published_first_leg_->second;
+    const float distance=(tip-body).norm();
+    if (distance<right_hand_best_distance_-.15f) {
+      right_hand_best_distance_=distance;
+      right_hand_progress_time_=now;
+    }
+    if (distance>.5f*radius && now<right_hand_deadline_ && now-right_hand_progress_time_<2.5 &&
+        distanceToPolyline(tip,replacement)>radius && !front.flownObservationStance(tip) &&
+        can_follow_issued(tip)) {
+      ROS_INFO("Right-hand priority: keeping certified issued wall at %.2f %.2f",tip.x(),tip.y());
+      return true;
+    }
+  }
   if (short_right_turn_ && now<short_turn_until_) {
     const auto &[lip,inward]=*short_right_turn_;
     const bool on_issued_guide=distanceToPolyline(lip,published_first_route_)<.5f*radius ||
@@ -1473,7 +1659,7 @@ bool FastExplorationManager::retractsMeasuredEntry(const vector<Vector3f> &repla
       if ((retraces || abandons_wall) && frontier_manager_ptr_->certifyFlightGuide({body,tip})) return true;
     }
   }
-  if (returning_ || (selected_observation_ && selected_observation_->exterior_pass_)) return false;
+  if ((selected_observation_ && selected_observation_->exterior_pass_)) return false;
   if (!published_first_route_.empty() &&
       (backtracksRightTurn(published_first_route_,replacement,radius) || flipsStraightPass(published_first_route_,replacement,radius)) &&
       !frontier_manager_ptr_->flownObservationStance(published_first_route_.back())) {
@@ -1531,7 +1717,7 @@ bool FastExplorationManager::retractsMeasuredEntry(const vector<Vector3f> &repla
 // #1. A fast local trajectory then rounds the entire excursion away. Keep
 // an observed continuation through the opening while the next scan arrives.
 bool FastExplorationManager::extendMeasuredTurn(vector<Vector3f> &path,size_t first_goal,const Vector3f &velocity) {
-  if (returning_ || !opening_guide_.empty() || !first_goal || first_goal>=path.size()) return false;
+  if (!opening_guide_.empty() || !first_goal || first_goal>=path.size()) return false;
   const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
   const Vector2f motion=velocity.head<2>();
   if (motion.norm()<.5f) return false;
@@ -1662,7 +1848,6 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   // Keep that graph anchor intact for certified native routing.
   Eigen::Vector3f current_body_position=pos.cast<float>();
   selection_reason_="Reachable observation";
-  future_tour_paths_.clear();
   restored_observation_.reset();
   active_contour_approach_.clear();
   active_contour_preview_.clear();
@@ -1677,6 +1862,7 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   }
   // A measured viewpoint approach can provide the first edge of an isolated odometry node.
   frontier_manager_ptr_->generateTSPViewpoints(current_body_position,viewpoints);
+  const size_t sampled_views=viewpoints.size();
   const bool exterior_pending=frontier_manager_ptr_->exteriorPassPending();
   if (!exhausted_recovery_route_.empty()) {
     // The vehicle may coast during the confirmation interval. Re-evaluate
@@ -1731,7 +1917,7 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   frontier_manager_ptr_->publishSurveyViewpoints(viewpoints);
   // A missing sweep sample can be bridged by the last measured route.
   // Once a new observation exists, let the first-edge policy choose it.
-  if (viewpoints.empty() && published_first_leg_ && frontier_manager_ptr_->surface_continuity_ && !returning_) {
+  if (viewpoints.empty() && published_first_leg_ && frontier_manager_ptr_->surface_continuity_) {
     const auto &goal=published_first_leg_->second;
     const Vector3f remaining=goal-current_body_position;
     const auto incoming=frontier_manager_ptr_->recentFlightDirection(current_body_position);
@@ -1750,10 +1936,9 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
       return SUCCEED;
     }
   }
-  if (!exterior_pending && !returning_)
+  if (!exterior_pending)
     frontier_manager_ptr_->connectForwardAperture(current_body_position,viewpoints);
-  const bool recovering=returning_ ||
-      (frontier_manager_ptr_->surface_continuity_ && frontier_manager_ptr_->prolongedRetrace());
+  const bool recovering=(frontier_manager_ptr_->surface_continuity_ && frontier_manager_ptr_->prolongedRetrace());
   if (recovering) {
     const float safe=planner_manager_->topo_graph_->bubble_min_radius_;
     bool fresh_prefix=false;
@@ -1769,7 +1954,7 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
         fresh_prefix=true;
         break;
       }
-      if (!returning_ && obs->second->close_surface_sample_ &&
+      if (obs->second->close_surface_sample_ &&
           (vp->center_-current_body_position).norm()<9.f*safe &&
           std::abs(vp->center_.z()-current_body_position.z())<safe &&
           !frontier_manager_ptr_->nearFlightPath(vp->center_,1.6f*safe,4.f*safe)) {
@@ -1781,10 +1966,10 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
       for (size_t i=1;i<path.size();++i)
         if (!frontier_manager_ptr_->nearFlightPath(path[i],1.6f*safe,4.f*safe))
           fresh+=(path[i]-path[i-1]).norm();
-      if (fresh>(returning_ ? 7.f:4.f)*safe) {fresh_prefix=true;break;}
+      if (fresh>4.f*safe) {fresh_prefix=true;break;}
     }
     if (!fresh_prefix) {
-      const int status=returnOrWait(current_body_position,vel.cast<float>());
+      const int status=recoverOrWait(current_body_position,vel.cast<float>());
       if (status==SUCCEED || status==NO_FRONTIER) return status;
     }
   }
@@ -1810,7 +1995,7 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   if (viewpoints.empty()) {
     if (exterior_pending) return FRONTIER_PENDING;
     ed_->global_tour_.clear();
-    return returnOrWait(current_body_position,vel.cast<float>());
+    return recoverOrWait(current_body_position,vel.cast<float>());
   }
 
   epic_ros::Time t1 = epic_ros::Time::now();
@@ -1941,6 +2126,20 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
     viewpoint_reachable.emplace_back(viewpoints[i]);
   }
 
+  if (std::getenv("EPIC_TRACE_WALL_CHOICE")) {
+    ROS_INFO("Viewpoints: %zu sampled, %zu submitted, %zu reachable",
+        sampled_views,viewpoints.size(),viewpoint_reachable.size());
+    for (const auto &v:viewpoints) {
+      const auto it=frontier_manager_ptr_->observations_.find(v.get());
+      if (it==frontier_manager_ptr_->observations_.end()) continue;
+      const auto &o=*it->second;
+      ROS_INFO("Candidate %.2f %.2f %.2f outline %d reachable %d preview %zu",
+          v->center_.x(),v->center_.y(),v->center_.z(),int(o.follows_local_outline_),
+          int(std::find(viewpoint_reachable.begin(),viewpoint_reachable.end(),v)!=viewpoint_reachable.end()),
+          o.contour_preview_.size());
+    }
+  }
+
   // A sampled viewpoint can belong to a disconnected topology component even
   // though free space connects it to the robot. Rotate the first repair
   // candidate so one inaccessible viewpoint cannot exhaust every update.
@@ -1971,7 +2170,7 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
       // A free connector can descend through a finished survey even when
       // the endpoint is outside the visitation radius. Price the same
       // executable edge here that SUPER will receive after selection.
-      if (connected && !returning_ && frontier_manager_ptr_->revisitsLowerPass(current_body_position,connector))
+      if (connected && frontier_manager_ptr_->revisitsLowerPass(current_body_position,connector))
         continue;
       if (connected) {
         double length;astar->calculatePathCost(connector,length);
@@ -1991,11 +2190,10 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   if (viewpoint_reachable.empty()) {
     planner_manager_->topo_graph_->removeNodes(viewpoints);
     ed_->global_tour_.clear();
-    return returnOrWait(current_body_position,vel.cast<float>());
+    return recoverOrWait(current_body_position,vel.cast<float>());
   }
 
   frontier_empty_since_=-1.;
-  returning_=false;
   next_repair_candidate_=0;
   opening_guide_.clear();
   const auto commitmentFor=[&](const TopoNode::Ptr &view,const ClusterInfo &observation)->std::optional<Vector3f> {
@@ -2020,6 +2218,28 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
     const Eigen::Vector2f offset=(node->center_-current_body_position).head<2>();
     const float speed=motion.norm();
     const float lead=2.f*radius+.8f*speed+.5f*speed*speed/std::max(1.,ep_->a_avg_);
+    if (right_hand_priority_ && !obs.exterior_pass_ && offset.norm()<lead &&
+        (obs.follows_local_outline_ || obs.close_surface_sample_ || !obs.contour_support_.empty())) {
+      auto approach=active_contour_approach_;
+      const auto &native=planner_manager_->topo_graph_->odom_node_->paths_;
+      const auto path=native.find(node);
+      if (approach.size()<2 && path!=native.end()) approach=path->second;
+      if (approach.size()>1 && (approach.back()-node->center_).norm()<.01f) {
+        const Vector2f tangent=(approach.back()-approach[approach.size()-2]).head<2>();
+        float existing_length=0.f;
+        for (size_t i=1;i<active_contour_preview_.size();++i)
+          existing_length+=(active_contour_preview_[i]-active_contour_preview_[i-1]).norm();
+        if (existing_length<2.f*radius) {
+          auto preview=frontier_manager_ptr_->previewRightWall(node->center_,tangent);
+          if (preview.size()>1 && guideSupported(preview) &&
+              !frontier_manager_ptr_->revisitsLowerPass(current_body_position,preview)) {
+            active_contour_preview_=std::move(preview);
+            ROS_INFO("Sampled a measured right-wall continuation beyond the selected observation");
+            return;
+          }
+        }
+      }
+    }
     if ((!obs.close_surface_sample_ && obs.contour_support_.empty()) || obs.contour_entry_ ||
         speed<=1.f || offset.norm()>=lead ||
         offset.dot(motion)<=.85f*offset.norm()*speed ||
@@ -2059,7 +2279,7 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
     auto &front=*frontier_manager_ptr_;
     const auto &chosen=*front.observations_.at(next.get());
     if (chosen.exterior_pass_ || !front.surface_continuity_ || !published_first_leg_ ||
-        published_first_route_.size()<2 || (recovering && return_to_start_)) return false;
+        published_first_route_.size()<2) return false;
     const float radius=planner_manager_->topo_graph_->bubble_min_radius_;
     const auto &[start,goal]=*published_first_leg_;
     const Vector3f remaining=goal-current_body_position,proposal=next->center_-current_body_position;
@@ -2136,7 +2356,6 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
 
   int dim = viewpoint_reachable.size() + 1;
   vector<const char *> first_edge_reason(dim,"ATSP");
-  vector<vector<Vector3f>> tour_connections(capture_tour_paths_ ? size_t(dim)*dim : 0);
   vector<vector<Vector3f>> forward_connectors(dim);
   Eigen::MatrixXd mat;
   mat.resize(dim, dim);
@@ -2152,26 +2371,19 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   // clang-format on
   for (int i = 1; i < dim; i++) {
     for (int j = i + 1; j < dim; j++) {
-      auto *connection = capture_tour_paths_ ? &tour_connections[i*dim+j] : nullptr;
       double cost=getPathCost(viewpoint_reachable[i-1],Eigen::Vector3d::Zero(),
           viewpoint_reachable[i-1]->yaw_,viewpoint_reachable[j-1],viewpoint_reachable[j-1]->yaw_,
-          nullptr,connection);
+          nullptr);
       if (frontier_manager_ptr_->surface_continuity_) {
         // Both views have validated routes from the body. A missing direct
         // graph edge must not dominate the ATSP ordering with a 2000s penalty.
         const double via_body=viewpoint_reachable_distance2[i-1]+viewpoint_reachable_distance2[j-1];
-        if (connection && via_body<cost) connection->clear();
         cost=std::min(cost,via_body);
       }
       mat(i,j)=mat(j,i)=cost;
     }
   }
-  const auto home=recovering && return_to_start_ ? frontier_manager_ptr_->home() : std::nullopt;
-  for (int i = 1; i < dim; ++i) {
-    if (home)
-      mat(i,0)=2e3+(viewpoint_reachable[i-1]->center_-*home).norm()/std::max(1.,ep_->v_max_/2.);
-    else mat(i, 0) = 2e3 - viewpoint_reachable_distance2[i - 1] * 0.2;
-  }
+  for (int i=1;i<dim;++i) mat(i,0)=2e3-viewpoint_reachable_distance2[i-1]*.2;
   // In rolling flight the first edge must be the executable body-to-view
   // route. A shortcut through another candidate misprices that first choice.
   for (int i = frontier_manager_ptr_->surface_continuity_ ? 1 : 0; i < dim; ++i) {
@@ -2239,14 +2451,19 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
     // open tour, and a reverse transfer is available when the local pass ends.
     auto &front=*frontier_manager_ptr_;
     const auto incoming=front.recentFlightDirection(current_body_position);
-    const Vector2f heading=incoming.value_or(Vector2f(std::cos(curr_yaw),std::sin(curr_yaw)));
+    const Vector2f body_forward(std::cos(curr_yaw),std::sin(curr_yaw));
+    const Vector2f body_right(body_forward.y(),-body_forward.x());
+    const Vector2f heading=incoming.value_or(body_forward);
     const auto band=front.currentSurveyBand(current_body_position);
     const auto &odom=planner_manager_->topo_graph_->odom_node_;
     struct FirstEdge {
       bool exterior,same_level,unflown,right_opening,continues_pass,attached,right_wall,wall;
       FrontierManager::Departure departure;
+      int direction_priority=0;
+      bool rolling_wall=false;
       auto priority() const {
-        return std::tie(exterior,same_level,unflown,right_opening,continues_pass,attached,right_wall,wall,departure);
+        return std::make_tuple(exterior,rolling_wall,attached && right_wall,direction_priority,same_level,unflown,right_opening,
+                               continues_pass,attached,right_wall,wall,departure);
       }
     };
     std::vector<FirstEdge> ranks(dim);
@@ -2374,10 +2591,51 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
       }
       ranks[i]={obs.exterior_pass_,level_pass,new_pass,right_opening,true,attached,right_wall && !moving_away,
           wall && !moving_away,fresh ? departure : FrontierManager::Departure::Transfer};
+      if (right_hand_priority_ && level_pass && new_pass) {
+        const Vector2f target=(node->center_-current_body_position).head<2>();
+        const auto first=std::find_if(guide->begin(),guide->end(),[&](const auto &point) {
+          return (point-current_body_position).template head<2>().norm()>=.5f*survey_radius;
+        });
+        if (first!=guide->end()) {
+          const Vector2f step=(*first-current_body_position).head<2>();
+          const float angle=std::atan2(target.dot(body_right),target.dot(body_forward));
+          if (step.dot(body_forward)>=-.25f*step.norm()) {
+            if (angle>=.12f && angle<=1.31f) ranks[i].direction_priority=2;
+            else if (angle>=-.35f && angle<1.57f) ranks[i].direction_priority=1;
+            // Prefer a measured wall path with enough ordered arc to keep rolling.
+            // A short waypoint with the same bearing cannot supply that preview.
+            if (!moving_away && (attached || right_wall) &&
+                (wall || obs.fresh_contour_length_>=survey_radius) && departure_path.size()>1) {
+              float arc=0.f;
+              bool forward_route=true;
+              for (size_t k=1;k<departure_path.size();++k) {
+                const Vector3f edge=departure_path[k]-departure_path[k-1];
+                arc+=edge.norm();
+                if (k>1) {
+                  const Vector3f previous=departure_path[k-1]-departure_path[k-2];
+                  if (edge.dot(previous)<-.35f*edge.norm()*previous.norm()) {
+                    forward_route=false;
+                    break;
+                  }
+                }
+              }
+              ranks[i].rolling_wall=forward_route && arc>=rolling_span &&
+                  front.keepsRightWall(departure_path,
+                      std::min(arc,rolling_span+frontier_manager_ptr_->getCellSize())) &&
+                  guideSupported(departure_path) && front.certifyFlightGuide(departure_path);
+              if (ranks[i].rolling_wall)
+                merit[i]+=horizon*.3*std::min(2.f,arc/rolling_span);
+            }
+            if (ranks[i].direction_priority)
+              merit[i]+=.15*horizon*std::max(0.f,1.f-std::abs(angle-.65f)/1.2f);
+
+          }
+        }
+      }
       if (std::getenv("EPIC_TRACE_WALL_CHOICE")) {
-        ROS_INFO("First edge to %.2f %.2f %.2f: level %d right wall %d surface %d departure %d unseen cells %zu attached %d new pass %d",
+        ROS_INFO("First edge to %.2f %.2f %.2f: level %d right wall %d surface %d departure %d unseen cells %zu attached %d new pass %d direction tier %d",
             node->center_.x(),node->center_.y(),node->center_.z(),int(level),int(right_wall),
-            int(wall),int(departure),support[i].size(),int(attached),int(new_pass));
+            int(wall),int(departure),support[i].size(),int(attached),int(new_pass),ranks[i].direction_priority);
       }
     }
     if (has_left_branch) {
@@ -2418,6 +2676,11 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
     if (has_interior_wall && !returning_through_entry.empty()) entered_turn_=crossing;
     if (has_interior_wall) for (const int i:returning_through_entry) {
       ranks[i].right_opening=false;
+      if (right_hand_priority_) {
+        ranks[i].right_wall=false;
+        ranks[i].direction_priority=0;
+        ranks[i].rolling_wall=false;
+      }
       ranks[i].continues_pass=false;
       ROS_INFO("Deferred return through the entered opening while a reachable interior wall remains");
     }
@@ -2428,6 +2691,8 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
     for (int i=1;i<dim;++i) {
       const auto &rank=ranks[i];
       first_edge_reason[i]=rank.exterior ? "ATSP | perimeter pass" :
+          rank.rolling_wall ? "ATSP | continuous forward-right wall" :
+          rank.direction_priority==2 ? "ATSP | forward-right observation" :
           rank.right_opening ? "ATSP | right opening" :
           rank.right_wall ? "ATSP | right wall" :
           rank.wall ? "ATSP | inspect wall" :
@@ -2469,13 +2734,6 @@ int FastExplorationManager::planGlobalPath(const Eigen::Vector3d &pos,
   const auto selected_viewpoint=viewpoint_reachable[indices[1]-1];
   selection_reason_=restored_observation_ && (selected_viewpoint->center_-*restored_observation_).norm()<.01f ?
       "ATSP | restored from memory" : first_edge_reason[indices[1]];
-  if (capture_tour_paths_) for (size_t k=2;k<indices.size();++k) {
-    const int a=indices[k-1],b=indices[k];
-    auto &path=tour_connections[std::min(a,b)*dim+std::max(a,b)];
-    if (path.size()<2) continue;
-    if (a>b) std::reverse(path.begin(),path.end());
-    future_tour_paths_.push_back(std::move(path));
-  }
   if (keeps_issued_pass(selected_viewpoint)) return SUCCEED;
   if (frontier_manager_ptr_->surface_continuity_) {
     selected_observation_=observations.at(selected_viewpoint.get());
@@ -2675,12 +2933,13 @@ void FastExplorationManager::limitPreviewSlope(vector<Eigen::Vector3f> &guide,si
 
 bool FastExplorationManager::extendTourPath(vector<Eigen::Vector3f> &path, bool preserve_first_vertex) {
   epic_ros::NodeHandle nh;double limit;
-  nh.param("exploration/tour_lookahead_distance",limit,0.);
+  // Keep enough guide for the next connected frontier on measured surveys.
+  nh.param("exploration/tour_lookahead_distance",limit,
+           frontier_manager_ptr_->surface_continuity_ ? 2.*frontier_manager_ptr_->sensorUpdateRange() : 0.);
   double corner_speed;nh.param("exploration/corridor_corner_preview_speed",corner_speed,0.);
   if(corner_speed>0. && planner_manager_->local_data_.curr_vel_.norm()>corner_speed)return false;
   if(!std::isfinite(limit) || limit<=0. || path.size()<2 ||
       ed_->global_tour_.size()<3 || (path.back()-ed_->global_tour_[1]).norm()>.1f)return false;
-  if (returning_) return false;
   if (!preserve_first_vertex && (frontier_manager_ptr_->perimeter_target_ ||
       !active_contour_approach_.empty())) return false;
   double used=0.;
@@ -2692,15 +2951,32 @@ bool FastExplorationManager::extendTourPath(vector<Eigen::Vector3f> &path, bool 
   const double first_leg = used;
   auto extended=path;bool changed=false;
   for(size_t j=2;j<ed_->global_tour_.size() && used<limit-.1;++j) {
-    vector<Eigen::Vector3f> segment;
-    if(planner_manager_->topo_graph_->parallel_bubble_astar_->search(
-         extended.back(),ed_->global_tour_[j],segment,.01,false)!=ParallelBubbleAstar::REACH_END || segment.size()<2)break;
-    if(!planner_manager_->topo_graph_->parallel_bubble_astar_->collisionCheck_shortenPath(segment) || !guideSupported(segment))break;
-    if (frontier_manager_ptr_->surface_continuity_) {
-      const auto in=extended.back()-extended[extended.size()-2];
-      const auto out=segment[1]-segment[0];
-      if (in.norm()<.01f || out.norm()<.01f || in.dot(out)<-.1f*in.norm()*out.norm()) break;
+    auto &front=*frontier_manager_ptr_;
+    auto &astar=*planner_manager_->topo_graph_->parallel_bubble_astar_;
+    vector<Vector3f> segment;
+    const auto advances=[&](const vector<Vector3f> &edge) {
+      if (edge.size()<2 || !guideSupported(edge)) return false;
+      if (!front.surface_continuity_) return true;
+      const Vector3f in=extended.back()-extended[extended.size()-2];
+      const auto next=std::find_if(edge.begin()+1,edge.end(),[&](const Vector3f &p) {
+        return (p-edge.front()).norm()>.05f;
+      });
+      if (next==edge.end() || in.norm()<.01f) return false;
+      const Vector3f out=*next-edge.front();
+      return in.dot(out)>=-.1f*in.norm()*out.norm();
+    };
+    const auto &destination=ed_->global_tour_[j];
+    bool connected=astar.search(extended.back(),destination,segment,.01,false)==ParallelBubbleAstar::REACH_END &&
+        segment.size()>1 && astar.collisionCheck_shortenPath(segment) && advances(segment);
+    if (!connected && right_hand_priority_ && front.surface_continuity_) {
+      // A topology edge can point back through the approach. Recheck the
+      // measured free-space connection at the turn before dropping preview.
+      connected=front.connectObserved(extended.back(),destination,.015,segment) &&
+          advances(segment) && front.certifyFlightGuide(segment) &&
+          !front.revisitsLowerPass(extended.front(),segment);
+      if (connected) ROS_INFO("Connected the next wall observation from the current turn in measured air");
     }
+    if (!connected) break;
     auto prefix=FastPlannerManager::boundedGuidePrefix(segment,limit-used);
     if(prefix.size()<2)break;
     for(size_t i=1;i<prefix.size();++i) {
@@ -2769,7 +3045,7 @@ void FastExplorationManager::updateGoalNode(const TopoNode::Ptr &validated_sourc
   }
   double goal_connection_timeout;
   epic_ros::NodeHandle nh;
-  nh.param("parallel_astar/goal_connection_timeout", goal_connection_timeout, .001);
+  nh.param("parallel_astar/goal_connection_timeout", goal_connection_timeout, .02);
   if (!std::isfinite(goal_connection_timeout) || goal_connection_timeout <= 0.)
     throw std::invalid_argument("Goal connection timeout must be positive");
 

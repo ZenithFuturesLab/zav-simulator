@@ -17,8 +17,10 @@
 #include <epic_planner/fast_exploration_manager.h>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
+#include <optional>
 #include <pointcloud_topo/graph_visualizer.hpp>
 #include <epic_ros2/msg/takeoff_land.hpp>
 #include <epic_ros2/ros.hpp>
@@ -43,7 +45,7 @@ class PlanningVisualization;
 struct FSMParam;
 struct FSMData;
 
-enum EXPL_STATE { INIT, WAIT_TRIGGER, PLAN_TRAJ, CAUTION, EXEC_TRAJ, FINISH, LAND, WAIT_MAP };
+enum EXPL_STATE { INIT, WAIT_TRIGGER, PLAN_TRAJ, CAUTION, EXEC_TRAJ, FINISH, LAND, WAIT_MAP, RETURN_HOME };
 
 class FastExplorationFSM {
 private:
@@ -67,10 +69,9 @@ private:
   land_pub_;
   double total_time_;
   bool external_local_planner_ = false;
-  epic_ros::Publisher external_path_pub_, external_return_pub_, external_complete_pub_;
+  epic_ros::Publisher external_path_pub_, external_complete_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr decision_pub_;
-  void visualizeDecision(bool issued, const char *status = nullptr);
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr return_home_sub_;
+  void visualizeDecision(bool issued);
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr st10_manual_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr external_odom_sub_;
   bool external_state_received_ = false;
@@ -83,9 +84,24 @@ private:
   double last_external_plan_ = -1.;
   bool external_motion_started_=false;
   bool external_exploration_complete_=false;
+  rclcpp::CallbackGroup::SharedPtr external_deadline_group_;
+  rclcpp::TimerBase::SharedPtr external_deadline_timer_;
+  std::mutex external_plan_mutex_;
+  std::optional<double> external_plan_wait_since_;
+  bool external_plan_expired_ = false;
+  std::optional<Eigen::Vector3f> external_home_, external_return_target_;
+  std::optional<double> external_return_wait_since_;
+  double next_external_return_plan_ = 0.;
   double external_handoff_quiet_duration_=3.;
   double external_handoff_quiet_until_=-1.;
   bool externalInputsReady(bool settle);
+  bool externalPlanTimedOut(bool begin_wait = false);
+  bool expireExternalPlanWaitLocked(double now);
+  void resetExternalPlanWait();
+  void startExternalReturn(const char *reason);
+  void updateExternalReturn();
+  bool publishExternalGuide(const vector<Eigen::Vector3f> &route);
+  void finishExternalExploration(const char *reason);
   void refreshExternalOdom();
   double external_odom_stamp_ = -1.0;
 

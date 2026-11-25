@@ -32,6 +32,12 @@ def setup(context):
             raise ValueError('Flight ceiling must be finite and within the survey volume')
         limits.append({'flight_height.max_z': flight_z})
     external = LaunchConfiguration('external_local_planner').perform(context).lower() == 'true'
+    # External exploration profiles may contain only scene overrides.
+    default_config = os.path.join(get_package_share_directory('epic_ros2'), 'config',
+                                  'isaac_building_explore.yaml')
+    planner_configs = [default_config] if external and os.path.realpath(config) != os.path.realpath(default_config) else []
+    planner_configs.append(config)
+
     calibration_dir = os.environ.get('PEGASUS_FASTLIVO_CONFIG_DIR',
         os.path.join(get_package_share_directory('fast_livo'), 'config'))
     with open(os.path.join(calibration_dir, 'zenith.yaml')) as stream:
@@ -54,7 +60,7 @@ def setup(context):
             # including threads created after startup. Local control stays at
             # its original priority in the external-planner arrangement.
             prefix='nice -n 10' if external else '',
-            parameters=[config, *([scene_config] if scene_config else []), *limits,
+            parameters=[*([{"use_sim_time": True}] if external else []), *planner_configs, *([scene_config] if scene_config else []), *limits,
                 {'exploration.tsp_dir': tsp, 'fsm.external_local_planner': external},
                 *([{'odometry_topic': LaunchConfiguration('external_odometry_topic').perform(context),
                     'cloud_topic': LaunchConfiguration('external_cloud_topic').perform(context),

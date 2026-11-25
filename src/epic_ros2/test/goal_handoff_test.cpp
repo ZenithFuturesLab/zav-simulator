@@ -9,6 +9,61 @@
 int main(int argc,char** argv) {
   epic_ros::init(argc,argv,"goal_handoff_regression");
   {
+    const Eigen::Vector3f body(25.52f,1.0f,1.03f),tip(25.57f,1.07f,1.07f);
+    const vector<Eigen::Vector3f> issued{{22.81f,-8.47f,1.03f},tip};
+    assert(FastExplorationManager::repeatsReachedGuide(body,issued,{body,tip},.4f));
+    assert(!FastExplorationManager::repeatsReachedGuide(body,issued,{body,tip,{25.39f,14.61f,1.12f}},.4f));
+    assert(!FastExplorationManager::repeatsReachedGuide(body,issued,{body,{24.f,2.f,1.1f},tip},.4f));
+    assert(!FastExplorationManager::repeatsReachedGuide(body,{{0,0,1},{0,2,1}},{body,tip},.4f));
+  }
+  {
+    const vector<Eigen::Vector3f> bend{{0,0,1},{1,0,1},{1,-1,1}};
+    const auto yaw=[](const auto &route,size_t index,float lookahead,double fallback) {
+      return FastExplorationManager::pathTangentYaw(route,index,lookahead,fallback);
+    };
+    assert(std::abs(yaw(bend,0,.8f,1.))<1.e-6);
+    const double before_turn=yaw(bend,0,1.5f,1.);
+    assert(before_turn<0. && before_turn>-.5*M_PI);
+    assert(std::abs(yaw(bend,1,.8f,0.)+.5*M_PI)<1.e-6);
+    assert(yaw(bend,2,.8f,-.5*M_PI)==-.5*M_PI);
+  }
+  {
+    const vector<Eigen::Vector3f> guide{{0,0,1},{2,0,1},{3,1,1},{3,4,1}};
+    assert(FastExplorationManager::shortensIssuedGuide(
+        guide,{{0,0,1},{2,0,1},{3,1,1}},.4f,2.f));
+    assert(!FastExplorationManager::shortensIssuedGuide(
+        guide,{{0,0,1},{2,0,1},{3,-1,1}},.4f,2.f));
+    assert(!FastExplorationManager::shortensIssuedGuide(
+        guide,{{0,0,1},{2,0,1},{3,3,1}},.4f,2.f));
+  }
+  {
+    const vector<Eigen::Vector3f> issued{{0,0,1},{1,0,1},{1,1,1}};
+    const Eigen::Vector3f next(2,2,1);
+    const vector<Eigen::Vector3f> proposed{{0,0,1},{1,1,1},{1,2,1},next};
+    const auto joined=FastExplorationManager::appendOnwardGuide(issued,proposed,next,.8f);
+    assert(joined.size()==5 && joined[1]==issued[1] && joined.back()==next);
+    assert(FastExplorationManager::appendOnwardGuide(issued,proposed,issued.back(),.8f)==joined);
+    assert(FastExplorationManager::appendOnwardGuide(
+        issued,{issued.front(),issued.back()},issued.back(),.8f).empty());
+    const vector<Eigen::Vector3f> offset{{0,0,1},{1,1.75f,1},next};
+    assert(FastExplorationManager::appendOnwardGuide(issued,offset,next,.5f).empty());
+    assert(FastExplorationManager::appendOnwardGuide(issued,offset,next,1.f).back()==next);
+    const Eigen::Vector3f behind(1,0.5f,1);
+    assert(FastExplorationManager::appendOnwardGuide(issued,{issued.front(),behind},behind,.8f).empty());
+  }
+  {
+    const vector<Eigen::Vector3f> issued{{0,0,1},{2,0,1},{4,0,1}};
+    const Eigen::Vector3f goal(3.25f,2.f,1.f);
+    const vector<Eigen::Vector3f> proposed{{0,0,1},{3.25f,0,1},goal};
+    assert(FastExplorationManager::appendOnwardGuide(issued,proposed,goal,1.f).empty());
+    const auto joined=FastExplorationManager::spliceOnwardGuide(
+        issued,proposed,goal,1.f,[](const auto &) { return true; });
+    assert(joined.size()>4 && joined[1]==issued[1] && joined.back()==goal);
+    assert(joined[2].x()<issued.back().x() && joined[3].y()>0.f);
+    assert(FastExplorationManager::spliceOnwardGuide(
+        issued,proposed,goal,1.f,[](const auto &) { return false; }).empty());
+  }
+  {
     const Eigen::Vector3f wall(20.95f,5.10f,1.74f),body(14.30f,6.09f,1.7f),next(21.23f,12.18f,1.73f);
     const vector<Eigen::Vector3f> preview{wall,{21.f,7.5f,1.74f},{21.f,9.5f,1.74f}};
     assert(FastExplorationManager::skipsWallCorner(preview,{body,next},.85f));
@@ -505,6 +560,8 @@ int main(int argc,char** argv) {
   look.planner_manager_->gcopter_config_=std::move(savedConfiguration);
   std::cout<<"PASS: moving boundary removes stale backward prefix only with native clear join; wall shortcut rejected, global order unchanged\n";
   {
+    if (!nh.native()->has_parameter("parallel_astar.goal_connection_timeout"))
+      nh.native()->declare_parameter<double>("parallel_astar.goal_connection_timeout",.02);
     const double oldTimeout=nh.native()->get_parameter("parallel_astar.goal_connection_timeout").as_double();
     nh.native()->set_parameter(rclcpp::Parameter("parallel_astar.goal_connection_timeout",1.e-9));
     FastExplorationManager handoff;handoff.planner_manager_=look.planner_manager_;

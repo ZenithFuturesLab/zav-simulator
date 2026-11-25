@@ -12,6 +12,7 @@
 
 #include <Eigen/Eigen>
 #include <frontier_manager/frontier_manager.h>
+#include <functional>
 #include <memory>
 #include <omp.h>
 #include <opencv2/opencv.hpp>
@@ -49,9 +50,7 @@ public:
   ClusterInfo::Ptr selected_observation_,published_wall_observation_;
   vector<ClusterInfo::Ptr> deferred_observations_;
   // RViz data from the same solve used for the handoff.
-  bool capture_tour_paths_ = false;
   const char *selection_reason_ = "Reachable observation";
-  vector<vector<Eigen::Vector3f>> future_tour_paths_;
   std::optional<Eigen::Vector3f> restored_observation_;
   double last_observation_search_=-1.e9;
   void rememberDisplacedGoal(const Eigen::Vector3f &body,const vector<Eigen::Vector3f> &replacement);
@@ -59,6 +58,9 @@ public:
   void appendDeferredObservation(const Eigen::Vector3f &body,vector<TopoNode::Ptr> &viewpoints);
   std::optional<std::pair<Eigen::Vector3f,Eigen::Vector3f>> published_first_leg_;
   double departure_deadline_=-1.;
+  bool right_hand_priority_=false, published_right_hand_=false;
+  double right_hand_deadline_=-1., right_hand_progress_time_=-1.;
+  float right_hand_best_distance_=0.f;
   // Door crossed on the issued path to a measured wall. A subsequent TSP
   // solve may update entered_turn_ before its replacement is published.
   std::optional<std::pair<Eigen::Vector3f,Eigen::Vector2f>> issued_wall_entry_;
@@ -71,9 +73,22 @@ public:
   static size_t heightBoundedPrefix(const vector<Eigen::Vector3f> &path,double margin);
   bool advanceOpeningGuide(const Eigen::Vector3f &body);
   bool guideSupported(const vector<Eigen::Vector3f> &path) const;
+  bool planReturnLeg(const Eigen::Vector3f &start, Eigen::Vector3f &home,
+                     vector<Eigen::Vector3f> &route) const;
   static bool passedDuringPlanning(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,
                                    const vector<Eigen::Vector3f> &guide,float radius);
+  static bool repeatsReachedGuide(const Eigen::Vector3f &body,
+      const vector<Eigen::Vector3f> &issued,const vector<Eigen::Vector3f> &candidate,float tolerance);
   vector<Eigen::Vector3f> publishedGuide() const;
+  bool extendRightWallGuide(vector<Eigen::Vector3f> &route,const Eigen::Vector2f &heading) const;
+  static double pathTangentYaw(const vector<Eigen::Vector3f> &route,size_t index,float lookahead,double fallback);
+  static bool shortensIssuedGuide(const vector<Eigen::Vector3f> &issued,
+      const vector<Eigen::Vector3f> &proposed,float tolerance,float minimum_tail);
+  static vector<Eigen::Vector3f> appendOnwardGuide(const vector<Eigen::Vector3f> &issued,
+      const vector<Eigen::Vector3f> &proposed,const Eigen::Vector3f &goal,float max_gap);
+  static vector<Eigen::Vector3f> spliceOnwardGuide(const vector<Eigen::Vector3f> &issued,
+      const vector<Eigen::Vector3f> &proposed,const Eigen::Vector3f &goal,float max_gap,
+      const std::function<bool(const vector<Eigen::Vector3f>&)> &accept);
   static bool reversesInCruise(const vector<Eigen::Vector3f> &route,const Eigen::Vector3f &goal,
       const Eigen::Vector2f &velocity,float radius,float lookahead=0.f);
   static bool shortOnForwardPass(const Eigen::Vector3f &body,const Eigen::Vector3f &goal,
@@ -106,7 +121,7 @@ public:
   static bool exitsThroughEntry(const vector<Eigen::Vector3f> &route,const Eigen::Vector3f &entry,
                                const Eigen::Vector2f &inward,float radius);
   static bool backtracksRightTurn(const vector<Eigen::Vector3f> &issued,const vector<Eigen::Vector3f> &replacement,float radius);
-  bool retractsMeasuredEntry(const vector<Eigen::Vector3f> &replacement) const;
+  bool retractsMeasuredEntry(const vector<Eigen::Vector3f> &replacement);
   bool extendMeasuredTurn(vector<Eigen::Vector3f> &path,size_t first_goal,const Eigen::Vector3f &velocity);
   void limitFoldedPreview(vector<Eigen::Vector3f> &path,size_t first_goal) const;
   bool retracesApproach(const vector<Eigen::Vector3f> &path,size_t first_goal) const;
@@ -123,11 +138,9 @@ public:
   void initialize(epic_ros::NodeHandle &nh, FrontierManager::Ptr frt_manager,
                   FastPlannerManager::Ptr planner_manager);
   int frontierStatus(const Eigen::Vector3f &body,bool exhausted_recovery=false);
-  int returnOrWait(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity);
-  bool return_to_start_=false, returning_=false;
+  int recoverOrWait(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity);
   size_t next_repair_candidate_=0;
   double frontier_empty_since_ = -1.;
-  double first_recovery_since_ = -1.;
   vector<Eigen::Vector3f> exhausted_recovery_route_;
   vector<Eigen::Vector3f> opening_guide_;
   static bool bypassesRightTurn(const Eigen::Vector3f &body,const Eigen::Vector3f &velocity,

@@ -1,0 +1,23 @@
+# Frontier simulator world frame, in metres. Load over isaac_building_explore.yaml.
+# Start at [-3.26924, -0.05305, 0.18920] facing -172.3865 degrees toward the connector.
+/**:
+  ros__parameters:
+    box_num: 2
+    # Main corridor from the short arm to the far end of the long arm.
+    box_0.down: [-11.2, -11.2, -0.3]
+    box_0.up: [-6.5, 47.2, 2.4]
+    # Launch area and connector. The staircase lies beyond the eastern edge.
+    box_1.down: [-9.6, -2.0, -0.3]
+    box_1.up: [-2.6, 1.65, 2.4]
+
+    FrontierManager.target_min_z: -0.3
+    FrontierManager.target_max_z: 2.4
+    flight_height.min_z: 1.2
+    flight_height.max_z: 1.9
+    global_planning.right_hand_priority: true
+
+    # Match the braking lookahead and departure recovery used on this floor.
+    MaxAccMag: 2.5
+    MaxJerkMag: 5.0
+    StartCorridorRecovery: true
+    StartCorridorRecoveryMargin: 0.05

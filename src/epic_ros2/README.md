@@ -4,8 +4,6 @@
 
 이 디렉터리에는 EPIC 알고리즘, ROS2 연결, 설정과 회귀 테스트를 포함한다. SUPER, LIO 추정기, PX4 제어기, Isaac Sim 장면과 워크스페이스 실행 스크립트는 별도 구성이다.
 
-Isaac Sim에서 비행하려면 워크스페이스 루트에서 `./epic start clinic`을 실행한다. 실행 중 `return`을 입력하면 SUPER가 시작점으로 복귀한다. [세 맵 실행과 조작 안내](../../README.md#epic-탐사-빠른-시작)
-
 ## 빌드와 회귀 테스트
 
 ROS2 Humble 작업 공간에서 PCL, Eigen3, OpenCV, OpenMP와 `package.xml`의 ROS 의존성을 준비한다.
@@ -33,14 +31,26 @@ colcon test-result --verbose
 
 기존 ZAV 환경의 `isaac_epic.launch.py external_local_planner:=true`는 EPIC의 로컬 MINCO와 `traj_server`를 실행하지 않고 `/mission/exploration_path` (`nav_msgs/Path`, world)를 발행한다. 기본값 `false`는 EPIC 로컬 계획을 사용한다.
 
-Isaac 탐색 설정에서 `global_planning.return_to_start`의 기본값은 `false`다. EPIC이 남은 탐색 목표가 없음을 확인하면 `/mission/exploration_complete`를 발행한다. 워크스페이스의 SUPER 연동 FSM은 이 신호와 사용자 복귀 명령을 받아 이륙 위치로 복귀하고 호버한다.
+탐색할 프런티어가 없거나 정지 상태에서 5초 동안 새 경로를 발행하지 못하면 `RETURN_HOME`으로 전환한다. EPIC은 이륙 직후 저장한 위치까지 확인된 직선이나 우회 경로를 발행한다. 복귀에 도착하거나 안전한 복귀 경로를 확보하지 못하면 `FINISH`로 전환하고 `/mission/exploration_complete`를 발행한다. 외부 미션은 이 신호를 받아 호버한다.
 
-입력 토픽은 `external_odometry_topic`, `external_cloud_topic`으로 지정한다. 위치와 포인트는 같은 world 좌표를 사용하고, odom 선속도도 world 기준이어야 한다. Ground truth는 탐색·제어 입력으로 사용하지 않는다. `exploration.forward_viewpoint_yaw=true`이면 관측 yaw를 경로 quaternion에 포함하며, 수신 측이 위치와 방향을 함께 전달해야 한다.
+입력 토픽은 `external_odometry_topic`, `external_cloud_topic`으로 지정한다. 위치와 포인트는 같은 world 좌표를 사용하고, odom 선속도도 world 기준이어야 한다. Ground truth는 탐색·제어 입력으로 사용하지 않는다. 외부 플래너로 보내는 경로는 각 위치의 진행 방향을 quaternion에 담는다. 우수법은 라이다가 관측한 오른쪽 벽을 근거로 경로를 선택한다.
 
 이 launch는 기존 ZAV의 `fast_livo` 보정 설정을 읽는다. LIO 실행, 센서·시계 공급, 이륙 trigger, 외부 궤적 생성과 PX4 제어는 별도로 연결해야 한다. 워크스페이스의 `run_epic*.sh`나 SUPER 연동은 이 패키지의 일부가 아니다.
+
+외부 플래너를 연결할 때는 `config`에 장면 YAML을 전달한다. launch가 공통 설정인 `isaac_building_explore.yaml`을 먼저 읽는다.
+
+- [체육관](config/gym-epic-full-local.yaml)은 이륙 기준 로컬 좌표를 사용한다.
+- [프론티어관 1층](config/frontier-first-floor-sim.yaml)은 시뮬레이터 월드 좌표를 사용하며 연결 통로와 1층 복도를 포함한다.
+
+```bash
+ros2 launch epic_ros2 isaac_epic.launch.py external_local_planner:=true \
+  config:="$(ros2 pkg prefix epic_ros2)/share/epic_ros2/config/frontier-first-floor-sim.yaml"
+```
 
 LKH 임시 문제·해 파일은 launch가 `/tmp`에 생성하고 종료 시 정리한다. 기존 표시 토픽을 보는 명령은 `ros2 launch epic_ros2 rviz.launch.py`다.
 
 ## 탐색 목표 선택
 
 관측한 frontier를 군집화하고 각 군집에서 가시성이 있는 뷰포인트를 선택한다. EPIC은 연결 가능한 후보의 방문 순서를 LKH로 계산하고 SUPER에 전역 경로를 전달한다. RViz의 Sampled viewpoints는 후보 선별 전에 샘플링한 위치를 표시한다.
+
+원본 EPIC의 토폴로지 그래프, 프런티어 샘플링 및 LKH 순서 선택은 공통 설정을 사용한다. 관측된 연결이 유지되는 동안 EPIC은 기존 경로의 남은 구간을 이어서 전달하고, 새 벽 구간은 경계·충돌 검사를 거친 뒤 추가한다.

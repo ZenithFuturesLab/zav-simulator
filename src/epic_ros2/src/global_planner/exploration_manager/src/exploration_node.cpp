@@ -39,7 +39,16 @@ int main(int argc, char **argv) {
   expl_fsm.init(nh, explore_manager);
 
   epic_ros::Duration(1.0).sleep();
-  epic_ros::spin();
+  bool external_local_planner = false;
+  nh.param("fsm/external_local_planner", external_local_planner, false);
+  if (external_local_planner) {
+    // Planning and map callbacks stay in the mutually exclusive default group.
+    rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 2);
+    executor.add_node(nh.native());
+    executor.spin();
+  } else {
+    epic_ros::spin();
+  }
   epic_ros::shutdown();
   return 0;
 }

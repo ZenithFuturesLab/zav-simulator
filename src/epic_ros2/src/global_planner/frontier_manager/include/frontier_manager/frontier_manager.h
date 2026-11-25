@@ -66,7 +66,7 @@ struct ViewpointParam {
   bool fixed_height_enabled_;
   float fixed_height_, reached_position_tolerance_, reached_yaw_tolerance_;
   float fov_up_, fov_down_, lidar_pitch_;
-  int consider_range_, global_recluster_size_, local_tsp_size_;
+  int local_tsp_size_;
 };
 struct ByteArrayRaw {
   uint8_t *data;
@@ -296,6 +296,8 @@ public:
   bool hasInspectionFrontiers() const;
   bool exteriorPassPending() const {return perimeter_pass_ && !perimeter_pass_->finished;}
   bool hasPendingSurveyFrontiers(const Eigen::Vector3f &body);
+  const std::optional<Eigen::Vector3f>& pendingSurveyLocation() const { return pending_survey_location_; }
+
   void printMemoryCost();
 
   void viz_pocc();
@@ -348,6 +350,9 @@ public:
   bool opposesIssuedRightTurn(const Eigen::Vector3f &body,const Eigen::Vector3f &proposal) const;
   enum class Departure { Backwards, Transfer, Forward, AlongWall, RightOpening };
   bool followsRightWall(const vector<Eigen::Vector3f> &guide) const;
+  bool keepsRightWall(const vector<Eigen::Vector3f> &guide,float lookahead) const;
+  vector<Eigen::Vector3f> previewRightWall(const Eigen::Vector3f &start,
+                                         const Eigen::Vector2f &heading) const;
   Departure surveyDeparture(const Eigen::Vector3f &body,const Eigen::Vector2f &heading,
                             const vector<Eigen::Vector3f> &guide,bool wall,bool opening) const;
   TopoNode::Ptr continueIssuedRightTurn(const Eigen::Vector3f &body,const Eigen::Vector3f &proposal);
@@ -414,21 +419,18 @@ private:
   };
   std::optional<PerimeterPass> perimeter_pass_;
   TopoNode::Ptr exteriorViewpoint(const Eigen::Vector3f &body,bool observe_only=false);
+  std::optional<Eigen::Vector3f> pending_survey_location_;
   vector<Eigen::Vector3f> branch_anchors_;
   size_t next_branch_anchor_=0;
   std::optional<std::pair<Eigen::Vector3f,size_t>> ascent_search_;
   bool untested_ascent_=false;
   std::optional<std::pair<Eigen::Vector3f,size_t>> residual_sweep_;
-  std::optional<size_t> return_history_limit_;
-  std::optional<std::pair<size_t,Eigen::Vector3f>> return_checkpoint_;
   bool connectObservedSections(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,
                                vector<Eigen::Vector3f> &route,bool aperture=false) const;
   bool connectObservedGrid(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,
-                           float cell,double budget,vector<Eigen::Vector3f> &route,bool distant=false) const;
+                           float cell,double budget,vector<Eigen::Vector3f> &route,
+                           bool distant=false) const;
 
-  bool resumeReturnPath(const Eigen::Vector3f &body,vector<Eigen::Vector3f> &route);
-  vector<Eigen::Vector3f> return_path_;
-  double last_distant_return_=-1.e6;
   std::optional<Eigen::Vector3f> surface_body_;
   std::optional<std::pair<Eigen::Vector3f,double>> failed_centred_pass_;
   vector<ClusterInfo::Ptr> pending_surfaces_;
@@ -442,6 +444,9 @@ private:
   std::unordered_map<Eigen::Vector3i,double,Vector3i_Hash> attempted_sightlines_;
   double departure_margin_=-1.,aperture_clearance_=0.;
   vector<Eigen::Vector3f> last_aperture_path_;
+  float rightWallSearchRange() const;
+  std::optional<float> rightWallDistance(const Eigen::Vector3f &point,
+      const Eigen::Vector2f &heading,float max_range) const;
   bool certifyCruiseGuide(const vector<Eigen::Vector3f> &path) const;
   bool certifyShortAperture(const vector<Eigen::Vector3f> &path) const;
 public:
@@ -451,8 +456,6 @@ public:
   bool connectFlightHistory(const Eigen::Vector3f &start,const Eigen::Vector3f &goal,
                             double budget,vector<Eigen::Vector3f> &route,
                             vector<Eigen::Vector3f> *prefix=nullptr) const;
-  bool returnGuide(const Eigen::Vector3f &body,vector<Eigen::Vector3f> &route);
-  std::optional<Eigen::Vector3f> home() const;
   bool prolongedRetrace() const { return retraced_distance_>4.f*frtp_.update_length_; }
   float retraced_distance_=0.f;
 private:
